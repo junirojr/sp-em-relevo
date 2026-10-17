@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>São Paulo em relevo</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="./src/app/theme.css">
+    <link rel="stylesheet" href="./src/features/camera/camera.css">
+    <link rel="stylesheet" href="./src/features/demo/demo.css">
+    <link rel="stylesheet" href="./src/features/indicator/indicator.css">
+    <link rel="stylesheet" href="./src/features/layout/layout.css">
+    <link rel="stylesheet" href="./src/features/level/level.css">
+    <link rel="stylesheet" href="./src/features/scale/scale.css">
+    <link rel="stylesheet" href="./src/features/selection/selection.css">
+    <link rel="stylesheet" href="./src/features/selection/search.css">
+    <link rel="stylesheet" href="./src/features/selection/compare.css">
+    <link rel="stylesheet" href="./src/features/settings/appearance.css">
+    <link rel="stylesheet" href="./src/features/settings/settings.css">
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app">
+      <header id="topbar" class="topbar">
+        <div class="brand">
+          <span class="brand-logo" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title>Camadas</title><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 16 9 5 9-5"/></svg>
+          </span>
+          <div class="brand-text">
+            <h1 class="app-title">São Paulo <span class="app-title-accent">em relevo</span></h1>
+            <p class="app-subtitle">Relevo 3D por população e indicadores socioeconômicos</p>
+          </div>
+          <span id="period-badge" class="period-badge"></span>
+        </div>
+        <div id="header-stats" class="header-stats"></div>
+        <div id="theme-toggle-container" class="topbar-actions"></div>
+      </header>
+      <aside id="sidebar">
+        <div id="search-container" class="sidebar-top"></div>
+        <div class="sidebar-content">
+          <div id="pointed-pill"></div>
+          <div id="indicator-container"></div>
+          <div id="level-container"></div>
+          <div id="appearance-container"></div>
+          <div id="selection-container"></div>
+          <div id="settings-container"></div>
+        </div>
+        <footer id="app-footer" class="app-footer sidebar-footer">
+          <a href="https://github.com/junirojr" target="_blank" rel="noopener">Feito por Manoel Osmi</a>
+          <span class="footer-separator"> | </span>
+          <a href="https://github.com/junirojr/sp-em-relevo" target="_blank" rel="noopener">Código</a>
+        </footer>
+      </aside>
+      <main id="map-stage">
+        <canvas id="map-canvas"></canvas>
+        <div id="stage-status" role="status" hidden></div>
+        <div id="stage-overlay" class="stage-overlay"></div>
+        <nav id="camera-controls" class="zoom" aria-label="Zoom do mapa"></nav>
+      </main>
+    </div>
+    <script type="module" src="./src/app/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,456 @@
+/* Comparison panel: two selection units side by side at the bottom right of the stage (SEL-11 to SEL-13) */
+
+/* The dock never reaches the legend card on the left nor the zoom dock at the top right */
+
+/* The zoom dock starts 16px under the top bar and is 110px tall: the panel stops 18px below it */
+
+.compare-dock {
+  --compare-top-clearance: calc(var(--topbar-height) + var(--space-4) + 128px);
+
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 11;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  width: min(440px, calc(100% - var(--legend-width) - 3 * var(--space-4)));
+  max-height: calc(100% - var(--compare-top-clearance) - var(--space-4));
+  pointer-events: none;
+}
+
+.compare-dock[hidden],
+.compare-panel[hidden],
+.compare-reopen[hidden] {
+  display: none;
+}
+
+.compare-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--coral-line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+  font-size: var(--font-size-sm);
+  color: var(--ink);
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .compare-panel {
+    animation: compare-enter 0.18s ease-out;
+  }
+}
+
+@keyframes compare-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Header: icon, title with the count, subtitle, and the two icon buttons */
+
+.compare-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.compare-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  background: var(--coral-soft);
+  color: var(--coral-text);
+}
+
+.compare-heading {
+  min-width: 0;
+}
+
+.compare-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--space-2);
+}
+
+.compare-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.compare-count {
+  padding: 1px 6px;
+  border: 1px solid var(--pill-line);
+  border-radius: 9999px;
+  background: var(--pill-bg);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.compare-subtitle {
+  margin: 2px 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--ink-muted);
+}
+
+.compare-tools {
+  display: flex;
+  gap: 2px;
+}
+
+.compare-icon-button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.compare-icon-button:hover {
+  background: var(--pill-bg-hover);
+  color: var(--ink);
+}
+
+/* The two heads: A in coral, B in the row tone */
+
+.compare-sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.compare-side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--row-line);
+  border-radius: var(--radius-lg);
+  background: var(--row-bg);
+}
+
+.compare-side[data-side="a"] {
+  border-color: var(--coral-line);
+  background: var(--coral-soft);
+}
+
+/* The region or the municipality count drops to its own line when the card is narrow */
+
+.compare-side-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  min-width: 0;
+}
+
+.compare-letter {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+
+.compare-side[data-side="a"] .compare-letter {
+  color: var(--coral-text);
+}
+
+.compare-rank {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border: 1px solid var(--pill-line);
+  border-radius: 9999px;
+  background: var(--pill-bg);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.compare-side[data-side="a"] .compare-rank {
+  border-color: var(--coral-line);
+  color: var(--coral-text);
+}
+
+.compare-context {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-align: right;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compare-side-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.compare-swatch {
+  flex: 0 0 10px;
+}
+
+.compare-name {
+  min-width: 0;
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compare-side-value {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Metrics: one list, bars across the full width, then compact cards two by two */
+
+.compare-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.compare-metric {
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--row-line);
+  border-radius: var(--radius-lg);
+  background: var(--row-bg);
+}
+
+.compare-metric dd {
+  margin: 0;
+}
+
+.compare-metric-label {
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.compare-metric-unit {
+  margin-left: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+
+.compare-metric-diff {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--coral-text);
+  overflow-wrap: anywhere;
+}
+
+.compare-metric-value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.compare-value-a {
+  font-weight: 600;
+  color: var(--coral-text);
+}
+
+.compare-split {
+  display: flex;
+  height: 6px;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: var(--row-line);
+}
+
+.compare-split-a {
+  background: var(--coral-500);
+}
+
+.compare-split-b {
+  background: var(--coral-300);
+}
+
+/* Bar card: the label and the difference on top, the values and the split bar below */
+
+.compare-metric-bar {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label difference"
+    "values values";
+  align-items: baseline;
+  gap: 6px var(--space-2);
+}
+
+.compare-metric-bar .compare-metric-label {
+  grid-area: label;
+}
+
+.compare-metric-bar .compare-metric-diff {
+  grid-area: difference;
+  text-align: right;
+}
+
+.compare-metric-bar .compare-metric-values {
+  display: grid;
+  grid-area: values;
+  grid-template-columns: auto minmax(48px, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Compact card: label, the two values, then the difference */
+
+.compare-metric-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.compare-metric-compact .compare-metric-label {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.compare-metric-compact .compare-metric-values {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px var(--space-2);
+}
+
+.compare-metric-compact .compare-metric-diff {
+  font-size: 10px;
+}
+
+/* Actions: swap B (secondary) and focus on the relief (primary) */
+
+.compare-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.compare-action,
+.compare-reopen {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: 9999px;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.compare-action-secondary {
+  border: 1px solid var(--pill-line);
+  background: var(--pill-bg);
+  color: var(--ink-2);
+}
+
+.compare-action-secondary:hover {
+  border-color: var(--pill-line-hover);
+  background: var(--pill-bg-hover);
+  color: var(--ink);
+}
+
+/* coral-600 under the white text keeps AA contrast for 11px type, which coral-500 misses */
+
+.compare-action-primary {
+  border: 1px solid var(--coral-600);
+  background: var(--coral-600);
+  color: var(--on-coral);
+}
+
+.compare-action-primary:hover {
+  border-color: var(--coral-700);
+  background: var(--coral-700);
+}
+
+/* Minimized: a pill in the same corner that opens the panel again */
+
+.compare-reopen {
+  height: 36px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--coral-line);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--glass-shadow);
+  font-size: var(--font-size-sm);
+  color: var(--coral-text);
+  pointer-events: auto;
+}
+
+.compare-reopen:hover {
+  background: var(--coral-soft);
+}

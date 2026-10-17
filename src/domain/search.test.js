@@ -1,0 +1,88 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { buildSearchEntries, findSuggestions, normalizeName } from "./search.js";
+import { createTerritory } from "./territory.js";
+
+/**
+ * @param {string} code
+ * @param {string} name
+ * @param {string} regionCode
+ */
+function municipality(code, name, regionCode) {
+  return { code, name, regionCode, population: 1, areaKm2: 1, gdpThousandBrl: 1 };
+}
+
+const territory = createTerritory({
+  municipalities: [
+    municipality("1", "São José dos Campos", "R1"),
+    municipality("2", "Santa Rita", "R1"),
+    municipality("3", "Santa Rita", "R2"),
+    municipality("4", "Campinas", "R2"),
+  ],
+  regions: [
+    { code: "R1", label: "RA Vale" },
+    { code: "R2", label: "RA Campinas" },
+  ],
+});
+
+const entries = buildSearchEntries(territory);
+
+test("SEL-02 normalizeName drops accents and case", () => {
+  assert.equal(normalizeName("São José dos Campos"), "sao jose dos campos");
+});
+
+test("SEL-02 normalizeName trims and collapses whitespace", () => {
+  assert.equal(normalizeName("  Santa   Rita "), "santa rita");
+});
+
+test("SEL-02 findSuggestions matches without accent and without case", () => {
+  const found = findSuggestions(entries, "sao jose dos campos");
+  assert.equal(found.length, 1);
+  assert.equal(found[0].kind, "municipality");
+  assert.equal(found[0].code, "1");
+  assert.equal(found[0].label, "São José dos Campos");
+});
+
+test("SEL-02 findSuggestions includes regions marked as region", () => {
+  const found = findSuggestions(entries, "ra vale");
+  assert.equal(found.length, 1);
+  assert.equal(found[0].kind, "region");
+  assert.equal(found[0].code, "R1");
+  assert.equal(found[0].label, "RA Vale");
+});
+
+test("SEL-02 buildSearchEntries offers every municipality and every region", () => {
+  assert.equal(entries.length, 6);
+  assert.equal(entries.filter((entry) => entry.kind === "region").length, 2);
+});
+
+test("SEL-02 repeated names appear as Nome (regiao)", () => {
+  const found = findSuggestions(entries, "santa rita");
+  assert.deepEqual(
+    found.map((entry) => [entry.code, entry.label]),
+    [
+      ["2", "Santa Rita (RA Vale)"],
+      ["3", "Santa Rita (RA Campinas)"],
+    ],
+  );
+});
+
+test("SEL-02 unique names keep the plain label", () => {
+  const found = findSuggestions(entries, "campinas");
+  const labels = found.map((entry) => entry.label);
+  assert.ok(labels.includes("Campinas"));
+  assert.ok(labels.includes("RA Campinas"));
+});
+
+test("SEL-02 findSuggestions ranks prefix matches before inner matches", () => {
+  const found = findSuggestions(entries, "campinas");
+  assert.equal(found[0].label, "Campinas");
+});
+
+test("SEL-02 findSuggestions returns nothing for a blank query", () => {
+  assert.deepEqual(findSuggestions(entries, "   "), []);
+});
+
+test("SEL-02 findSuggestions honors the limit", () => {
+  assert.equal(findSuggestions(entries, "a", 2).length, 2);
+});

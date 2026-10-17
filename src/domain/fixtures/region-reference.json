@@ -1,0 +1,25 @@
+{
+  "regions": [
+    {
+      "code": "1",
+      "population": 20731920,
+      "areaKm2": 7946.956,
+      "density": 2608.787565956072,
+      "gdpPerCapita": 85501.01712721253
+    },
+    {
+      "code": "2",
+      "population": 273806,
+      "areaKm2": 12135.985,
+      "density": 22.56149789242488,
+      "gdpPerCapita": 51309.25180602324
+    },
+    {
+      "code": "3",
+      "population": 1805531,
+      "areaKm2": 2428.737,
+      "density": 743.4032585660777,
+      "gdpPerCapita": 54635.24303930534
+    }
+  ]
+}

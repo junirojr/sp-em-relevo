@@ -1,0 +1,121 @@
+/* Demo feature: settings section, synthetic data banner and indicator notice */
+
+.demo-settings-control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--row-line);
+  border-radius: var(--radius-lg);
+  background: var(--row-bg);
+}
+
+.demo-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.demo-draw-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.demo-draw-label {
+  font-size: var(--font-size-sm);
+  color: var(--ink-muted);
+}
+
+#demo-draw-number {
+  width: 84px;
+  height: 32px;
+  padding: 0 var(--space-2);
+  background: var(--field-bg);
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+#demo-draw-number:focus {
+  border-color: var(--coral-500);
+}
+
+.demo-draw-button,
+.demo-return-button {
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--coral-line);
+  border-radius: 9999px;
+  background: var(--coral-soft);
+  color: var(--coral-text);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.demo-draw-button:hover,
+.demo-return-button:hover {
+  background: var(--coral-fill);
+  border-color: var(--coral-500);
+}
+
+/* Top center: the legend card owns the bottom left corner */
+
+.demo-stage-banner {
+  position: absolute;
+  top: calc(var(--topbar-height) + var(--space-4));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 6px var(--space-2) 6px var(--space-4);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--coral-line);
+  border-radius: 9999px;
+  box-shadow: var(--glass-shadow);
+  z-index: 12;
+  pointer-events: auto;
+}
+
+.demo-stage-banner[hidden] {
+  display: none;
+}
+
+.demo-stage-banner-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--coral-text);
+}
+
+.demo-return-button {
+  height: 28px;
+  border-radius: 9999px;
+}
+
+.demo-indicator-notice {
+  grid-column: 1 / -1;
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--coral-line);
+  border-radius: var(--radius-md);
+  background: var(--coral-soft);
+  font-size: var(--font-size-xs);
+  color: var(--coral-text);
+}
+
+.demo-indicator-notice[hidden] {
+  display: none;
+}

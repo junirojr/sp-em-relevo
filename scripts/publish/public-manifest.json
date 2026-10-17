@@ -1,0 +1,40 @@
+{
+  "include": [
+    "index.html",
+    "src/**",
+    "data/*.json",
+    "scripts/data/*",
+    "scripts/publish/**",
+    "scripts/dev/**",
+    "tests/**",
+    "docs/captura.png",
+    "package.json",
+    "package-lock.json",
+    "biome.json",
+    "tsconfig*.json",
+    "playwright.config.js",
+    ".gitignore",
+    "README.md",
+    "LICENSE"
+  ],
+  "exclude": [
+    "HANDOFF.md",
+    "todo.md",
+    "docs/plano/**",
+    "docs/produto/**",
+    "docs/three-amigos/**",
+    "src/app/spec.md",
+    "src/features/*/spec.md",
+    "scripts/data/spec.md",
+    "scripts/publish/spec.md",
+    "tests/parity/**",
+    "tests/publish-probe/**",
+    "scripts/data/raw/**",
+    ".claude/**",
+    ".agents/**",
+    "node_modules/**",
+    "test-results/**",
+    "playwright-report/**",
+    "**/*.map"
+  ]
+}

@@ -1,0 +1,43 @@
+/* Camera controls: glass dock at the top right of the stage */
+
+.zoom {
+  position: absolute;
+  top: calc(var(--topbar-height) + var(--space-4));
+  right: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--glass-line);
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--glass-shadow);
+  z-index: 15;
+}
+
+.zoom button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.zoom button:hover:not(:disabled) {
+  background: var(--pill-bg-hover);
+  color: var(--ink);
+}
+
+.zoom button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}

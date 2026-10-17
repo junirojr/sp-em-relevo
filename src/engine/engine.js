@@ -1,0 +1,1175 @@
+import * as THREE from "three";
+import {
+  accumulateWheelZoom,
+  clampPanVector,
+  clampZoomTarget,
+  computeFitDistance,
+  createWheelAccumulator,
+  positionCamera,
+  readCursorZoomPan,
+  readSelectionFraming,
+  readSteppedZoom,
+} from "./camera.js";
+import {
+  buildIndexByCode,
+  createMapMotion,
+  readElapsed,
+  readMedianSample,
+  readRaisedIndexes,
+  readRaisedUnitIndexes,
+  readTopHeight,
+  recordFrameSample,
+  retargetLifts,
+  stepCamera,
+  stepHeights,
+  stepLifts,
+  stepTilt,
+  updateLineHeights,
+} from "./frame-loop.js";
+import { buildOwnedLines } from "./geometry.js";
+import {
+  applyLimitStyle,
+  buildLimitGeometry,
+  createLimitLines,
+  updateLimitHeights,
+} from "./limits.js";
+import { createPointTracker, pickMunicipalityIndex, readGroundPoint } from "./picking.js";
+import { setupContextHandlers, setupPointerHandlers } from "./pointer.js";
+import {
+  applyPalette,
+  countMapMeshes,
+  createScene,
+  paintMunicipalities,
+  paintSelected,
+} from "./scene.js";
+
+const DEFAULT_VIEW_ANGLE_DEGREES = 55;
+const MAX_PIXEL_RATIO = 2;
+const PANNABLE_ZOOM = 1.01;
+const HOME_ZOOM = 1.001;
+const BORDER_LIFT_SHARE = 0;
+const OUTLINE_LIFT_SHARE = 1;
+
+/**
+ * @typedef {import("./scene.js").EnginePalette} EnginePalette
+ * @typedef {import("./geometry.js").MapMunicipality} MapMunicipality
+ * @typedef {import("./frame-loop.js").MapMotion} MapMotion
+ * @typedef {import("./frame-loop.js").RaiseState} RaiseState
+ * @typedef {import("./camera.js").CameraOrbit} CameraOrbit
+ * @typedef {import("./picking.js").PickTarget} PickTarget
+ * @typedef {import("./picking.js").PointTracker} PointTracker
+ * @typedef {ReturnType<typeof createScene>} MapView
+ */
+
+/**
+ * @typedef {{
+ *   canvas: HTMLCanvasElement;
+ *   geometry: {
+ *     municipalities: MapMunicipality[];
+ *     plate: THREE.BatchedMesh;
+ *     mapCenter: THREE.Vector2;
+ *     topology?: any;
+ *   };
+ *   palette: EnginePalette;
+ *   onPick?: (code: string | null) => void;
+ *   onPoint?: (code: string | null) => void;
+ *   onZoomChange?: (zoomTarget: number) => void;
+ * }} EngineOptions
+ */
+
+/**
+ * Unit codes: the pointed one, or null, and the selected ones. Same shape the projection sends.
+ * @typedef {{ pointed: string | readonly string[] | null; selected: readonly string[] }} RaisedUnits
+ */
+
+/**
+ * @typedef {{
+ *   viewAngleDegrees?: number;
+ *   isTiltOn?: boolean;
+ *   isFramingOn?: boolean;
+ *   isMotionReduced?: boolean;
+ * }} CameraOptions
+ */
+
+/**
+ * @typedef {{
+ *   frameCount: number;
+ *   isSettled: boolean;
+ *   renderTimes: number[];
+ *   lastRenderDuration: number;
+ *   medianRenderDuration: number;
+ *   drawCalls: number;
+ *   triangles: number;
+ *   meshCount: number;
+ *   instanceCount: number;
+ * }} EngineStats
+ */
+
+/**
+ * @typedef {{ minX: number; minY: number; maxX: number; maxY: number }} PlainBox
+ */
+
+/**
+ * @typedef {{
+ *   code: string;
+ *   heightCurrent: number;
+ *   heightTarget: number;
+ *   liftCurrent: number;
+ *   liftTarget: number;
+ * }} MunicipalityInspection
+ */
+
+/**
+ * What the map has built, to tell a repaint from a rebuild (ESC-12). A rebuilt geometry takes a new
+ * id even when both counts stay the same.
+ * @typedef {{
+ *   geometryCount: number;
+ *   vertexCount: number;
+ *   geometryIds: number[];
+ * }} GeometryStats
+ */
+
+/**
+ * The top of one block and the lowest and highest border vertex it owns, in plate units.
+ * @typedef {{ blockTop: number; lowestBorder: number; highestBorder: number }} BorderTop
+ */
+
+/**
+ * @typedef {{
+ *   setHeightTargets: (targets: Float32Array) => void;
+ *   setColors: (colorPositions: Uint8Array) => void;
+ *   setRaised: (raised: RaisedUnits) => void;
+ *   setLiftEnabled: (flags: { pointed: boolean; selected: boolean }) => void;
+ *   setLimits: (limits: { level: string; limitArcs?: readonly number[]; topology?: any }) => void;
+ *   setRenderOptions: (options: { shadow?: boolean; borders?: boolean }) => void;
+ *   setPalette: (palette: EnginePalette) => void;
+ *   readPalette: () => EnginePalette;
+ *   setCameraOptions: (options: CameraOptions) => void;
+ *   frame: (indexes: number[]) => void;
+ *   frameNow: (indexes: number[]) => void;
+ *   zoomStep: (direction: number, screenPoint?: { x: number; y: number }) => void;
+ *   resetView: () => void;
+ *   readCamera: () => {
+ *     viewAngleDegrees: number;
+ *     aspect: number;
+ *     zoom: number;
+ *     zoomTarget: number;
+ *     panX: number;
+ *     panY: number;
+ *     pan: { x: number; y: number; z: number };
+ *   };
+ *   readStats: () => EngineStats;
+ *   readGeometryStats: () => GeometryStats;
+ *   readBorderTop: (index: number) => BorderTop | null;
+ *   readLimitBounds: () => { limits: PlainBox | null; map: PlainBox | null };
+ *   inspect: (index: number) => MunicipalityInspection | null;
+ *   readGroundPointAt: (x: number, y: number) => THREE.Vector3 | null;
+ *   projectGroundPoint: (point: THREE.Vector3) => { x: number; y: number };
+ *   destroy: () => void;
+ * }} Engine
+ */
+
+/**
+ * @typedef {{
+ *   isRequested: boolean;
+ *   count: number;
+ *   samples: number[];
+ *   lastTime: number | undefined;
+ *   draw: FrameRequestCallback;
+ * }} FrameState
+ */
+
+/**
+ * @typedef {{
+ *   canvas: HTMLCanvasElement;
+ *   renderer: THREE.WebGLRenderer;
+ *   view: MapView;
+ *   municipalities: MapMunicipality[];
+ *   indexByCode: Map<string, number>;
+ *   motion: MapMotion;
+ *   raise: RaiseState;
+ *   orbit: CameraOrbit;
+ *   tiltTarget: THREE.Vector2;
+ *   panTarget: THREE.Vector3;
+ *   zoomState: { current: number; target: number };
+ *   isTiltOn: boolean;
+ *   isFramingOn: boolean;
+ *   limitLines: import("./limits.js").LimitLines;
+ *   topology?: any;
+ *   mapCenter: THREE.Vector2;
+ *   wheelAccumulator: { pixels: number };
+ *   palette: EnginePalette;
+ *   colorPositions: Uint8Array;
+ *   pointerNdc: THREE.Vector2;
+ *   pickTarget: PickTarget;
+ *   pointTracker: PointTracker;
+ *   frame: FrameState;
+ *   onPick: (code: string | null) => void;
+ *   onPoint: (code: string | null) => void;
+ *   onZoomChange?: (zoomTarget: number) => void;
+ * }} EngineContext
+ */
+
+/**
+ * Draws the map and owns everything that moves: heights, lifts, tilt, zoom, pan and pointer. It
+ * draws only while something changes. `onPoint` hears a change of the pointed municipality, at most
+ * once per frame; `onPick` hears a click that did not pan. `frame` follows the framing option, while
+ * `frameNow` frames on request whatever the option says.
+ * @param {EngineOptions} options
+ * @returns {Engine}
+ */
+export function createEngine(options) {
+  const ctx = createContext(options);
+  const handleResize = () => resizeView(ctx);
+  const detachPointer = wirePointer(ctx);
+  const detachContext = wireContext(ctx);
+
+  ctx.orbit.distance = computeFitDistance(
+    ctx.view.camera,
+    ctx.view.mapSize,
+    DEFAULT_VIEW_ANGLE_DEGREES,
+  );
+  positionCamera(ctx.view.camera, ctx.orbit);
+  updateLineHeights(ctx.view.borders, ctx.motion, BORDER_LIFT_SHARE);
+  setPalette(ctx, options.palette);
+  window.addEventListener("resize", handleResize);
+  resizeView(ctx);
+
+  return {
+    setHeightTargets: (targets) => setHeightTargets(ctx, targets),
+    setColors: (colorPositions) => setColors(ctx, colorPositions),
+    setRaised: (raised) => setRaised(ctx, raised),
+    setLiftEnabled: (flags) => setLiftEnabled(ctx, flags),
+    setLimits: (limits) => setLimits(ctx, limits),
+    setRenderOptions: (renderOptions) => setRenderOptions(ctx, renderOptions),
+    setPalette: (palette) => setPalette(ctx, palette),
+    readPalette: () => ({ ...ctx.palette }),
+    setCameraOptions: (cameraOptions) => setCameraOptions(ctx, cameraOptions),
+    frame: (indexes) => frameSelection(ctx, indexes),
+    frameNow: (indexes) => frameIndexes(ctx, indexes),
+    zoomStep: (direction, screenPoint) => zoomStep(ctx, direction, screenPoint),
+    resetView: () => resetView(ctx),
+    readCamera: () => readCamera(ctx),
+    readStats: () => readStats(ctx),
+    readGeometryStats: () => readGeometryStats(ctx),
+    readBorderTop: (index) => readBorderTop(ctx, index),
+    readLimitBounds: () => readLimitBounds(ctx),
+    inspect: (index) => inspect(ctx, index),
+    readGroundPointAt: (x, y) => readGroundPointAt(ctx, x, y),
+    projectGroundPoint: (point) => projectGroundPoint(ctx, point),
+    destroy() {
+      window.removeEventListener("resize", handleResize);
+      detachPointer();
+      detachContext();
+      disposeEngine(ctx);
+    },
+  };
+}
+
+/**
+ * @param {EngineOptions} options
+ * @returns {EngineContext}
+ */
+function createContext({ canvas, geometry, palette, onPick, onPoint, onZoomChange }) {
+  const { municipalities, plate } = geometry;
+  const view = createScene({ plate, municipalities });
+  const motion = createMapMotion(plate, municipalities);
+  const limitLines = createLimitLines();
+  view.mapGroup.add(limitLines);
+
+  /** @type {EngineContext} */
+  const ctx = {
+    canvas,
+    renderer: createRenderer(canvas),
+    view,
+    limitLines,
+    topology: geometry.topology,
+    // Required: the limits are centered like the outlines, and a missing center shifted them off
+    // the state by exactly the map center.
+    mapCenter: geometry.mapCenter,
+    wheelAccumulator: createWheelAccumulator(),
+    municipalities,
+    indexByCode: buildIndexByCode(municipalities),
+    motion,
+    raise: {
+      pointed: null,
+      selected: new Set(),
+      isLiftEnabled: { pointed: true, selected: false },
+    },
+    orbit: createRestingOrbit(),
+    tiltTarget: new THREE.Vector2(),
+    panTarget: new THREE.Vector3(),
+    zoomState: { current: 1, target: 1 },
+    isTiltOn: true,
+    isFramingOn: true,
+    palette,
+    colorPositions: new Uint8Array(0),
+    pointerNdc: new THREE.Vector2(),
+    pickTarget: buildPickTarget(view, motion, municipalities),
+    pointTracker: createPointTracker({
+      pickIndex: () => pickAtPointer(ctx),
+      onChange: (index) => ctx.onPoint(readCode(ctx, index)),
+    }),
+    frame: createFrameState((now) => drawFrame(ctx, now)),
+    onPick: onPick ?? ignoreCode,
+    onPoint: onPoint ?? ignoreCode,
+    onZoomChange: onZoomChange ?? undefined,
+  };
+  return ctx;
+}
+
+/**
+ * @param {HTMLCanvasElement} canvas
+ * @returns {THREE.WebGLRenderer}
+ */
+function createRenderer(canvas) {
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: true,
+    alpha: true,
+    powerPreference: "high-performance",
+  });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  return renderer;
+}
+
+/**
+ * @returns {CameraOrbit}
+ */
+function createRestingOrbit() {
+  return {
+    distance: 0,
+    tilt: new THREE.Vector2(),
+    pan: new THREE.Vector3(),
+    viewAngleDegrees: DEFAULT_VIEW_ANGLE_DEGREES,
+  };
+}
+
+/**
+ * @param {MapView} view
+ * @param {MapMotion} motion
+ * @param {MapMunicipality[]} municipalities
+ * @returns {PickTarget}
+ */
+function buildPickTarget(view, motion, municipalities) {
+  return {
+    camera: view.camera,
+    raycaster: new THREE.Raycaster(),
+    plate: view.plate,
+    mapGroup: view.mapGroup,
+    municipalities,
+    instanceToMunicipality: view.instanceToMunicipality,
+    heightCurrent: motion.heightCurrent,
+    liftCurrent: motion.liftCurrent,
+  };
+}
+
+/**
+ * @param {FrameRequestCallback} draw
+ * @returns {FrameState}
+ */
+function createFrameState(draw) {
+  return { isRequested: false, count: 0, samples: [], lastTime: undefined, draw };
+}
+
+/**
+ * @param {string | null} _code
+ */
+function ignoreCode(_code) {
+  // No listener was given.
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {{ level: string; limitArcs?: readonly number[]; topology?: any }} limits
+ */
+function setLimits(ctx, limits) {
+  if (limits.limitArcs) {
+    const topology = limits.topology ?? ctx.topology;
+    if (topology) {
+      ctx.limitLines.geometry.dispose();
+      ctx.limitLines.geometry = buildLimitGeometry({
+        topology,
+        limitArcs: limits.limitArcs,
+        indexByCode: ctx.indexByCode,
+        mapCenter: ctx.mapCenter,
+      });
+      updateLimitHeights(ctx.limitLines, ctx.motion.heightCurrent);
+    }
+  }
+  applyLimitStyle({ borders: ctx.view.borders, limitLines: ctx.limitLines }, limits.level);
+  if (ctx.limitLines.visible) {
+    updateLimitHeights(ctx.limitLines, ctx.motion.heightCurrent);
+  }
+  requestFrame(ctx);
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @returns {() => void}
+ */
+function wirePointer(ctx) {
+  return setupPointerHandlers({
+    canvas: ctx.canvas,
+    onPointerMove: (ndc) => markPointerMoved(ctx, ndc),
+    onPointerLeave: () => leaveMap(ctx),
+    onClick: (ndc) => pickOnClick(ctx, ndc),
+    onPanStart: () => ctx.pointTracker.clearPointed(),
+    onPan: (delta) => panBy(ctx, delta),
+    onWheel: (wheel) => handleWheel(ctx, wheel),
+    readGroundPoint: (ndc) => readGroundPoint(ndc, ctx.pickTarget, new THREE.Vector3()),
+    isPannable: () => ctx.zoomState.target > PANNABLE_ZOOM,
+    isTiltOn: () => ctx.isTiltOn && !ctx.motion.isMotionReduced,
+    setTiltTarget: (x, y) => ctx.tiltTarget.set(x, y),
+  });
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @returns {() => void}
+ */
+function wireContext(ctx) {
+  return setupContextHandlers({
+    canvas: ctx.canvas,
+    onLost: () => handleContextLost(ctx),
+    onRestored: () => handleContextRestored(ctx),
+  });
+}
+
+/**
+ * @param {EngineContext} ctx
+ */
+function handleContextLost(ctx) {
+  ctx.frame.isRequested = false;
+}
+
+/**
+ * @param {EngineContext} ctx
+ */
+function handleContextRestored(ctx) {
+  paintCurrentColors(ctx);
+  updateLineHeights(ctx.view.borders, ctx.motion, BORDER_LIFT_SHARE);
+  if (ctx.limitLines.visible) {
+    updateLimitHeights(ctx.limitLines, ctx.motion.heightCurrent);
+  }
+  requestFrame(ctx);
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {{ deltaPixels: number; x: number; y: number }} wheel
+ */
+function handleWheel(ctx, wheel) {
+  const direction = accumulateWheelZoom(ctx.wheelAccumulator, wheel.deltaPixels);
+  if (direction === 0) {
+    return;
+  }
+  zoomStep(ctx, direction, { x: wheel.x, y: wheel.y });
+}
+
+/**
+ * A move only marks the pick; the frame picks once, however many moves arrived.
+ * @param {EngineContext} ctx
+ * @param {THREE.Vector2} ndc
+ */
+function markPointerMoved(ctx, ndc) {
+  ctx.pointerNdc.copy(ndc);
+  ctx.pointTracker.markPickPending();
+  requestFrame(ctx);
+}
+
+/**
+ * @param {EngineContext} ctx
+ */
+function leaveMap(ctx) {
+  ctx.pointTracker.clearPointed();
+  requestFrame(ctx);
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {THREE.Vector2} ndc
+ */
+function pickOnClick(ctx, ndc) {
+  ctx.pointerNdc.copy(ndc);
+  ctx.onPick(readCode(ctx, pickAtPointer(ctx)));
+}
+
+/**
+ * The camera moves at once, so the next pointer move reads the ground with the camera that
+ * already holds this pan, however many moves arrive in one frame.
+ * @param {EngineContext} ctx
+ * @param {THREE.Vector3} delta
+ */
+function panBy(ctx, delta) {
+  ctx.orbit.pan.add(delta);
+  clampPanVector(ctx.orbit.pan, ctx.view.mapSize);
+  ctx.panTarget.copy(ctx.orbit.pan);
+  positionCamera(ctx.view.camera, ctx.orbit);
+  requestFrame(ctx);
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @returns {number | undefined}
+ */
+function pickAtPointer(ctx) {
+  const pointedCandidates =
+    ctx.raise.pointedIndexes instanceof Set
+      ? [...ctx.raise.pointedIndexes]
+      : ctx.raise.pointed instanceof Set
+        ? [...ctx.raise.pointed]
+        : ctx.raise.pointed !== null && ctx.raise.pointed !== undefined
+          ? [ctx.raise.pointed]
+          : [];
+  const candidates = [
+    ctx.pointTracker.readPointedIndex(),
+    ...pointedCandidates,
+    ...ctx.raise.selected,
+  ];
+  return pickMunicipalityIndex(ctx.pointerNdc, ctx.pickTarget, candidates);
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {number | null | undefined} index
+ * @returns {string | null}
+ */
+function readCode(ctx, index) {
+  if (index === null || index === undefined) {
+    return null;
+  }
+  return ctx.municipalities[index].code;
+}
+
+/**
+ * Nothing is drawn while nothing changes: a still map costs no CPU and no GPU.
+ * @param {EngineContext} ctx
+ */
+function requestFrame(ctx) {
+  if (ctx.frame.isRequested) {
+    return;
+  }
+  ctx.frame.isRequested = true;
+  requestAnimationFrame(ctx.frame.draw);
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {number} now
+ */
+function drawFrame(ctx, now) {
+  ctx.frame.isRequested = false;
+  const elapsed = readElapsed(ctx.frame.lastTime, now);
+  ctx.frame.lastTime = now;
+
+  ctx.pointTracker.flushPendingPick();
+  const isMoving = stepFrame(ctx, elapsed);
+  renderFrame(ctx);
+
+  if (isMoving) {
+    requestFrame(ctx);
+  }
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {number} elapsed
+ * @returns {boolean}
+ */
+function stepFrame(ctx, elapsed) {
+  const { motion, view, orbit } = ctx;
+  const isMotionReduced = motion.isMotionReduced;
+  const isHeightMoving = stepMapHeights(ctx);
+  const isLiftMoving = stepLifts(motion, elapsed);
+  const isTiltMoving = stepTilt({ tilt: orbit.tilt, tiltTarget: ctx.tiltTarget, isMotionReduced });
+  const isCameraMoving = stepCamera({
+    camera: view.camera,
+    zoomState: ctx.zoomState,
+    pan: orbit.pan,
+    panTarget: ctx.panTarget,
+    isMotionReduced,
+  });
+  updateLineHeights(view.raisedOutline, motion, OUTLINE_LIFT_SHARE);
+  positionCamera(view.camera, orbit);
+
+  return isHeightMoving || isLiftMoving || isTiltMoving || isCameraMoving;
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @returns {boolean}
+ */
+function stepMapHeights(ctx) {
+  if (!ctx.motion.isHeightMoving) {
+    return false;
+  }
+
+  const isStillMoving = stepHeights(ctx.motion);
+  updateLineHeights(ctx.view.borders, ctx.motion, BORDER_LIFT_SHARE);
+  if (ctx.limitLines.visible) {
+    updateLimitHeights(ctx.limitLines, ctx.motion.heightCurrent);
+  }
+  return isStillMoving;
+}
+
+/**
+ * @param {EngineContext} ctx
+ */
+function renderFrame(ctx) {
+  const renderStart = performance.now();
+  ctx.renderer.render(ctx.view.scene, ctx.view.camera);
+  recordFrameSample(ctx.frame.samples, performance.now() - renderStart);
+  ctx.frame.count += 1;
+}
+
+/**
+ * @param {EngineContext} ctx
+ */
+function resizeView(ctx) {
+  const { clientWidth, clientHeight } = ctx.canvas;
+  if (!clientWidth || !clientHeight) {
+    return;
+  }
+
+  const { camera, mapSize } = ctx.view;
+  ctx.renderer.setSize(clientWidth, clientHeight, false);
+  camera.aspect = clientWidth / clientHeight;
+  camera.updateProjectionMatrix();
+  ctx.orbit.distance = computeFitDistance(camera, mapSize, ctx.orbit.viewAngleDegrees);
+  requestFrame(ctx);
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {Float32Array} targets one height scale per municipality
+ */
+function setHeightTargets(ctx, targets) {
+  ctx.motion.heightTargets.set(targets);
+  ctx.motion.isHeightMoving = true;
+  requestFrame(ctx);
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {Uint8Array} colorPositions one palette position per municipality
+ */
+function setColors(ctx, colorPositions) {
+  ctx.colorPositions = Uint8Array.from(colorPositions);
+  paintCurrentColors(ctx);
+  requestFrame(ctx);
+}
+
+/**
+ * @param {EngineContext} ctx
+ */
+function paintCurrentColors(ctx) {
+  const target = { plate: ctx.view.plate, municipalities: ctx.municipalities };
+  paintMunicipalities(target, ctx.colorPositions, ctx.palette.colors, ctx.palette.neutral);
+  if (!ctx.palette.selection) {
+    return;
+  }
+  paintSelected(target, ctx.raise.selected, ctx.palette.selection);
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {RaisedUnits} raised
+ */
+function setRaised(ctx, raised) {
+  const { pointed, pointedIndexes, selected } = readRaisedUnitIndexes(ctx.indexByCode, raised);
+  ctx.raise.pointed = pointed;
+  ctx.raise.pointedIndexes = pointedIndexes;
+  const isSelectionChanged = !isSameIndexSet(ctx.raise.selected, selected);
+  ctx.raise.selected = selected;
+  if (isSelectionChanged) {
+    paintCurrentColors(ctx);
+  }
+  refreshRaise(ctx);
+}
+
+/**
+ * @param {Set<number>} current
+ * @param {Set<number>} next
+ * @returns {boolean}
+ */
+function isSameIndexSet(current, next) {
+  if (current.size !== next.size) {
+    return false;
+  }
+  for (const index of next) {
+    if (!current.has(index)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * With height as data, only the pointed municipality lifts (P24).
+ * @param {EngineContext} ctx
+ * @param {{ pointed: boolean; selected: boolean }} flags
+ */
+function setLiftEnabled(ctx, { pointed, selected }) {
+  ctx.raise.isLiftEnabled = { pointed, selected };
+  refreshRaise(ctx);
+}
+
+/**
+ * @param {EngineContext} ctx
+ */
+function refreshRaise(ctx) {
+  retargetLifts(ctx.motion, ctx.raise);
+  rebuildRaisedOutline(ctx);
+  requestFrame(ctx);
+}
+
+/**
+ * @param {EngineContext} ctx
+ */
+function rebuildRaisedOutline(ctx) {
+  const { raisedOutline } = ctx.view;
+  const raisedIndexes = readRaisedIndexes(ctx.raise);
+  raisedOutline.geometry.dispose();
+  raisedOutline.geometry = buildOwnedLines(ctx.municipalities, raisedIndexes);
+  raisedOutline.visible = raisedIndexes.length > 0;
+  updateLineHeights(raisedOutline, ctx.motion, OUTLINE_LIFT_SHARE);
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {{ shadow?: boolean; borders?: boolean }} renderOptions
+ */
+function setRenderOptions(ctx, { shadow, borders }) {
+  if (shadow !== undefined) {
+    ctx.view.sun.castShadow = shadow;
+    ctx.view.ground.visible = shadow;
+  }
+  if (borders !== undefined) {
+    ctx.view.borders.visible = borders;
+  }
+  requestFrame(ctx);
+}
+
+/**
+ * Applies the background, the borders and the raised outline, and repaints with the last color
+ * positions. The region border color is applied to limitLines when defined.
+ * @param {EngineContext} ctx
+ * @param {EnginePalette} palette
+ */
+function setPalette(ctx, palette) {
+  ctx.palette = palette;
+  const { borders, raisedOutline } = ctx.view;
+  applyPalette({ renderer: ctx.renderer, borders, raisedOutline }, palette);
+  if (palette.regionBorder) {
+    ctx.limitLines.material.color.set(palette.regionBorder);
+    ctx.limitLines.material.needsUpdate = true;
+  }
+  paintCurrentColors(ctx);
+  requestFrame(ctx);
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {CameraOptions} cameraOptions
+ */
+function setCameraOptions(ctx, { viewAngleDegrees, isTiltOn, isFramingOn, isMotionReduced }) {
+  if (viewAngleDegrees !== undefined) {
+    setViewAngle(ctx, viewAngleDegrees);
+  }
+  if (isTiltOn !== undefined) {
+    ctx.isTiltOn = isTiltOn;
+  }
+  if (isFramingOn !== undefined) {
+    ctx.isFramingOn = isFramingOn;
+  }
+  if (isMotionReduced !== undefined) {
+    setMotionReduced(ctx, isMotionReduced);
+  }
+  requestFrame(ctx);
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {number} viewAngleDegrees
+ */
+function setViewAngle(ctx, viewAngleDegrees) {
+  ctx.orbit.viewAngleDegrees = viewAngleDegrees;
+  ctx.orbit.distance = computeFitDistance(ctx.view.camera, ctx.view.mapSize, viewAngleDegrees);
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {boolean} isMotionReduced
+ */
+function setMotionReduced(ctx, isMotionReduced) {
+  ctx.motion.isMotionReduced = isMotionReduced;
+  retargetLifts(ctx.motion, ctx.raise);
+}
+
+/**
+ * Automatic framing: the camera follows the selection only while the framing option is on.
+ * @param {EngineContext} ctx
+ * @param {number[]} indexes
+ */
+function frameSelection(ctx, indexes) {
+  if (!ctx.isFramingOn) {
+    return;
+  }
+  frameIndexes(ctx, indexes);
+}
+
+/**
+ * Frames the municipalities whatever the framing option says, and leaves the option as it is. An
+ * empty list flies back to the whole state.
+ * @param {EngineContext} ctx
+ * @param {number[]} indexes
+ */
+function frameIndexes(ctx, indexes) {
+  if (indexes.length === 0) {
+    setZoomTarget(ctx, 1);
+    return;
+  }
+
+  const boundsList = indexes.map((index) => ctx.municipalities[index].bounds);
+  const framing = readSelectionFraming(boundsList, ctx.view.mapSize);
+  ctx.panTarget.copy(framing.pan);
+  setZoomTarget(ctx, framing.zoom);
+  if (ctx.motion.isMotionReduced) {
+    ctx.orbit.pan.copy(ctx.panTarget);
+    positionCamera(ctx.view.camera, ctx.orbit);
+  }
+}
+
+/**
+ * Steps one level of the zoom ladder. Zooming on the cursor keeps the ground point fixed.
+ * @param {EngineContext} ctx
+ * @param {number} direction positive zooms in, otherwise zooms out
+ * @param {{ x: number; y: number }} [screenPoint]
+ */
+function zoomStep(ctx, direction, screenPoint) {
+  const currentTarget = ctx.zoomState.target;
+  const nextZoom = readSteppedZoom(currentTarget, direction);
+  if (nextZoom === currentTarget) {
+    return;
+  }
+
+  if (screenPoint) {
+    const rect = ctx.canvas.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      const cursorNdc = new THREE.Vector2(
+        ((screenPoint.x - rect.left) / rect.width) * 2 - 1,
+        -((screenPoint.y - rect.top) / rect.height) * 2 + 1,
+      );
+      const groundPoint = readGroundPoint(cursorNdc, ctx.pickTarget, new THREE.Vector3());
+      if (groundPoint) {
+        const newPan = readCursorZoomPan({
+          camera: ctx.view.camera,
+          orbit: ctx.orbit,
+          cursorNdc,
+          zoom: nextZoom,
+          groundPoint,
+        });
+        if (newPan) {
+          clampPanVector(newPan, ctx.view.mapSize);
+          ctx.panTarget.copy(newPan);
+        }
+      }
+    }
+  }
+
+  setZoomTarget(ctx, nextZoom);
+}
+
+/**
+ * @param {EngineContext} ctx
+ */
+function resetView(ctx) {
+  ctx.panTarget.set(0, 0, 0);
+  setZoomTarget(ctx, 1);
+  if (ctx.motion.isMotionReduced) {
+    ctx.zoomState.current = 1;
+    ctx.orbit.pan.set(0, 0, 0);
+    positionCamera(ctx.view.camera, ctx.orbit);
+  }
+  requestFrame(ctx);
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {number} zoomTarget
+ */
+function setZoomTarget(ctx, zoomTarget) {
+  const previousTarget = ctx.zoomState.target;
+  ctx.zoomState.target = clampZoomTarget(zoomTarget);
+  if (ctx.zoomState.target <= HOME_ZOOM) {
+    ctx.panTarget.set(0, 0, 0);
+  }
+  if (ctx.motion.isMotionReduced) {
+    ctx.zoomState.current = ctx.zoomState.target;
+    ctx.orbit.pan.copy(ctx.panTarget);
+    positionCamera(ctx.view.camera, ctx.orbit);
+  }
+  if (previousTarget !== ctx.zoomState.target && typeof ctx.onZoomChange === "function") {
+    ctx.onZoomChange(ctx.zoomState.target);
+  }
+  requestFrame(ctx);
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @returns {EngineStats}
+ */
+function readStats(ctx) {
+  const renderInfo = ctx.renderer.info.render;
+  const samples = ctx.frame.samples;
+  return {
+    frameCount: ctx.frame.count,
+    isSettled: isSettled(ctx),
+    renderTimes: [...samples],
+    lastRenderDuration: samples.at(-1) ?? 0,
+    medianRenderDuration: readMedianSample(samples),
+    drawCalls: renderInfo.calls,
+    triangles: renderInfo.triangles,
+    meshCount: countMapMeshes(ctx.view.mapGroup),
+    instanceCount: ctx.view.plate.instanceCount,
+  };
+}
+
+/**
+ * Reads the geometries the renderer holds, the vertices of every geometry in the scene and the id
+ * of each one, in scene order. It changes nothing.
+ * @param {EngineContext} ctx
+ * @returns {GeometryStats}
+ */
+function readGeometryStats(ctx) {
+  const geometries = readSceneGeometries(ctx.view.scene);
+  return {
+    geometryCount: ctx.renderer.info.memory.geometries,
+    vertexCount: sumVertices(geometries),
+    geometryIds: geometries.map((geometry) => geometry.id),
+  };
+}
+
+/**
+ * @param {THREE.Object3D} root
+ * @returns {THREE.BufferGeometry[]}
+ */
+function readSceneGeometries(root) {
+  /** @type {THREE.BufferGeometry[]} */
+  const geometries = [];
+  root.traverse((object) => {
+    const geometry = readObjectGeometry(object);
+    if (geometry) {
+      geometries.push(geometry);
+    }
+  });
+  return geometries;
+}
+
+/**
+ * @param {THREE.Object3D} object
+ * @returns {THREE.BufferGeometry | null} the geometry of a mesh or a line, null for anything else.
+ */
+function readObjectGeometry(object) {
+  if (object instanceof THREE.Mesh) {
+    return object.geometry;
+  }
+  if (object instanceof THREE.Line) {
+    return object.geometry;
+  }
+  return null;
+}
+
+/**
+ * @param {THREE.BufferGeometry[]} geometries
+ * @returns {number}
+ */
+function sumVertices(geometries) {
+  return geometries.reduce((total, geometry) => total + readVertexCount(geometry), 0);
+}
+
+/**
+ * @param {THREE.BufferGeometry} geometry
+ * @returns {number}
+ */
+function readVertexCount(geometry) {
+  const position = geometry.getAttribute("position");
+  if (!position) {
+    return 0;
+  }
+  return position.count;
+}
+
+/**
+ * The borders follow the top of each block while its height moves (ESC-12): every border vertex a
+ * block owns sits the same offset above that top. It changes nothing.
+ * @param {EngineContext} ctx
+ * @param {number} index
+ * @returns {BorderTop | null} null for an index the map does not draw or a block without borders.
+ */
+function readBorderTop(ctx, index) {
+  const isDrawnIndex = index >= 0 && index < ctx.municipalities.length;
+  if (!isDrawnIndex) {
+    return null;
+  }
+  const borderHeights = readOwnedLineHeights(ctx.view.borders, index);
+  if (borderHeights.length === 0) {
+    return null;
+  }
+
+  return {
+    blockTop: readTopHeight(ctx.motion.heightCurrent[index]),
+    lowestBorder: Math.min(...borderHeights),
+    highestBorder: Math.max(...borderHeights),
+  };
+}
+
+/**
+ * @param {THREE.LineSegments} lines
+ * @param {number} ownerIndex
+ * @returns {number[]} the z of every line vertex the owner has.
+ */
+function readOwnedLineHeights(lines, ownerIndex) {
+  const owners = lines.geometry.userData.owners;
+  const positions = lines.geometry.attributes.position.array;
+  /** @type {number[]} */
+  const heights = [];
+  for (let vertexIndex = 0; vertexIndex < owners.length; vertexIndex += 1) {
+    if (owners[vertexIndex] !== ownerIndex) {
+      continue;
+    }
+    heights.push(positions[vertexIndex * 3 + 2]);
+  }
+  return heights;
+}
+
+/**
+ * The box of the region limits and the box of the map, both in centered map units. The limits must
+ * sit inside the map (NIV-07). A box with nothing in it reads as null.
+ * @param {EngineContext} ctx
+ * @returns {{ limits: PlainBox | null; map: PlainBox | null }}
+ */
+function readLimitBounds(ctx) {
+  const limits = new THREE.Box2();
+  const positions = ctx.limitLines.geometry.attributes.position;
+  if (positions) {
+    for (let index = 0; index < positions.count; index += 1) {
+      limits.expandByPoint(new THREE.Vector2(positions.getX(index), positions.getY(index)));
+    }
+  }
+  const map = new THREE.Box2();
+  for (const municipality of ctx.municipalities) {
+    map.union(municipality.bounds);
+  }
+  return { limits: toPlainBox(limits), map: toPlainBox(map) };
+}
+
+/**
+ * @param {THREE.Box2} box
+ * @returns {PlainBox | null}
+ */
+function toPlainBox(box) {
+  if (box.isEmpty()) {
+    return null;
+  }
+  return { minX: box.min.x, minY: box.min.y, maxX: box.max.x, maxY: box.max.y };
+}
+
+/**
+ * @param {EngineContext} ctx
+ */
+function readCamera(ctx) {
+  return {
+    viewAngleDegrees: ctx.orbit.viewAngleDegrees,
+    aspect: ctx.view.camera.aspect,
+    zoom: ctx.zoomState.current,
+    zoomTarget: ctx.zoomState.target,
+    panX: ctx.orbit.pan.x,
+    panY: ctx.orbit.pan.y,
+    pan: {
+      x: ctx.orbit.pan.x,
+      y: ctx.orbit.pan.y,
+      z: ctx.orbit.pan.z,
+    },
+  };
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @returns {boolean}
+ */
+function isSettled(ctx) {
+  if (ctx.frame.isRequested) {
+    return false;
+  }
+  if (ctx.motion.isHeightMoving) {
+    return false;
+  }
+  return ctx.motion.movingLifts.size === 0;
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {number} index
+ * @returns {MunicipalityInspection | null}
+ */
+function inspect(ctx, index) {
+  if (index < 0 || index >= ctx.municipalities.length) {
+    return null;
+  }
+  const { motion } = ctx;
+  return {
+    code: ctx.municipalities[index].code,
+    heightCurrent: motion.heightCurrent[index],
+    heightTarget: motion.heightTargets[index],
+    liftCurrent: motion.liftCurrent[index],
+    liftTarget: motion.liftTargets[index],
+  };
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {number} x client x, in CSS pixels
+ * @param {number} y client y, in CSS pixels
+ * @returns {THREE.Vector3 | null}
+ */
+function readGroundPointAt(ctx, x, y) {
+  const rect = ctx.canvas.getBoundingClientRect();
+  const ndc = new THREE.Vector2(
+    ((x - rect.left) / rect.width) * 2 - 1,
+    -((y - rect.top) / rect.height) * 2 + 1,
+  );
+  return readGroundPoint(ndc, ctx.pickTarget, new THREE.Vector3());
+}
+
+/**
+ * @param {EngineContext} ctx
+ * @param {THREE.Vector3} point world point
+ * @returns {{ x: number; y: number }} client position, in CSS pixels
+ */
+function projectGroundPoint(ctx, point) {
+  const vec = new THREE.Vector3(point.x, point.y, point.z);
+  const projected = vec.project(ctx.view.camera);
+  const rect = ctx.canvas.getBoundingClientRect();
+  return {
+    x: ((projected.x + 1) / 2) * rect.width + rect.left,
+    y: ((-projected.y + 1) / 2) * rect.height + rect.top,
+  };
+}
+
+/**
+ * @param {EngineContext} ctx
+ */
+function disposeEngine(ctx) {
+  const { plate, borders, raisedOutline, ground } = ctx.view;
+  ctx.renderer.dispose();
+  plate.geometry.dispose();
+  borders.geometry.dispose();
+  raisedOutline.geometry.dispose();
+  ground.geometry.dispose();
+  ctx.limitLines.geometry.dispose();
+  ctx.limitLines.material.dispose();
+}

@@ -1,0 +1,220 @@
+/* Legend card content: badge, title, metrics, ramp, bands, rows, how to read, source line */
+
+/* Compact card: the badge shares the first row with the title, everything else spans both columns */
+
+.scale-legend {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2) var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--ink);
+}
+
+.scale-legend > * {
+  grid-column: 1 / -1;
+}
+
+.legend-badge {
+  grid-column: 1;
+  justify-self: start;
+  padding: 2px 8px;
+  border: 1px solid var(--coral-line);
+  border-radius: 9999px;
+  background: var(--coral-soft);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--coral-text);
+}
+
+.legend-header {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  font-weight: 600;
+}
+
+.legend-header > span:empty {
+  display: none;
+}
+
+.legend-indicator {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.legend-level {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--ink-muted);
+}
+
+.legend-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.legend-metrics[hidden] {
+  display: none;
+}
+
+.legend-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px var(--space-2);
+  border: 1px solid var(--row-line);
+  border-radius: var(--radius-md);
+  background: var(--row-bg);
+}
+
+.legend-metric-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  color: var(--ink-muted);
+}
+
+.legend-metric-value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.legend-ramp {
+  height: 8px;
+  border-radius: 9999px;
+  box-shadow: inset 0 0 0 1px var(--row-line);
+}
+
+.legend-bands {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px var(--space-3);
+}
+
+.band-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.band-color {
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
+  flex-shrink: 0;
+}
+
+.band-color.neutral {
+  background-color: var(--heat-plate);
+}
+
+.band-label {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.legend-rows {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--space-3);
+  margin: 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--row-line);
+  font-size: var(--font-size-xs);
+}
+
+.legend-rows dt {
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.legend-rows dd {
+  margin: 0;
+  text-align: right;
+  color: var(--ink-2);
+}
+
+.legend-meta {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.legend-missing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--row-line);
+  font-size: var(--font-size-xs);
+  color: var(--ink-2);
+}
+
+.legend-missing[hidden] {
+  display: none;
+}
+
+/* How to read this map expandable details */
+
+.how-to-read-details {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--row-line);
+  font-size: var(--font-size-xs);
+  color: var(--ink-2);
+}
+
+.how-to-read-summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink-2);
+  user-select: none;
+}
+
+.how-to-read-summary:hover {
+  color: var(--coral-text);
+}
+
+.how-to-read-list {
+  list-style: none;
+  margin: var(--space-2) 0 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  line-height: 1.45;
+}
+
+.how-to-read-line {
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--coral-line);
+}

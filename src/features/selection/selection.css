@@ -1,0 +1,365 @@
+/* Selection feature: search, band filter, clear button, ranking and selection table */
+
+#selection-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.field-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.selection-search-field,
+.selection-class-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.selection-search-field .field-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+#city-search {
+  width: 100%;
+  height: 40px;
+  padding: 0 var(--space-3) 0 36px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-lg);
+  background-color: var(--field-bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237c8aa0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 12px center;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+#city-search::placeholder {
+  color: var(--ink-muted);
+}
+
+#city-search:hover {
+  border-color: var(--pill-line-hover);
+}
+
+#city-search:focus {
+  border-color: var(--coral-500);
+  background-color: var(--coral-soft);
+  outline: none;
+}
+
+#city-search:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.class-filter {
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-md);
+  background-color: var(--field-bg);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.class-filter:hover {
+  border-color: var(--pill-line-hover);
+}
+
+.class-filter option {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.action-clear {
+  align-self: flex-start;
+  height: 32px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--pill-line);
+  border-radius: 9999px;
+  background: var(--pill-bg);
+  color: var(--ink-2);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.action-clear:hover:not(:disabled) {
+  background: var(--coral-soft);
+  border-color: var(--coral-line);
+  color: var(--coral-text);
+}
+
+.action-clear:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.selection-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.selection-notice {
+  padding: var(--space-2) var(--space-3);
+  background: var(--coral-soft);
+  border: 1px solid var(--coral-line);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  color: var(--coral-text);
+}
+
+.selection-notice[hidden] {
+  display: none;
+}
+
+.selection-table-container {
+  min-width: 0;
+}
+
+.selection-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 4px;
+  margin: -4px 0;
+  font-size: var(--font-size-sm);
+}
+
+.selection-caption {
+  padding: 0 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--ink-muted);
+}
+
+.selection-row td {
+  background: var(--row-bg);
+  border-top: 1px solid var(--row-line);
+  border-bottom: 1px solid var(--row-line);
+  transition:
+    background 0.1s ease,
+    border-color 0.1s ease;
+}
+
+.selection-row td:first-child {
+  border-left: 1px solid var(--row-line);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+.selection-row td:last-child {
+  border-right: 1px solid var(--row-line);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.selection-row:hover td,
+.selection-row:focus-within td {
+  background: var(--row-hover);
+}
+
+.selection-select-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.selection-select-button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.selection-table:not(.selection-ranking-table) .selection-row td {
+  background: var(--coral-soft);
+  border-color: var(--coral-line);
+}
+
+.selection-ranking-row {
+  cursor: pointer;
+}
+
+.selection-ranking-table tbody {
+  counter-reset: rank;
+}
+
+.selection-ranking-row {
+  counter-increment: rank;
+}
+
+.selection-ranking-row .selection-select-button::before {
+  content: counter(rank);
+  display: inline-block;
+  min-width: 22px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--ink-dim);
+}
+
+.selection-ranking-row:nth-child(-n + 3) .selection-select-button::before {
+  font-weight: 700;
+  color: var(--coral-text);
+}
+
+.selection-cell-name {
+  padding: 8px 10px;
+  text-align: left;
+  color: var(--ink);
+}
+
+.selection-cell-value {
+  padding: 8px 10px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink-2);
+}
+
+.selection-cell-action {
+  padding: 4px 6px;
+  text-align: center;
+  width: 32px;
+}
+
+.selection-bar {
+  display: block;
+  height: 3px;
+  margin-top: 6px;
+  border-radius: 9999px;
+  background: var(--row-line);
+  overflow: hidden;
+}
+
+.selection-ranking-row .selection-bar {
+  margin-left: 22px;
+}
+
+.selection-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--coral-600), var(--coral-400));
+}
+
+.selection-remove-button {
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  color: var(--ink-muted);
+  cursor: pointer;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 50%;
+}
+
+.selection-remove-button:hover,
+.selection-remove-button:focus-visible {
+  color: var(--coral-text);
+  background: var(--coral-soft);
+}
+
+.selection-table:not(.selection-ranking-table) .selection-total-row td {
+  background: var(--coral-soft);
+  border-top: 1px solid var(--coral-line);
+  border-bottom: 1px solid var(--coral-line);
+  font-weight: 600;
+}
+
+.selection-table:not(.selection-ranking-table) .selection-total-row td:first-child {
+  border-left: 1px solid var(--coral-line);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+.selection-table:not(.selection-ranking-table) .selection-total-row td:last-child {
+  border-right: 1px solid var(--coral-line);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.selection-total-label {
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.selection-total-value {
+  padding: 8px 10px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--coral-text);
+}
+
+/* Band swatch: the dot of a unit, in the color its band has in the legend. Shared by the comparison and the search window, which add only their own placement. A unit without a value keeps the plate color */
+
+.band-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--pill-line-hover);
+  background: var(--heat-plate);
+}
+
+.band-swatch[data-band="0"] {
+  background: var(--heat-1);
+}
+
+.band-swatch[data-band="1"] {
+  background: var(--heat-2);
+}
+
+.band-swatch[data-band="2"] {
+  background: var(--heat-3);
+}
+
+.band-swatch[data-band="3"] {
+  background: var(--heat-4);
+}
+
+.band-swatch[data-band="4"] {
+  background: var(--heat-5);
+}
+
+.band-swatch[data-band="5"] {
+  background: var(--heat-6);
+}
+
+.band-swatch[data-band="6"] {
+  background: var(--heat-7);
+}

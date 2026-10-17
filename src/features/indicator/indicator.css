@@ -1,0 +1,215 @@
+/* Indicator selector (radios styled as buttons) and the pointed unit pill */
+
+.indicator-fieldset {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.indicator-legend {
+  grid-column: 1 / -1;
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.indicator-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--row-line);
+  border-radius: var(--radius-lg);
+  background: var(--row-bg);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.indicator-option input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.indicator-option > span:first-of-type {
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.indicator-option:hover {
+  background: var(--row-hover);
+  border-color: var(--pill-line-hover);
+  color: var(--ink);
+}
+
+.indicator-option:has(input:checked) {
+  order: -1;
+  grid-column: 1 / -1;
+  min-height: 48px;
+  background: var(--coral-fill);
+  border-color: var(--coral-line);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.indicator-option:has(input:checked)::before {
+  content: "";
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--coral-500);
+  box-shadow: 0 0 10px var(--coral-500);
+}
+
+.indicator-option:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.indicator-option:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.indicator-option:has(input:disabled) input {
+  cursor: not-allowed;
+}
+
+.indicator-unit {
+  display: none;
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--coral-text);
+  white-space: nowrap;
+}
+
+.indicator-option:has(input:checked) .indicator-unit {
+  display: inline;
+}
+
+/* Source line: footer of the legend card in the stage */
+
+.indicator-source-view {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--glass-line);
+  background: var(--row-bg);
+  font-size: var(--font-size-xs);
+  color: var(--ink-muted);
+}
+
+.source-view-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.source-view-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-1);
+}
+
+.source-view-unit,
+.source-view-year {
+  font-family: var(--font-mono);
+  color: var(--ink-2);
+}
+
+.source-view-separator {
+  color: var(--ink-dim);
+}
+
+.source-view-year:empty,
+.source-view-year:empty + .source-view-separator {
+  display: none;
+}
+
+.source-view-link {
+  color: var(--coral-text);
+  text-decoration: none;
+}
+
+.source-view-link:hover {
+  text-decoration: underline;
+}
+
+/* Pointed unit pill: glass, with a reserved height so the column does not jump */
+
+#pointed-pill {
+  min-height: 68px;
+  padding: 6px var(--space-4);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid var(--pill-line);
+  border-radius: var(--radius-xl);
+  background: var(--pill-bg);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.pill-empty {
+  font-size: var(--font-size-sm);
+  color: var(--ink-muted);
+}
+
+.pill-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pill-title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pill-value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--coral-text);
+}
+
+.pill-year {
+  font-size: var(--font-size-xs);
+  color: var(--ink-muted);
+}
+
+.pill-year:empty {
+  display: none;
+}
