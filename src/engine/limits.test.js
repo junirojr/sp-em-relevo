@@ -5,6 +5,7 @@ import { BORDER_OFFSET, PLATE_DEPTH, REGION_BORDER_OPACITY } from "./constants.j
 import {
   applyLimitStyle,
   buildLimitGeometry,
+  computeLimitArcs,
   createLimitLines,
   readLimitStyle,
   updateLimitHeights,
@@ -134,4 +135,40 @@ test("NIV-07 applyLimitStyle updates visibility, opacity and transparency of bor
   assert.equal(limitLines.visible, false);
   assert.equal(borders.material.opacity, 1);
   assert.equal(borders.material.transparent, false);
+
+  applyLimitStyle({ borders, limitLines }, "governmentRegion");
+  assert.equal(limitLines.visible, true);
+  assert.equal(borders.material.opacity, 0.3);
+  assert.equal(borders.material.transparent, true);
+});
+
+test("NIV-07 and RGV-03 readLimitStyle returns visible limits and 0.3 opacity for governmentRegion", () => {
+  const govStyle = readLimitStyle("governmentRegion");
+  assert.equal(govStyle.isLimitVisible, true);
+  assert.equal(govStyle.borderOpacity, REGION_BORDER_OPACITY);
+});
+
+test("NIV-06, NIV-07 and RGV-03 computeLimitArcs finds shared arcs separating distinct government regions", () => {
+  const topology = createTopologyFixture();
+  const groupOfMock = (level, code) => {
+    if (level === "governmentRegion") {
+      if (code === "35001") {
+        return "rg-1";
+      }
+      return "rg-2";
+    }
+    if (level === "region") {
+      return "01";
+    }
+    return code;
+  };
+
+  const govArcs = computeLimitArcs(topology, "governmentRegion", groupOfMock);
+  assert.deepEqual(govArcs, [0]);
+
+  const regionArcs = computeLimitArcs(topology, "region", groupOfMock);
+  assert.deepEqual(regionArcs, []);
+
+  const muniArcs = computeLimitArcs(topology, "municipality", groupOfMock);
+  assert.deepEqual(muniArcs, []);
 });

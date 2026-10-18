@@ -1,6 +1,7 @@
 import {
   addRegion,
   selectByClassIndex,
+  toggleGovernmentRegion,
   toggleMunicipality,
   toggleRegion,
 } from "../../domain/selection.js";
@@ -27,6 +28,7 @@ import {
 
 export const SELECTION_TOGGLED = "selection/toggled";
 export const SELECTION_REGION_TOGGLED = "selection/regionToggled";
+export const SELECTION_GOVERNMENT_REGION_TOGGLED = "selection/governmentRegionToggled";
 export const SELECTION_REGION_ADDED = "selection/regionAdded";
 export const SELECTION_CLASS_CHOSEN = "selection/classChosen";
 export const SELECTION_UNIT_REMOVED = "selection/unitRemoved";
@@ -65,6 +67,19 @@ export function toggleRegionAction(regionCode, territory) {
   return {
     type: SELECTION_REGION_TOGGLED,
     regionCode,
+    territory,
+  };
+}
+
+/**
+ * @param {string} governmentRegionCode
+ * @param {TerritoryIndex} territory
+ * @returns {{ type: string, governmentRegionCode: string, territory: TerritoryIndex }}
+ */
+export function toggleGovernmentRegionAction(governmentRegionCode, territory) {
+  return {
+    type: SELECTION_GOVERNMENT_REGION_TOGGLED,
+    governmentRegionCode,
     territory,
   };
 }
@@ -162,6 +177,9 @@ export function reduceSelection(state, action) {
   if (action.type === SELECTION_REGION_TOGGLED) {
     return handleToggleRegion(state, /** @type {ToggleRegionAction} */ (action));
   }
+  if (action.type === SELECTION_GOVERNMENT_REGION_TOGGLED) {
+    return handleToggleGovernmentRegion(state, /** @type {any} */ (action));
+  }
   if (action.type === SELECTION_REGION_ADDED) {
     return handleAddRegion(state, /** @type {AddRegionAction} */ (action));
   }
@@ -204,6 +222,20 @@ function handleToggleMunicipality(state, action) {
  */
 function handleToggleRegion(state, action) {
   const nextCodes = toggleRegion([...state.selectedCodes], action.territory, action.regionCode);
+  return {
+    selectedCodes: nextCodes,
+    selectedClassIndex: null,
+    retentionNotice: null,
+  };
+}
+
+/**
+ * @param {SelectionState} state
+ * @param {{ type: string, governmentRegionCode: string, territory: TerritoryIndex }} action
+ * @returns {SelectionState}
+ */
+function handleToggleGovernmentRegion(state, action) {
+  const nextCodes = toggleGovernmentRegion([...state.selectedCodes], action.territory, action.governmentRegionCode);
   return {
     selectedCodes: nextCodes,
     selectedClassIndex: null,

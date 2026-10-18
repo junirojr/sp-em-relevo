@@ -1,0 +1,243 @@
+/* Alternative table styles. Follows ACE-01, ACE-02, ACE-03, ACE-04, ACE-06 and MOB-06. */
+
+#alt-table-slot {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface, #ffffff);
+  color: var(--ink, #0f172a);
+}
+
+#alt-table-slot[hidden] {
+  display: none !important;
+}
+
+.alt-table-dialog {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.alt-table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line, #e0e1e7);
+  background-color: var(--surface, #ffffff);
+  gap: 12px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.alt-table-header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.alt-table-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--ink, #0f172a);
+}
+
+.alt-table-selection-count {
+  font-size: 0.8125rem;
+  color: var(--ink-muted, #475569);
+}
+
+.alt-table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.alt-table-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 28px;
+  padding: 4px 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid var(--line, #e0e1e7);
+  background-color: var(--pill-bg, #f1f5f9);
+  color: var(--ink, #0f172a);
+  cursor: pointer;
+  box-sizing: border-box;
+  text-decoration: none;
+}
+
+.alt-table-btn:hover {
+  background-color: var(--pill-bg-hover, #e2e8f0);
+}
+
+.alt-table-btn:focus-visible,
+.alt-table-select-checkbox:focus-visible,
+.alt-table-scroll:focus-visible {
+  outline: 2px solid var(--selection, #2f4bff);
+  outline-offset: 2px;
+}
+
+.alt-table-close-btn {
+  font-weight: 600;
+}
+
+.alt-table-clear-btn {
+  color: var(--coral-text, #b42323);
+  border-color: var(--coral-line, #f8a3a3);
+}
+
+.alt-table-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 0 16px 16px;
+  outline: none;
+}
+
+.alt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  color: var(--ink, #0f172a);
+  text-align: left;
+}
+
+.alt-table-caption {
+  caption-side: top;
+  text-align: left;
+  padding: 12px 0 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--ink-muted, #475569);
+  line-height: 1.4;
+}
+
+.alt-table th,
+.alt-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line, #e0e1e7);
+  vertical-align: middle;
+  min-height: 24px;
+  box-sizing: border-box;
+}
+
+.alt-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: var(--surface, #ffffff);
+  border-bottom: 2px solid var(--line, #e0e1e7);
+  font-weight: 600;
+  color: var(--ink, #0f172a);
+}
+
+.alt-table-unit-name {
+  font-weight: 600;
+  color: var(--ink, #0f172a);
+}
+
+.alt-table-col-left {
+  text-align: left;
+}
+
+.alt-table-col-right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.alt-table-col-center {
+  text-align: center;
+}
+
+.alt-table-row:hover {
+  background-color: var(--row-hover, rgba(15, 23, 42, 0.04));
+}
+
+.alt-table-row.is-selected {
+  background-color: var(--primary-soft, rgba(13, 148, 136, 0.15));
+}
+
+.alt-table-row.is-inspected {
+  outline: 1px dashed var(--selection, #2f4bff);
+  outline-offset: -1px;
+}
+
+.alt-table-select-checkbox {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  accent-color: var(--selection, #2f4bff);
+  margin: 0;
+  vertical-align: middle;
+}
+
+.alt-table-inspect-btn {
+  min-width: 24px;
+  min-height: 24px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+}
+
+.alt-table-wcag-footer {
+  text-align: center;
+  padding: 14px 10px;
+  border-top: 1px solid var(--line, #e0e1e7);
+}
+
+.alt-table-wcag-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-muted, #475569);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* Dark mode token refinements */
+:root[data-theme="dark"] #alt-table-slot {
+  background-color: var(--surface, #1e2025);
+  color: var(--ink, #f1f3f7);
+}
+
+:root[data-theme="dark"] .alt-table-header {
+  background-color: var(--surface, #1e2025);
+}
+
+:root[data-theme="dark"] .alt-table thead th {
+  background-color: var(--surface, #1e2025);
+}
+
+:root[data-theme="dark"] .alt-table-row.is-selected {
+  background-color: rgba(13, 148, 136, 0.25);
+}
+
+/* Mobile responsive reflow (MOB-06) */
+@media (max-width: 600px) {
+  .alt-table-header {
+    padding: 8px 12px;
+  }
+
+  .alt-table-title {
+    font-size: 1rem;
+  }
+
+  .alt-table-scroll {
+    padding: 0 8px 8px;
+  }
+
+  .alt-table th,
+  .alt-table td {
+    padding: 6px 8px;
+    font-size: 0.8125rem;
+  }
+}

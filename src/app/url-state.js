@@ -1,10 +1,14 @@
 import { DEFAULT_INDICATOR_ID, isValidIndicator } from "../features/indicator/indicator-slice.js";
-import { LEVEL_MUNICIPALITY, LEVEL_REGION } from "../features/level/level-slice.js";
+import {
+  LEVEL_GOVERNMENT_REGION,
+  LEVEL_MUNICIPALITY,
+  LEVEL_REGION,
+} from "../features/level/level-slice.js";
 import { resolveAllowedTab } from "./state.js";
 
 /**
  * URL state synchronization.
- * Follows IND-07, ELE-20, E19 and R9.
+ * Follows IND-07, ELE-20, E19, R9 and RGV-03.
  *
  * @typedef {import("./state.js").TabId} TabId
  * @typedef {{ indicatorId: string, levelId: string, tab: TabId }} UrlState
@@ -31,6 +35,23 @@ const PARAM_FROM_TAB = Object.freeze({
   "second-round": "2turno",
 });
 
+const LEVEL_FROM_PARAM = Object.freeze({
+  municipio: LEVEL_MUNICIPALITY,
+  municipality: LEVEL_MUNICIPALITY,
+  governo: LEVEL_GOVERNMENT_REGION,
+  government: LEVEL_GOVERNMENT_REGION,
+  governmentregion: LEVEL_GOVERNMENT_REGION,
+  governmentRegion: LEVEL_GOVERNMENT_REGION,
+  regiao: LEVEL_REGION,
+  region: LEVEL_REGION,
+});
+
+const PARAM_FROM_LEVEL = Object.freeze({
+  municipality: "municipio",
+  governmentRegion: "governo",
+  region: "regiao",
+});
+
 const BRT_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   timeZone: "America/Sao_Paulo",
   year: "numeric",
@@ -39,7 +60,8 @@ const BRT_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
 });
 
 /**
- * Parses indicator, territorial level and active tab from query parameters (IND-07, ELE-20, E19).
+ * Parses indicator, territorial level and active tab from query parameters (IND-07, ELE-20, E19, RGV-03).
+ * Supports level in URL via ?nivel=municipio, ?nivel=governo, ?nivel=regiao or ?ver=<level>.
  * Falls back safely to defaults for missing or invalid parameters.
  *
  * @param {string | URL | Location} [locationOrSearch]
@@ -55,10 +77,13 @@ export function parseUrlState(locationOrSearch = "", options = {}) {
     indicatorId = rawIndicator;
   }
 
-  const rawLevel = searchParams.get(LEVEL_PARAM);
+  const rawLevel = searchParams.get("nivel") || searchParams.get(LEVEL_PARAM);
   let levelId = LEVEL_MUNICIPALITY;
-  if (rawLevel && isValidLevel(rawLevel)) {
-    levelId = rawLevel;
+  if (rawLevel) {
+    const resolvedLevel = resolveLevelFromParam(rawLevel);
+    if (resolvedLevel) {
+      levelId = resolvedLevel;
+    }
   }
 
   const rawTab = searchParams.get(TAB_PARAM);
@@ -66,6 +91,26 @@ export function parseUrlState(locationOrSearch = "", options = {}) {
   const tab = applyStatusToTab(resolvedTab, options.status);
 
   return { indicatorId, levelId, tab };
+}
+
+/**
+ * Resolves territorial level id from either English id or Portuguese alias.
+ * @param {string} raw
+ * @returns {string | null}
+ */
+function resolveLevelFromParam(raw) {
+  if (!raw) {
+    return null;
+  }
+  const key = String(raw).trim().toLowerCase();
+  const direct = /** @type {Record<string, string | undefined>} */ (LEVEL_FROM_PARAM)[key];
+  if (direct) {
+    return direct;
+  }
+  if (isValidLevel(raw)) {
+    return raw;
+  }
+  return null;
 }
 
 /**
@@ -157,9 +202,16 @@ export function syncUrlState(windowRef, state) {
 
   if (state.levelId && isValidLevel(state.levelId)) {
     url.searchParams.set(LEVEL_PARAM, state.levelId);
+    if (url.searchParams.has("nivel")) {
+      const alias = /** @type {Record<string, string | undefined>} */ (PARAM_FROM_LEVEL)[state.levelId];
+      if (alias) {
+        url.searchParams.set("nivel", alias);
+      }
+    }
   }
   if (!state.levelId || !isValidLevel(state.levelId)) {
     url.searchParams.delete(LEVEL_PARAM);
+    url.searchParams.delete("nivel");
   }
 
   syncTabSearchParam(url.searchParams, state.tab);
@@ -210,5 +262,5 @@ function extractSearchParams(input) {
  * @returns {boolean}
  */
 function isValidLevel(id) {
-  return id === LEVEL_MUNICIPALITY || id === LEVEL_REGION || id === "governmentRegion";
+  return id === LEVEL_MUNICIPALITY || id === LEVEL_GOVERNMENT_REGION || id === LEVEL_REGION;
 }

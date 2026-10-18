@@ -270,3 +270,86 @@ test("SEL-13 swapping the sides keeps the pair and the differences", () => {
   }
   assert.equal(swapped.metrics[0].shareOfFirst, 60);
 });
+
+test("RGV-03 and RGV-04 compare two government regions with custom title and RM São Paulo context label", () => {
+  const govTerritory = createTerritory({
+    municipalities: [
+      {
+        code: "101",
+        name: "Capital",
+        regionCode: "1",
+        governmentRegionCode: "rg-40",
+        governmentRegionName: "RG de São Paulo",
+        population: 12000000,
+        areaKm2: 1500,
+        gdpThousandBrl: 800000000,
+      },
+      {
+        code: "102",
+        name: "Campinas",
+        regionCode: "6",
+        governmentRegionCode: "rg-11",
+        governmentRegionName: "RG de Campinas",
+        population: 1200000,
+        areaKm2: 800,
+        gdpThousandBrl: 70000000,
+      },
+    ],
+    regions: [
+      { code: "1", label: "RM São Paulo" },
+      { code: "6", label: "RA Campinas" },
+    ],
+    governmentRegions: [
+      { code: "rg-40", label: "RG de São Paulo" },
+      { code: "rg-11", label: "RG de Campinas" },
+    ],
+  });
+
+  const pair = [
+    {
+      kind: /** @type {const} */ ("governmentRegion"),
+      code: "rg-40",
+      name: "RG de São Paulo",
+      codes: ["101"],
+    },
+    {
+      kind: /** @type {const} */ ("governmentRegion"),
+      code: "rg-11",
+      name: "RG de Campinas",
+      codes: ["102"],
+    },
+  ];
+
+  const model = buildCompareModel(pair, {
+    records: [
+      {
+        code: "101",
+        name: "Capital",
+        regionCode: "1",
+        governmentRegionCode: "rg-40",
+        governmentRegionName: "RG de São Paulo",
+        population: 12000000,
+        areaKm2: 1500,
+        gdpThousandBrl: 800000000,
+      },
+      {
+        code: "102",
+        name: "Campinas",
+        regionCode: "6",
+        governmentRegionCode: "rg-11",
+        governmentRegionName: "RG de Campinas",
+        population: 1200000,
+        areaKm2: 800,
+        gdpThousandBrl: 70000000,
+      },
+    ],
+    territory: govTerritory,
+    indicator: INDICATORS.population,
+    isDemoActive: false,
+    level: /** @type {any} */ ("governmentRegion"),
+  });
+
+  assert.equal(model.title, "Comparativo de Regiões de Governo");
+  assert.equal(model.sides[0].contextLabel, "igual à região administrativa");
+  assert.equal(model.sides[1].contextLabel, "1 município");
+});

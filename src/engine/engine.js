@@ -30,9 +30,11 @@ import { buildOwnedLines } from "./geometry.js";
 import {
   applyLimitStyle,
   buildLimitGeometry,
+  computeLimitArcs,
   createLimitLines,
   updateLimitHeights,
 } from "./limits.js";
+import { groupOf } from "../domain/territory.js";
 import { createPointTracker, pickMunicipalityIndex, readGroundPoint } from "./picking.js";
 import { setupContextHandlers, setupPointerHandlers } from "./pointer.js";
 import {
@@ -42,6 +44,12 @@ import {
   paintMunicipalities,
   paintSelected,
 } from "./scene.js";
+import {
+  buildSelectionGeometry,
+  createSelectionOutline,
+  updateSelectionOutlineHeights,
+} from "./selection-outline.js";
+import { WORLD_UNITS_PER_SVG_UNIT } from "./constants.js";
 
 const DEFAULT_VIEW_ANGLE_DEGREES = 55;
 const MAX_PIXEL_RATIO = 2;
@@ -71,8 +79,10 @@ const OUTLINE_LIFT_SHARE = 1;
  *     topology?: any;
  *   };
  *   palette: EnginePalette;
+ *   mode?: "indicator" | "election";
  *   onPick?: (code: string | null) => void;
  *   onPoint?: (code: string | null) => void;
+ *   onInspect?: (code: string | null) => void;
  *   onZoomChange?: (zoomTarget: number) => void;
  * }} EngineOptions
  */
@@ -112,6 +122,7 @@ const OUTLINE_LIFT_SHARE = 1;
 /**
  * @typedef {{
  *   code: string;
+ *   color?: string;
  *   heightCurrent: number;
  *   heightTarget: number;
  *   liftCurrent: number;
@@ -145,6 +156,9 @@ const OUTLINE_LIFT_SHARE = 1;
  *   setPalette: (palette: EnginePalette) => void;
  *   readPalette: () => EnginePalette;
  *   setCameraOptions: (options: CameraOptions) => void;
+ *   setMode?: (mode: "indicator" | "election") => void;
+ *   readMode?: () => "indicator" | "election";
+ *   readSelectionOutline?: () => any;
  *   frame: (indexes: number[]) => void;
  *   frameNow: (indexes: number[]) => void;
  *   zoomStep: (direction: number, screenPoint?: { x: number; y: number }) => void;
@@ -195,6 +209,9 @@ const OUTLINE_LIFT_SHARE = 1;
  *   isTiltOn: boolean;
  *   isFramingOn: boolean;
  *   limitLines: import("./limits.js").LimitLines;
+ *   selectionOutline: import("./selection-outline.js").SelectionOutline;
+ *   mode: "indicator" | "election";
+ *   limitGeometriesByLevel: Map<string, THREE.BufferGeometry>;
  *   topology?: any;
  *   mapCenter: THREE.Vector2;
  *   wheelAccumulator: { pixels: number };
@@ -206,6 +223,7 @@ const OUTLINE_LIFT_SHARE = 1;
  *   frame: FrameState;
  *   onPick: (code: string | null) => void;
  *   onPoint: (code: string | null) => void;
+ *   onInspect: (code: string | null) => void;
  *   onZoomChange?: (zoomTarget: number) => void;
  * }} EngineContext
  */
@@ -231,6 +249,7 @@ export function createEngine(options) {
   );
   positionCamera(ctx.view.camera, ctx.orbit);
   updateLineHeights(ctx.view.borders, ctx.motion, BORDER_LIFT_SHARE);
+  ctx.selectionOutline.setResolution(ctx.canvas.clientWidth || 1, ctx.canvas.clientHeight || 1);
   setPalette(ctx, options.palette);
   window.addEventListener("resize", handleResize);
   resizeView(ctx);
@@ -245,6 +264,15 @@ export function createEngine(options) {
     setPalette: (palette) => setPalette(ctx, palette),
     readPalette: () => ({ ...ctx.palette }),
     setCameraOptions: (cameraOptions) => setCameraOptions(ctx, cameraOptions),
+    setMode: (mode) => setMode(ctx, mode),
+    readMode: () => readActiveMode(ctx),
+    readSelectionOutline: () => ({
+      visible: ctx.selectionOutline.visible,
+      outerWidth: ctx.selectionOutline.outerMaterial.linewidth,
+      innerWidth: ctx.selectionOutline.innerMaterial.linewidth,
+      outerColor: `#${ctx.selectionOutline.outerMaterial.color.getHexString()}`,
+      innerColor: `#${ctx.selectionOutline.innerMaterial.color.getHexString()}`,
+    }),
     frame: (indexes) => frameSelection(ctx, indexes),
     frameNow: (indexes) => frameIndexes(ctx, indexes),
     zoomStep: (direction, screenPoint) => zoomStep(ctx, direction, screenPoint),
@@ -270,12 +298,19 @@ export function createEngine(options) {
  * @param {EngineOptions} options
  * @returns {EngineContext}
  */
-function createContext({ canvas, geometry, palette, onPick, onPoint, onZoomChange }) {
+function createContext({ canvas, geometry, palette, mode, onPick, onPoint, onInspect, onZoomChange }) {
   const { municipalities, plate } = geometry;
   const view = createScene({ plate, municipalities });
   const motion = createMapMotion(plate, municipalities);
   const limitLines = createLimitLines();
   view.mapGroup.add(limitLines);
+  const selectionOutline = createSelectionOutline();
+  selectionOutline.group.scale.set(
+    WORLD_UNITS_PER_SVG_UNIT,
+    -WORLD_UNITS_PER_SVG_UNIT,
+    WORLD_UNITS_PER_SVG_UNIT,
+  );
+  view.scene.add(selectionOutline.group);
 
   /** @type {EngineContext} */
   const ctx = {
@@ -283,6 +318,9 @@ function createContext({ canvas, geometry, palette, onPick, onPoint, onZoomChang
     renderer: createRenderer(canvas),
     view,
     limitLines,
+    selectionOutline,
+    mode: mode || "indicator",
+    limitGeometriesByLevel: new Map(),
     topology: geometry.topology,
     // Required: the limits are centered like the outlines, and a missing center shifted them off
     // the state by exactly the map center.
@@ -313,6 +351,7 @@ function createContext({ canvas, geometry, palette, onPick, onPoint, onZoomChang
     frame: createFrameState((now) => drawFrame(ctx, now)),
     onPick: onPick ?? ignoreCode,
     onPoint: onPoint ?? ignoreCode,
+    onInspect: onInspect ?? ignoreCode,
     onZoomChange: onZoomChange ?? undefined,
   };
   return ctx;
@@ -386,20 +425,49 @@ function ignoreCode(_code) {
  * @param {{ level: string; limitArcs?: readonly number[]; topology?: any }} limits
  */
 function setLimits(ctx, limits) {
+  if (limits.topology && !ctx.topology) {
+    ctx.topology = limits.topology;
+    if (ctx.selectionOutline.visible) {
+      rebuildSelectionOutline(ctx);
+    }
+  }
+  const level = limits.level;
+  const topology = limits.topology || ctx.topology;
+
   if (limits.limitArcs) {
-    const topology = limits.topology ?? ctx.topology;
     if (topology) {
-      ctx.limitLines.geometry.dispose();
-      ctx.limitLines.geometry = buildLimitGeometry({
+      const geometry = buildLimitGeometry({
         topology,
         limitArcs: limits.limitArcs,
         indexByCode: ctx.indexByCode,
         mapCenter: ctx.mapCenter,
       });
+      ctx.limitGeometriesByLevel.set(level, geometry);
+      ctx.limitLines.geometry = geometry;
       updateLimitHeights(ctx.limitLines, ctx.motion.heightCurrent);
     }
   }
-  applyLimitStyle({ borders: ctx.view.borders, limitLines: ctx.limitLines }, limits.level);
+
+  const isGroupLevel = level === "region" || level === "governmentRegion" || level === "administrativeRegion";
+  if (!limits.limitArcs && isGroupLevel) {
+    let cached = ctx.limitGeometriesByLevel.get(level);
+    if (!cached && topology) {
+      const arcs = computeLimitArcs(topology, level, groupOf);
+      cached = buildLimitGeometry({
+        topology,
+        limitArcs: arcs,
+        indexByCode: ctx.indexByCode,
+        mapCenter: ctx.mapCenter,
+      });
+      ctx.limitGeometriesByLevel.set(level, cached);
+    }
+    if (cached) {
+      ctx.limitLines.geometry = cached;
+      updateLimitHeights(ctx.limitLines, ctx.motion.heightCurrent);
+    }
+  }
+
+  applyLimitStyle({ borders: ctx.view.borders, limitLines: ctx.limitLines }, level);
   if (ctx.limitLines.visible) {
     updateLimitHeights(ctx.limitLines, ctx.motion.heightCurrent);
   }
@@ -416,6 +484,7 @@ function wirePointer(ctx) {
     onPointerMove: (ndc) => markPointerMoved(ctx, ndc),
     onPointerLeave: () => leaveMap(ctx),
     onClick: (ndc) => pickOnClick(ctx, ndc),
+    onInspect: (ndc) => pickOnInspect(ctx, ndc),
     onPanStart: () => ctx.pointTracker.clearPointed(),
     onPan: (delta) => panBy(ctx, delta),
     onWheel: (wheel) => handleWheel(ctx, wheel),
@@ -453,6 +522,9 @@ function handleContextRestored(ctx) {
   updateLineHeights(ctx.view.borders, ctx.motion, BORDER_LIFT_SHARE);
   if (ctx.limitLines.visible) {
     updateLimitHeights(ctx.limitLines, ctx.motion.heightCurrent);
+  }
+  if (ctx.selectionOutline.visible) {
+    updateSelectionOutlineHeights(ctx.selectionOutline, ctx.motion.heightCurrent);
   }
   requestFrame(ctx);
 }
@@ -498,6 +570,15 @@ function pickOnClick(ctx, ndc) {
 }
 
 /**
+ * @param {EngineContext} ctx
+ * @param {THREE.Vector2} ndc
+ */
+function pickOnInspect(ctx, ndc) {
+  ctx.pointerNdc.copy(ndc);
+  ctx.onInspect(readCode(ctx, pickAtPointer(ctx)));
+}
+
+/**
  * The camera moves at once, so the next pointer move reads the ground with the camera that
  * already holds this pan, however many moves arrive in one frame.
  * @param {EngineContext} ctx
@@ -516,20 +597,30 @@ function panBy(ctx, delta) {
  * @returns {number | undefined}
  */
 function pickAtPointer(ctx) {
-  const pointedCandidates =
-    ctx.raise.pointedIndexes instanceof Set
-      ? [...ctx.raise.pointedIndexes]
-      : ctx.raise.pointed instanceof Set
-        ? [...ctx.raise.pointed]
-        : ctx.raise.pointed !== null && ctx.raise.pointed !== undefined
-          ? [ctx.raise.pointed]
-          : [];
+  const pointedCandidates = readPointedCandidates(ctx.raise);
   const candidates = [
     ctx.pointTracker.readPointedIndex(),
     ...pointedCandidates,
     ...ctx.raise.selected,
   ];
   return pickMunicipalityIndex(ctx.pointerNdc, ctx.pickTarget, candidates);
+}
+
+/**
+ * @param {RaiseState} raise
+ * @returns {number[]}
+ */
+function readPointedCandidates(raise) {
+  if (raise.pointedIndexes instanceof Set) {
+    return [...raise.pointedIndexes];
+  }
+  if (raise.pointed instanceof Set) {
+    return [...raise.pointed];
+  }
+  if (raise.pointed !== null && raise.pointed !== undefined) {
+    return [raise.pointed];
+  }
+  return [];
 }
 
 /**
@@ -612,6 +703,9 @@ function stepMapHeights(ctx) {
   if (ctx.limitLines.visible) {
     updateLimitHeights(ctx.limitLines, ctx.motion.heightCurrent);
   }
+  if (ctx.selectionOutline.visible) {
+    updateSelectionOutlineHeights(ctx.selectionOutline, ctx.motion.heightCurrent);
+  }
   return isStillMoving;
 }
 
@@ -639,6 +733,7 @@ function resizeView(ctx) {
   camera.aspect = clientWidth / clientHeight;
   camera.updateProjectionMatrix();
   ctx.orbit.distance = computeFitDistance(camera, mapSize, ctx.orbit.viewAngleDegrees);
+  ctx.selectionOutline.setResolution(clientWidth, clientHeight);
   requestFrame(ctx);
 }
 
@@ -671,6 +766,10 @@ function paintCurrentColors(ctx) {
   if (!ctx.palette.selection) {
     return;
   }
+  const isElection = readActiveMode(ctx) === "election";
+  if (isElection) {
+    return;
+  }
   paintSelected(target, ctx.raise.selected, ctx.palette.selection);
 }
 
@@ -686,6 +785,7 @@ function setRaised(ctx, raised) {
   ctx.raise.selected = selected;
   if (isSelectionChanged) {
     paintCurrentColors(ctx);
+    rebuildSelectionOutline(ctx);
   }
   refreshRaise(ctx);
 }
@@ -721,8 +821,19 @@ function setLiftEnabled(ctx, { pointed, selected }) {
  * @param {EngineContext} ctx
  */
 function refreshRaise(ctx) {
-  retargetLifts(ctx.motion, ctx.raise);
+  const isElection = readActiveMode(ctx) === "election";
+  if (isElection) {
+    const electionRaise = {
+      ...ctx.raise,
+      isLiftEnabled: { pointed: false, selected: false },
+    };
+    retargetLifts(ctx.motion, electionRaise);
+  }
+  if (!isElection) {
+    retargetLifts(ctx.motion, ctx.raise);
+  }
   rebuildRaisedOutline(ctx);
+  rebuildSelectionOutline(ctx);
   requestFrame(ctx);
 }
 
@@ -731,11 +842,94 @@ function refreshRaise(ctx) {
  */
 function rebuildRaisedOutline(ctx) {
   const { raisedOutline } = ctx.view;
-  const raisedIndexes = readRaisedIndexes(ctx.raise);
+  const isElection = readActiveMode(ctx) === "election";
+  /** @type {number[]} */
+  let raisedIndexes = [];
+  if (isElection) {
+    if (ctx.raise.pointedIndexes instanceof Set) {
+      raisedIndexes = [...ctx.raise.pointedIndexes];
+    }
+    if (raisedIndexes.length === 0 && ctx.raise.pointed !== null && ctx.raise.pointed !== undefined) {
+      if (typeof ctx.raise.pointed === "number") {
+        raisedIndexes = [ctx.raise.pointed];
+      }
+    }
+  }
+  if (!isElection) {
+    raisedIndexes = readRaisedIndexes(ctx.raise);
+  }
   raisedOutline.geometry.dispose();
   raisedOutline.geometry = buildOwnedLines(ctx.municipalities, raisedIndexes);
   raisedOutline.visible = raisedIndexes.length > 0;
   updateLineHeights(raisedOutline, ctx.motion, OUTLINE_LIFT_SHARE);
+}
+
+/**
+ * Rebuilds the strong perimeter outline for selected municipalities in election mode (ELE-12, ELE-14).
+ * @param {EngineContext} ctx
+ */
+function rebuildSelectionOutline(ctx) {
+  const isElection = readActiveMode(ctx) === "election";
+  if (!isElection) {
+    ctx.selectionOutline.setVisible(false);
+    return;
+  }
+  if (ctx.raise.selected.size === 0) {
+    ctx.selectionOutline.setVisible(false);
+    return;
+  }
+
+  const selectedCodes = [];
+  for (const index of ctx.raise.selected) {
+    selectedCodes.push(ctx.municipalities[index].code);
+  }
+
+  const geometry = buildSelectionGeometry({
+    topology: ctx.topology,
+    selectedCodes,
+    municipalities: ctx.municipalities,
+    indexByCode: ctx.indexByCode,
+    mapCenter: ctx.mapCenter,
+  });
+
+  if (!geometry) {
+    ctx.selectionOutline.setVisible(false);
+    return;
+  }
+
+  ctx.selectionOutline.updateGeometry(geometry);
+  updateSelectionOutlineHeights(ctx.selectionOutline, ctx.motion.heightCurrent);
+  ctx.selectionOutline.setVisible(true);
+}
+
+/**
+ * Reads the active mode from context or the document element dataset (ELE-12, ELE-16).
+ * @param {EngineContext} ctx
+ * @returns {"indicator" | "election"}
+ */
+function readActiveMode(ctx) {
+  if (ctx.mode === "election") {
+    return "election";
+  }
+  if (typeof document !== "undefined" && document.documentElement?.dataset?.mode === "election") {
+    return "election";
+  }
+  return "indicator";
+}
+
+/**
+ * Sets the active mode and repaints colors and outlines (ELE-12, ELE-15).
+ * @param {EngineContext} ctx
+ * @param {"indicator" | "election"} mode
+ */
+function setMode(ctx, mode) {
+  if (ctx.mode === mode) {
+    return;
+  }
+  ctx.mode = mode;
+  paintCurrentColors(ctx);
+  refreshRaise(ctx);
+  requestFrame(ctx);
 }
 
 /**
@@ -1121,8 +1315,11 @@ function inspect(ctx, index) {
     return null;
   }
   const { motion } = ctx;
+  const instanceColor = new THREE.Color();
+  ctx.view.plate.getColorAt(ctx.municipalities[index].instanceId, instanceColor);
   return {
     code: ctx.municipalities[index].code,
+    color: `#${instanceColor.getHexString()}`,
     heightCurrent: motion.heightCurrent[index],
     heightTarget: motion.heightTargets[index],
     liftCurrent: motion.liftCurrent[index],
@@ -1170,6 +1367,12 @@ function disposeEngine(ctx) {
   borders.geometry.dispose();
   raisedOutline.geometry.dispose();
   ground.geometry.dispose();
+  for (const geometry of ctx.limitGeometriesByLevel.values()) {
+    geometry.dispose();
+  }
+  ctx.limitGeometriesByLevel.clear();
   ctx.limitLines.geometry.dispose();
   ctx.limitLines.material.dispose();
+  ctx.selectionOutline.dispose();
+  ctx.view.scene.remove(ctx.selectionOutline.group);
 }

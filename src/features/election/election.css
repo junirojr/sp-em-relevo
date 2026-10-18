@@ -1,0 +1,106 @@
+/**
+ * Election mode styles (ELE-16, ELE-18, ELE-19, MOB-01, MOB-06, ACE-04).
+ */
+
+/* Mode selector group in sidebar header */
+#mode-selector-slot {
+  display: block;
+  margin-bottom: var(--space-xs, 4px);
+  width: 100%;
+}
+
+.mode-selector-group {
+  border: 1px solid var(--border-color, #70737f);
+  border-radius: var(--radius-sm, 6px);
+  padding: var(--space-xs, 4px) var(--space-sm, 8px);
+  margin: 0;
+  background-color: var(--card-bg, rgba(25, 26, 31, 0.6));
+}
+
+.mode-selector-legend {
+  font-size: var(--font-size-xs, 11px);
+  font-weight: 600;
+  color: var(--text-muted, #858a96);
+  padding: 0 var(--space-xs, 4px);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mode-selector-options {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-sm, 8px);
+  flex-wrap: wrap;
+}
+
+.mode-selector-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs, 4px);
+  font-size: var(--font-size-sm, 13px);
+  color: var(--text-primary, #eceef4);
+  cursor: pointer;
+  min-height: 28px;
+  min-width: 24px;
+  padding: 2px 4px;
+  border-radius: var(--radius-xs, 4px);
+  user-select: none;
+}
+
+.mode-selector-option:hover {
+  background-color: var(--hover-bg, rgba(255, 255, 255, 0.06));
+}
+
+.mode-selector-radio {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--text-primary, #eceef4);
+}
+
+.mode-selector-label-text {
+  white-space: nowrap;
+}
+
+/* Chrome neutralization in election mode (ELE-16) */
+[data-mode="election"] {
+  --brand-accent-color: var(--text-muted, #858a96);
+}
+
+[data-mode="election"] .brand-logo,
+[data-mode="election"] .app-title-accent,
+[data-mode="election"] .period-badge {
+  color: var(--text-muted, #858a96);
+  border-color: var(--border-color, #70737f);
+}
+
+[data-mode="election"] :focus-visible {
+  outline: 2px solid var(--border-color, #70737f) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px var(--map-bg, #191a1f) !important;
+}
+
+/* Hiding indicator controls in election mode (ELE-19) */
+[data-mode="election"] #indicator-container,
+[data-mode="election"] .stage-banner,
+[data-mode="election"] .indicator-notice,
+[data-mode="election"] .demo-settings-row,
+[data-mode="election"] .appearance-group-color,
+[data-mode="election"] .height-mode-option-step {
+  display: none !important;
+}
+
+/* Responsive adjustments for mobile (MOB-01, MOB-06) */
+@media (max-width: 600px) {
+  .mode-selector-options {
+    gap: 4px;
+  }
+
+  .mode-selector-option {
+    font-size: var(--font-size-xs, 12px);
+    min-height: 24px;
+  }
+}

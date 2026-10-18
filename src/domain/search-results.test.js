@@ -221,3 +221,46 @@ test("SEL-16 Recentes keeps up to three picks, the newest first, without repeats
   assert.equal(recents.length, RECENT_LIMIT);
   assert.deepEqual(labelsOf(recents), ["RA Campinas", "Sumaré", "Guaraci"]);
 });
+
+test("RGV-03 findSearchResults and filter support governmentRegion entries", () => {
+  const govTerritory = createTerritory({
+    municipalities: [
+      {
+        code: "3500001",
+        name: "Adamantina",
+        regionCode: "1",
+        governmentRegionCode: "rg-1",
+        governmentRegionName: "RG de Adamantina",
+        population: 34000,
+        areaKm2: 400,
+        gdpThousandBrl: 1500000,
+      },
+    ],
+    regions: [{ code: "1", label: "RA Presidente Prudente" }],
+    governmentRegions: [{ code: "rg-1", label: "RG de Adamantina" }],
+  });
+
+  const govEntries = [
+    { kind: /** @type {const} */ ("governmentRegion"), code: "rg-1", label: "RG de Adamantina", key: "rg de adamantina" },
+    { kind: /** @type {const} */ ("municipality"), code: "3500001", label: "Adamantina", key: "adamantina" },
+  ];
+
+  const govContext = {
+    records: govTerritory.municipalitiesInGovernmentRegion("rg-1"),
+    territory: govTerritory,
+    indicator: INDICATORS.population,
+    isDemoActive: false,
+    level: /** @type {any} */ ("governmentRegion"),
+  };
+
+  const results = findSearchResults({
+    entries: govEntries,
+    query: "adamantina",
+    filter: "governmentRegions",
+    context: govContext,
+  });
+
+  assert.equal(results.foundCount, 1);
+  assert.equal(results.results[0].entry.kind, "governmentRegion");
+  assert.equal(results.results[0].entry.code, "rg-1");
+});

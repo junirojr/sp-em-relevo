@@ -1,9 +1,12 @@
 import * as THREE from "three";
-import { decodeArc, readArcUsage } from "../domain/topology.js";
+import { decodeArc, readArcUsage, readSharedArcs } from "../domain/topology.js";
+import { groupOf } from "../domain/territory.js";
 import { BORDER_OFFSET, REGION_BORDER_OPACITY } from "./constants.js";
 import { readTopHeight } from "./frame-loop.js";
 
 const REGION_LEVEL = "region";
+const GOVERNMENT_REGION_LEVEL = "governmentRegion";
+const ADMINISTRATIVE_REGION_LEVEL = "administrativeRegion";
 const LIMIT_OFFSET = BORDER_OFFSET * 2;
 const VISIBLE_BORDER_OPACITY = 1;
 
@@ -25,6 +28,23 @@ export function createLimitLines() {
   limitLines.frustumCulled = false;
   limitLines.visible = false;
   return limitLines;
+}
+
+/**
+ * Computes the shared boundary arcs separating distinct territorial groups.
+ * @param {Topology} topology
+ * @param {string} level
+ * @param {(level: string, code: string) => string} [groupOfFn]
+ * @returns {number[]}
+ */
+export function computeLimitArcs(topology, level, groupOfFn = groupOf) {
+  if (!topology) {
+    return [];
+  }
+  if (level === "municipality") {
+    return [];
+  }
+  return readSharedArcs(topology, (code) => groupOfFn(level, code));
 }
 
 /**
@@ -88,8 +108,8 @@ export function updateLimitHeights(limitLines, heightCurrent) {
 }
 
 /**
- * Shows the limits and fades the municipal borders at the region level, so the regions read at a
- * glance; at any other level the limits hide and the borders come back.
+ * Shows the limits and fades the municipal borders at region and governmentRegion levels, so the
+ * groups read at a glance; at municipality level the limits hide and the borders come back.
  * @param {{ borders: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>; limitLines: LimitLines }} lines
  * @param {string} level
  */
@@ -106,7 +126,7 @@ export function applyLimitStyle({ borders, limitLines }, level) {
  * @returns {{ isLimitVisible: boolean; borderOpacity: number }}
  */
 export function readLimitStyle(level) {
-  if (level === REGION_LEVEL) {
+  if (level === REGION_LEVEL || level === ADMINISTRATIVE_REGION_LEVEL || level === GOVERNMENT_REGION_LEVEL) {
     return { isLimitVisible: true, borderOpacity: REGION_BORDER_OPACITY };
   }
   return { isLimitVisible: false, borderOpacity: VISIBLE_BORDER_OPACITY };

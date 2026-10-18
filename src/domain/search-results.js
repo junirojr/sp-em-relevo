@@ -12,8 +12,8 @@ import { findSuggestions, normalizeName } from "./search.js";
  * @typedef {import("./compare.js").CompareContext} CompareContext
  * @typedef {import("./territory.js").TerritoryIndex} TerritoryIndex
  *
- * @typedef {"all" | "regions" | "mostPopulous"} SearchFilter
- *   "all" keeps every match, "regions" keeps only regions, "mostPopulous" orders by population.
+ * @typedef {"all" | "regions" | "governmentRegions" | "mostPopulous"} SearchFilter
+ *   "all" keeps every match, "regions" keeps only regions, "governmentRegions" keeps government regions, "mostPopulous" orders by population.
  *
  * @typedef {{ text: string, isMatch: boolean }} NamePart
  *   A slice of the label; `isMatch` marks the slice the query found.
@@ -187,6 +187,9 @@ function applyFilter(matches, filter, territory) {
   if (filter === "regions") {
     return matches.filter((entry) => entry.kind === "region");
   }
+  if (filter === "governmentRegions") {
+    return matches.filter((entry) => entry.kind === "governmentRegion");
+  }
   if (filter === "mostPopulous") {
     return orderByPopulation(matches, territory);
   }
@@ -249,6 +252,13 @@ function toPanelUnit(entry, territory) {
   if (entry.kind === "region") {
     const codes = territory.municipalitiesInRegion(entry.code).map((record) => record.code);
     return { kind: "region", code: entry.code, name: entry.label, codes };
+  }
+  if (entry.kind === "governmentRegion") {
+    let codes = [];
+    if (typeof territory.municipalitiesInGovernmentRegion === "function") {
+      codes = territory.municipalitiesInGovernmentRegion(entry.code).map((record) => record.code);
+    }
+    return { kind: "governmentRegion", code: entry.code, name: entry.label, codes };
   }
   const name = territory.nameByCode(entry.code) ?? entry.label;
   return { kind: "municipality", code: entry.code, name, codes: [entry.code] };

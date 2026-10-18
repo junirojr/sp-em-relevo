@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "license": {
+    "condition": "CC-BY",
+    "credit": "Fonte: TSE, Portal de Dados Abertos; dados agregados por este projeto"
+  },
+  "retrievedAt": "2026-10-18T12:00:00.000Z",
+  "election": {
+    "year": 2026,
+    "round": 1,
+    "roundName": "1o Turno",
+    "pleito": "3220",
+    "federalElectionCode": "6257",
+    "stateElectionCode": "6259"
+  },
+  "offices": [
+    {
+      "id": "presidente",
+      "code": 1,
+      "name": "Presidente",
+      "file": "data/election/presidente-1t.json"
+    },
+    {
+      "id": "governador",
+      "code": 3,
+      "name": "Governador",
+      "file": "data/election/governador-1t.json"
+    },
+    {
+      "id": "senador",
+      "code": 5,
+      "name": "Senador",
+      "file": "data/election/senador-1t.json"
+    },
+    {
+      "id": "deputado-federal",
+      "code": 6,
+      "name": "Deputado Federal",
+      "file": "data/election/deputado-federal-1t.json"
+    },
+    {
+      "id": "deputado-estadual",
+      "code": 7,
+      "name": "Deputado Estadual",
+      "file": "data/election/deputado-estadual-1t.json"
+    }
+  ],
+  "stateSummary": {
+    "electorate": 34122892,
+    "turnout": 26431992,
+    "turnoutPct": 77.46,
+    "abstentions": 7690900,
+    "abstentionsPct": 22.54,
+    "municipalitiesCount": 645,
+    "zonesCount": 779
+  }
+}

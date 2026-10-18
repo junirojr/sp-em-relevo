@@ -278,7 +278,7 @@ export function mountPanelView(documentRef, dispatch, options = {}) {
       /** @type {IndicatorDefinition} */ indicator,
       /** @type {"municipality" | "region"} */ level,
       /** @type {MunicipalityRecord[]} */ municipalities,
-      /** @type {string | null | undefined} */ [inspectedCode],
+      /** @type {string | null | undefined} */ inspectedCode = null,
     ) => {
       cachedSelectedCodes = selectedCodes;
       cachedRetentionNotice = retentionNotice;

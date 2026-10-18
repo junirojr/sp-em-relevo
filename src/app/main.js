@@ -35,9 +35,11 @@ import { mountClearView } from "../features/selection/clear-view.js";
 import { mountPanelView } from "../features/selection/panel-view.js";
 import { mountSearchView } from "../features/selection/search-view.js";
 import {
+  toggleGovernmentRegionAction,
   toggleMunicipalityAction,
   toggleRegionAction,
 } from "../features/selection/selection-slice.js";
+import { mountTableFeature } from "../features/table/table-slice.js";
 import {
   buildAppearanceViewModel,
   createAppearanceView,
@@ -289,6 +291,13 @@ export async function bootApplication(documentRef = document, windowRef = window
           const region = territory.regionOf(code);
           if (region) {
             store.dispatch(toggleRegionAction(region.code, territory));
+          }
+          return;
+        }
+        if (state.level.id === "governmentRegion") {
+          const govRegion = territory.governmentRegionOf(code);
+          if (govRegion) {
+            store.dispatch(toggleGovernmentRegionAction(govRegion.code, territory));
           }
           return;
         }
@@ -597,14 +606,16 @@ export async function bootApplication(documentRef = document, windowRef = window
       selectors.selectActiveIndicator,
       selectors.selectActiveRecords,
       (state) => state.level.id,
+      (state) => state.pointer?.inspectedCode ?? null,
     ],
-    (selectedCodes, selectedClassIndex, retentionNotice, def, records, levelId) => ({
+    (selectedCodes, selectedClassIndex, retentionNotice, def, records, levelId, inspectedCode) => ({
       selectedCodes,
       selectedClassIndex,
       retentionNotice,
       def,
       records,
       levelId,
+      inspectedCode,
     }),
   );
 
@@ -648,7 +659,7 @@ export async function bootApplication(documentRef = document, windowRef = window
 
   const selectionBinding = bindToChange(
     selectSelectionInputs,
-    ({ selectedCodes, selectedClassIndex, retentionNotice, def, records, levelId }) => {
+    ({ selectedCodes, selectedClassIndex, retentionNotice, def, records, levelId, inspectedCode }) => {
       if (clearView) {
         clearView.update(store.getState().selection);
       }
@@ -670,7 +681,12 @@ export async function bootApplication(documentRef = document, windowRef = window
           def,
           /** @type {any} */ (levelId),
           records,
+          inspectedCode,
         );
+      }
+
+      if (selectionContainer && selectedCodes.length > 0) {
+        selectionContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
     },
   );
@@ -762,6 +778,7 @@ export async function bootApplication(documentRef = document, windowRef = window
     ],
   });
   attachProjection(store, project);
+  mountTableFeature(documentRef, { store, territory, data });
 
   installTestHooks({
     windowRef,

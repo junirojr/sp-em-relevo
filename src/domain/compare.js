@@ -11,7 +11,7 @@ import { buildPanelUnits } from "./selection.js";
  * @typedef {import("./territory.js").TerritoryIndex} TerritoryIndex
  * @typedef {import("./territory.js").MunicipalityRecord} MunicipalityRecord
  * @typedef {import("./indicator.js").IndicatorDefinition} IndicatorDefinition
- * @typedef {import("./classification.js").TerritorialLevel} TerritorialLevel
+ * @typedef {import("./classification.js").TerritorialLevel | "governmentRegion"} TerritorialLevel
  *
  * @typedef {[PanelUnit, PanelUnit]} ComparedPair the first panel row is A, the second is B.
  *
@@ -90,7 +90,7 @@ const readStandings = memoizeLast(buildStandings);
  * @returns {CompareModel | null}
  */
 export function readSelectionComparison(selectedCodes, context) {
-  const pair = readComparedPair(selectedCodes, context.territory);
+  const pair = readComparedPair(selectedCodes, context.territory, context.level);
   if (pair === null) {
     return null;
   }
@@ -102,10 +102,11 @@ export function readSelectionComparison(selectedCodes, context) {
  *
  * @param {readonly string[]} selectedCodes
  * @param {TerritoryIndex} territory
+ * @param {string} [level]
  * @returns {ComparedPair | null} null with 0, 1, 3 or more units.
  */
-export function readComparedPair(selectedCodes, territory) {
-  const units = buildPanelUnits([...selectedCodes], territory);
+export function readComparedPair(selectedCodes, territory, level = "region") {
+  const units = buildPanelUnits([...selectedCodes], territory, level);
   if (units.length !== 2) {
     return null;
   }
@@ -242,11 +243,13 @@ function buildStandings(context) {
       readUnitRecords(readRegionCodes(context.territory, region.code), recordsByCode),
     ),
   }));
+  const governmentRegions = readGovernmentRegionStandings(context, recordsByCode);
   return {
     recordsByCode,
     municipalities,
     regions,
-    breaks: computeLegendBreaks(context.level, municipalities, regions),
+    governmentRegions,
+    breaks: computeLegendBreaks(context.level, municipalities, regions, governmentRegions),
   };
 }
 
@@ -256,16 +259,51 @@ function buildStandings(context) {
  * @param {TerritorialLevel} level
  * @param {StandingEntry[]} municipalities
  * @param {StandingEntry[]} regions
+ * @param {StandingEntry[]} [governmentRegions]
  * @returns {number[]}
  */
-function computeLegendBreaks(level, municipalities, regions) {
+function computeLegendBreaks(level, municipalities, regions, governmentRegions = []) {
   if (level === "region") {
     return computeBreaks(readDistinctPositiveValues(regions), "region");
+  }
+  if (level === "governmentRegion") {
+    return computeBreaks(readDistinctPositiveValues(governmentRegions), "municipality");
   }
   return computeBreaks(
     municipalities.map((entry) => entry.value),
     "municipality",
   );
+}
+
+/**
+ * @param {CompareContext} context
+ * @param {Map<string, MunicipalityRecord>} recordsByCode
+ * @returns {StandingEntry[]}
+ */
+function readGovernmentRegionStandings(context, recordsByCode) {
+  if (typeof context.territory.governmentRegions !== "function") {
+    return [];
+  }
+  return context.territory.governmentRegions().map((region) => ({
+    code: region.code,
+    name: region.label,
+    value: readAggregateValue(
+      context.indicator,
+      readUnitRecords(readGovernmentRegionCodes(context.territory, region.code), recordsByCode),
+    ),
+  }));
+}
+
+/**
+ * @param {TerritoryIndex} territory
+ * @param {string} code
+ * @returns {string[]}
+ */
+function readGovernmentRegionCodes(territory, code) {
+  if (typeof territory.municipalitiesInGovernmentRegion !== "function") {
+    return [];
+  }
+  return territory.municipalitiesInGovernmentRegion(code).map((record) => record.code);
 }
 
 /**
@@ -325,6 +363,9 @@ function readEntriesOfKind(unit, standings) {
   if (unit.kind === "region") {
     return standings.regions;
   }
+  if (unit.kind === "governmentRegion") {
+    return standings.governmentRegions ?? [];
+  }
   return standings.municipalities;
 }
 
@@ -336,6 +377,12 @@ function readEntriesOfKind(unit, standings) {
  * @returns {string}
  */
 function readContextLabel(unit, territory) {
+  if (unit.kind === "governmentRegion") {
+    if (unit.code === "rg-40" || unit.name.includes("São Paulo")) {
+      return "igual à região administrativa";
+    }
+    return formatMunicipalityCount(unit.codes.length);
+  }
   if (unit.kind === "region") {
     return formatMunicipalityCount(unit.codes.length);
   }
@@ -378,6 +425,9 @@ function readCompareTitle(pair) {
   }
   if (kinds.has("region")) {
     return REGION_TITLE;
+  }
+  if (kinds.has("governmentRegion")) {
+    return "Comparativo de Regiões de Governo";
   }
   return MUNICIPALITY_TITLE;
 }

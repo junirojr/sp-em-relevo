@@ -86,3 +86,33 @@ test("SEL-02 findSuggestions returns nothing for a blank query", () => {
 test("SEL-02 findSuggestions honors the limit", () => {
   assert.equal(findSuggestions(entries, "a", 2).length, 2);
 });
+
+test("RGV-03 buildSearchEntries includes government regions when present in territory", () => {
+  const territoryWithGov = createTerritory({
+    municipalities: [
+      {
+        code: "10",
+        name: "Adamantina",
+        regionCode: "R1",
+        governmentRegionCode: "rg-1",
+        governmentRegionName: "RG de Adamantina",
+        population: 1,
+        areaKm2: 1,
+        gdpThousandBrl: 1,
+      },
+    ],
+    regions: [{ code: "R1", label: "RA Presidente Prudente" }],
+    governmentRegions: [{ code: "rg-1", label: "RG de Adamantina" }],
+  });
+
+  const withGovEntries = buildSearchEntries(territoryWithGov);
+  assert.equal(withGovEntries.length, 3);
+
+  const foundGov = findSuggestions(withGovEntries, "adamantina");
+  assert.equal(foundGov.length, 2);
+
+  const govEntry = foundGov.find((entry) => entry.kind === "governmentRegion");
+  assert.ok(govEntry);
+  assert.equal(govEntry?.code, "rg-1");
+  assert.equal(govEntry?.label, "RG de Adamantina");
+});

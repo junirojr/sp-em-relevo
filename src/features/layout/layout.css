@@ -11,6 +11,29 @@
   overflow: hidden;
 }
 
+/* Skip link for keyboard accessibility (ACE-02) */
+
+.skip-link {
+  position: absolute;
+  top: -9999px;
+  left: -9999px;
+  z-index: 10000;
+  padding: 8px 16px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 2px solid var(--coral-500);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.25);
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  top: 12px;
+  left: 12px;
+}
+
 /* Top bar: floats over the column and the stage so the canvas keeps the full viewport height */
 
 .topbar {
@@ -435,6 +458,14 @@
 }
 
 @media (max-width: 900px) {
+  .topbar {
+    padding: 0 var(--space-3);
+  }
+
+  .period-badge {
+    display: none;
+  }
+
   .header-stats {
     display: none;
   }
@@ -459,6 +490,7 @@
     left: 0;
     right: 0;
     bottom: 0;
+    z-index: 30;
     width: 100%;
     min-width: 100%;
     max-width: 100%;

@@ -1,6 +1,6 @@
 /**
  * @typedef {import("./territory.js").TerritoryIndex} TerritoryIndex
- * @typedef {{ kind: "municipality" | "region", code: string, label: string, key: string }} SearchEntry
+ * @typedef {{ kind: "municipality" | "region" | "governmentRegion", code: string, label: string, key: string }} SearchEntry
  */
 
 const DEFAULT_LIMIT = 8;
@@ -20,15 +20,16 @@ export function normalizeName(text) {
 }
 
 /**
- * Builds one entry per municipality and per region. Repeated municipality
- * names get the region label appended: "Nome (região)".
+ * Builds one entry per municipality, per administrative region and per government region.
+ * Repeated municipality names get the region label appended: "Nome (região)".
  * @param {TerritoryIndex} territory
  * @returns {SearchEntry[]}
  */
 export function buildSearchEntries(territory) {
   const municipalityEntries = buildMunicipalityEntries(territory);
   const regionEntries = territory.regions().map(makeRegionEntry);
-  return [...municipalityEntries, ...regionEntries];
+  const governmentRegionEntries = readGovernmentRegionEntries(territory);
+  return [...municipalityEntries, ...regionEntries, ...governmentRegionEntries];
 }
 
 /**
@@ -102,6 +103,30 @@ function labelFor(record, nameCounts, territory) {
 function makeRegionEntry(region) {
   return {
     kind: "region",
+    code: region.code,
+    label: region.label,
+    key: normalizeName(region.label),
+  };
+}
+
+/**
+ * @param {TerritoryIndex} territory
+ * @returns {SearchEntry[]}
+ */
+function readGovernmentRegionEntries(territory) {
+  if (typeof territory.governmentRegions !== "function") {
+    return [];
+  }
+  return territory.governmentRegions().map(makeGovernmentRegionEntry);
+}
+
+/**
+ * @param {import("./territory.js").RegionRecord} region
+ * @returns {SearchEntry}
+ */
+function makeGovernmentRegionEntry(region) {
+  return {
+    kind: "governmentRegion",
     code: region.code,
     label: region.label,
     key: normalizeName(region.label),

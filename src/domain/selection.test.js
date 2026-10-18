@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  addGovernmentRegion,
   addRegion,
   buildPanelUnits,
   selectByClassIndex,
+  toggleGovernmentRegion,
   toggleMunicipality,
   toggleRegion,
 } from "./selection.js";
@@ -131,4 +133,107 @@ test("SEL-06 buildPanelUnits returns no rows for an empty selection", () => {
 
 test("SEL-06 buildPanelUnits skips codes unknown to the territory", () => {
   assert.deepEqual(buildPanelUnits(["zz"], territory), []);
+});
+
+test("RGV-03 toggleGovernmentRegion and addGovernmentRegion manage full government regions", () => {
+  const govTerritory = createTerritory({
+    municipalities: [
+      {
+        code: "1",
+        name: "Alfa",
+        regionCode: "R1",
+        governmentRegionCode: "rg-1",
+        governmentRegionName: "RG Um",
+        population: 1,
+        areaKm2: 1,
+        gdpThousandBrl: 1,
+      },
+      {
+        code: "2",
+        name: "Beta",
+        regionCode: "R1",
+        governmentRegionCode: "rg-1",
+        governmentRegionName: "RG Um",
+        population: 1,
+        areaKm2: 1,
+        gdpThousandBrl: 1,
+      },
+      {
+        code: "3",
+        name: "Gama",
+        regionCode: "R2",
+        governmentRegionCode: "rg-2",
+        governmentRegionName: "RG Dois",
+        population: 1,
+        areaKm2: 1,
+        gdpThousandBrl: 1,
+      },
+    ],
+    regions: [
+      { code: "R1", label: "RA Um" },
+      { code: "R2", label: "RA Dois" },
+    ],
+    governmentRegions: [
+      { code: "rg-1", label: "RG Um" },
+      { code: "rg-2", label: "RG Dois" },
+    ],
+  });
+
+  assert.deepEqual(toggleGovernmentRegion(["1"], govTerritory, "rg-1"), ["1", "2"]);
+  assert.deepEqual(toggleGovernmentRegion(["1", "2"], govTerritory, "rg-1"), []);
+  assert.deepEqual(addGovernmentRegion(["3"], govTerritory, "rg-1"), ["3", "1", "2"]);
+});
+
+test("RGV-03 buildPanelUnits at governmentRegion level collapses a fully selected government region", () => {
+  const govTerritory = createTerritory({
+    municipalities: [
+      {
+        code: "1",
+        name: "Alfa",
+        regionCode: "R1",
+        governmentRegionCode: "rg-1",
+        governmentRegionName: "RG Um",
+        population: 1,
+        areaKm2: 1,
+        gdpThousandBrl: 1,
+      },
+      {
+        code: "2",
+        name: "Beta",
+        regionCode: "R1",
+        governmentRegionCode: "rg-1",
+        governmentRegionName: "RG Um",
+        population: 1,
+        areaKm2: 1,
+        gdpThousandBrl: 1,
+      },
+      {
+        code: "3",
+        name: "Gama",
+        regionCode: "R2",
+        governmentRegionCode: "rg-2",
+        governmentRegionName: "RG Dois",
+        population: 1,
+        areaKm2: 1,
+        gdpThousandBrl: 1,
+      },
+    ],
+    regions: [
+      { code: "R1", label: "RA Um" },
+      { code: "R2", label: "RA Dois" },
+    ],
+    governmentRegions: [
+      { code: "rg-1", label: "RG Um" },
+      { code: "rg-2", label: "RG Dois" },
+    ],
+  });
+
+  const units = buildPanelUnits(["1", "2", "3"], govTerritory, "governmentRegion");
+  assert.equal(units.length, 2);
+  assert.equal(units[0].kind, "governmentRegion");
+  assert.equal(units[0].code, "rg-1");
+  assert.equal(units[0].name, "RG Um");
+  assert.deepEqual(units[0].codes, ["1", "2"]);
+  assert.equal(units[1].kind, "municipality");
+  assert.equal(units[1].code, "3");
 });

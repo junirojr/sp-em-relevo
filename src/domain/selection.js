@@ -1,6 +1,6 @@
 /**
  * @typedef {import("./territory.js").TerritoryIndex} TerritoryIndex
- * @typedef {{ kind: "municipality" | "region", code: string, name: string, codes: string[] }} PanelUnit
+ * @typedef {{ kind: "municipality" | "region" | "governmentRegion", code: string, name: string, codes: string[] }} PanelUnit
  */
 
 /**
@@ -36,6 +36,25 @@ export function toggleRegion(selectedCodes, territory, regionCode) {
 }
 
 /**
+ * Adds the whole government region when any code is missing; removes the whole government region otherwise.
+ * @param {string[]} selectedCodes
+ * @param {TerritoryIndex} territory
+ * @param {string} governmentRegionCode
+ * @returns {string[]}
+ */
+export function toggleGovernmentRegion(selectedCodes, territory, governmentRegionCode) {
+  const groupCodes = codesOfGovernmentRegion(territory, governmentRegionCode);
+  if (groupCodes.length === 0) {
+    return selectedCodes;
+  }
+  if (containsAll(selectedCodes, groupCodes)) {
+    const groupSet = new Set(groupCodes);
+    return selectedCodes.filter((code) => !groupSet.has(code));
+  }
+  return addCodes(selectedCodes, groupCodes);
+}
+
+/**
  * Adds the whole region and keeps the codes already selected.
  * @param {string[]} selectedCodes
  * @param {TerritoryIndex} territory
@@ -44,6 +63,17 @@ export function toggleRegion(selectedCodes, territory, regionCode) {
  */
 export function addRegion(selectedCodes, territory, regionCode) {
   return addCodes(selectedCodes, codesOfRegion(territory, regionCode));
+}
+
+/**
+ * Adds the whole government region and keeps the codes already selected.
+ * @param {string[]} selectedCodes
+ * @param {TerritoryIndex} territory
+ * @param {string} governmentRegionCode
+ * @returns {string[]}
+ */
+export function addGovernmentRegion(selectedCodes, territory, governmentRegionCode) {
+  return addCodes(selectedCodes, codesOfGovernmentRegion(territory, governmentRegionCode));
 }
 
 /**
@@ -67,13 +97,32 @@ export function selectByClassIndex(selectedCodes, classIndexByCode, classIndex) 
 }
 
 /**
- * Builds the panel rows: a fully selected region is one row, the rest are municipalities.
+ * Builds the panel rows: at region level, a fully selected region is one row;
+ * at governmentRegion level, a fully selected government region is one row;
+ * the rest are municipalities.
+ *
  * Rows follow the order in which each unit first appears in the selection.
+ * @param {string[]} selectedCodes
+ * @param {TerritoryIndex} territory
+ * @param {string} [level]
+ * @returns {PanelUnit[]}
+ */
+export function buildPanelUnits(selectedCodes, territory, level = "region") {
+  if (level === "governmentRegion") {
+    return buildGovernmentRegionPanelUnits(selectedCodes, territory);
+  }
+  if (level === "municipality") {
+    return buildMunicipalityPanelUnits(selectedCodes, territory);
+  }
+  return buildRegionPanelUnits(selectedCodes, territory);
+}
+
+/**
  * @param {string[]} selectedCodes
  * @param {TerritoryIndex} territory
  * @returns {PanelUnit[]}
  */
-export function buildPanelUnits(selectedCodes, territory) {
+function buildRegionPanelUnits(selectedCodes, territory) {
   const fullRegions = findFullRegions(selectedCodes, territory);
   const emittedRegions = new Set();
   /** @type {PanelUnit[]} */
@@ -105,6 +154,61 @@ export function buildPanelUnits(selectedCodes, territory) {
 /**
  * @param {string[]} selectedCodes
  * @param {TerritoryIndex} territory
+ * @returns {PanelUnit[]}
+ */
+function buildGovernmentRegionPanelUnits(selectedCodes, territory) {
+  const fullRegions = findFullGovernmentRegions(selectedCodes, territory);
+  const emittedRegions = new Set();
+  /** @type {PanelUnit[]} */
+  const units = [];
+  for (const code of selectedCodes) {
+    const record = territory.municipalityByCode(code);
+    if (!record) {
+      continue;
+    }
+    let region = null;
+    if (record.governmentRegionCode) {
+      region = fullRegions.get(record.governmentRegionCode);
+    }
+    if (!region) {
+      units.push({ kind: "municipality", code, name: record.name, codes: [code] });
+      continue;
+    }
+    if (emittedRegions.has(region.code)) {
+      continue;
+    }
+    emittedRegions.add(region.code);
+    units.push({
+      kind: "governmentRegion",
+      code: region.code,
+      name: region.label,
+      codes: codesOfGovernmentRegion(territory, region.code),
+    });
+  }
+  return units;
+}
+
+/**
+ * @param {string[]} selectedCodes
+ * @param {TerritoryIndex} territory
+ * @returns {PanelUnit[]}
+ */
+function buildMunicipalityPanelUnits(selectedCodes, territory) {
+  /** @type {PanelUnit[]} */
+  const units = [];
+  for (const code of selectedCodes) {
+    const record = territory.municipalityByCode(code);
+    if (!record) {
+      continue;
+    }
+    units.push({ kind: "municipality", code, name: record.name, codes: [code] });
+  }
+  return units;
+}
+
+/**
+ * @param {string[]} selectedCodes
+ * @param {TerritoryIndex} territory
  * @returns {Map<string, import("./territory.js").RegionRecord>}
  */
 function findFullRegions(selectedCodes, territory) {
@@ -120,12 +224,45 @@ function findFullRegions(selectedCodes, territory) {
 }
 
 /**
+ * @param {string[]} selectedCodes
+ * @param {TerritoryIndex} territory
+ * @returns {Map<string, import("./territory.js").RegionRecord>}
+ */
+function findFullGovernmentRegions(selectedCodes, territory) {
+  const selectedSet = new Set(selectedCodes);
+  const fullRegions = new Map();
+  let list = [];
+  if (typeof territory.governmentRegions === "function") {
+    list = territory.governmentRegions();
+  }
+  for (const region of list) {
+    const regionCodes = codesOfGovernmentRegion(territory, region.code);
+    if (regionCodes.length > 0 && regionCodes.every((code) => selectedSet.has(code))) {
+      fullRegions.set(region.code, region);
+    }
+  }
+  return fullRegions;
+}
+
+/**
  * @param {TerritoryIndex} territory
  * @param {string} regionCode
  * @returns {string[]}
  */
 function codesOfRegion(territory, regionCode) {
   return territory.municipalitiesInRegion(regionCode).map((record) => record.code);
+}
+
+/**
+ * @param {TerritoryIndex} territory
+ * @param {string} governmentRegionCode
+ * @returns {string[]}
+ */
+function codesOfGovernmentRegion(territory, governmentRegionCode) {
+  if (typeof territory.municipalitiesInGovernmentRegion === "function") {
+    return territory.municipalitiesInGovernmentRegion(governmentRegionCode).map((record) => record.code);
+  }
+  return [];
 }
 
 /**
