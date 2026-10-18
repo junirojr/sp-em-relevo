@@ -85,20 +85,51 @@ function applyZoomControlsState(buttons, zoomTarget, maxZoom) {
   buttons.zoomOut.disabled = state.zoomOutDisabled;
 }
 
+const TOGGLE_3D_ICON =
+  '<text x="2" y="11" font-size="8" font-weight="bold" fill="currentColor" font-family="sans-serif">3D</text>';
+const COMPASS_ICON =
+  '<circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4" fill="none"/><polygon points="8,3.5 10.5,8 8,12.5 5.5,8" fill="currentColor"/>';
+
 /**
- * Builds the zoom control buttons inside `container`.
+ * Builds the zoom and camera control buttons inside `container`.
  *
  * @param {HTMLElement} container
- * @param {CameraControlHandlers} handlers
+ * @param {CameraControlHandlers & { onToggle3d?: () => void, onCompass?: () => void }} handlers
  * @returns {{ update: (zoomTarget: number, maxZoom: number) => void }}
  */
 export function mountCameraControls(container, handlers) {
   const buttons = {
+    toggle3d: createControlButton("Alternar visão 3D isométrica", TOGGLE_3D_ICON, () => {
+      if (typeof handlers.onToggle3d === "function") {
+        handlers.onToggle3d();
+      }
+    }),
+    reset: createControlButton("Voltar ao estado inteiro", RESET_ICON, handlers.onResetView),
+    compass: createControlButton("Alinhar ao Norte", COMPASS_ICON, () => {
+      if (typeof handlers.onCompass === "function") {
+        handlers.onCompass();
+      }
+      if (typeof handlers.onCompass !== "function") {
+        handlers.onResetView();
+      }
+    }),
     zoomIn: createControlButton("Aproximar o mapa", ZOOM_IN_ICON, handlers.onZoomIn),
     zoomOut: createControlButton("Afastar o mapa", ZOOM_OUT_ICON, handlers.onZoomOut),
-    reset: createControlButton("Voltar ao estado inteiro", RESET_ICON, handlers.onResetView),
   };
-  container.replaceChildren(buttons.zoomIn, buttons.zoomOut, buttons.reset);
+
+  buttons.toggle3d.id = "zoom-3d";
+  buttons.reset.id = "zoom-reset";
+  buttons.compass.id = "zoom-compass";
+  buttons.zoomIn.id = "zoom-in";
+  buttons.zoomOut.id = "zoom-out";
+
+  container.replaceChildren(
+    buttons.toggle3d,
+    buttons.reset,
+    buttons.compass,
+    buttons.zoomIn,
+    buttons.zoomOut,
+  );
 
   return {
     update(zoomTarget, maxZoom) {

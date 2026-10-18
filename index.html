@@ -23,6 +23,7 @@
     <link rel="stylesheet" href="./src/features/election/election.css">
     <link rel="stylesheet" href="./src/features/count/count.css">
     <link rel="stylesheet" href="./src/features/count/replay.css">
+    <link rel="stylesheet" href="./src/features/layout/bottom-nav.css">
     <script type="importmap">
       {
         "imports": {
@@ -76,8 +77,10 @@
         <div id="election-source-slot" hidden></div>
         <div id="stage-overlay" class="stage-overlay"></div>
         <nav id="camera-controls" class="zoom" aria-label="Zoom do mapa"></nav>
+        <div id="map-gesture-pill" class="map-gesture-pill">👆 Use 2 dedos para inclinar e girar</div>
         <div id="alt-table-slot" hidden></div>
       </main>
+      <nav id="mobile-bottom-nav" class="mobile-bottom-nav" aria-label="Navegação mobile"></nav>
     </div>
     <script type="module" src="./src/app/main.js"></script>
   </body>

@@ -171,8 +171,18 @@ export function attachProjection(store, project) {
  */
 export function createProjection({ engine, selectors, views = [] }) {
   const bindings = [
-    bindToChange(selectors.selectHeightTargets, (targets) => engine.setHeightTargets(targets)),
-    bindToChange(selectors.selectColorPositions, (positions) => engine.setColors(positions)),
+    bindToChange(selectors.selectHeightTargets, (targets, state) => {
+      if (state && (state.tab === "first-round" || state.tab === "second-round")) {
+        return;
+      }
+      engine.setHeightTargets(targets);
+    }),
+    bindToChange(selectors.selectColorPositions, (positions, state) => {
+      if (state && (state.tab === "first-round" || state.tab === "second-round")) {
+        return;
+      }
+      engine.setColors(positions);
+    }),
     bindToChange(selectors.selectRaised, (raised) => engine.setRaised(raised)),
     ...views,
   ];
@@ -189,7 +199,7 @@ export function createProjection({ engine, selectors, views = [] }) {
  *
  * @template Input
  * @param {(state: RootState) => Input} select
- * @param {(input: Input) => void} apply
+ * @param {(input: Input, state?: RootState) => void} apply
  * @returns {ProjectionBinding}
  */
 export function bindToChange(select, apply) {
@@ -201,7 +211,7 @@ export function bindToChange(select, apply) {
       return;
     }
     lastApplied = { input };
-    apply(input);
+    apply(input, state);
   };
 }
 

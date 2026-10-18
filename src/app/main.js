@@ -18,6 +18,14 @@ import { mountIndicatorView } from "../features/indicator/indicator-view.js";
 import { mountPillView } from "../features/indicator/pill-view.js";
 import { mountSourceView } from "../features/indicator/source-view.js";
 import { mountLayoutToggle } from "../features/layout/layout-view.js";
+import {
+  mountBottomNavView,
+  NAV_TAB_MAP,
+  NAV_TAB_INDICATORS,
+  NAV_TAB_MUNICIPALITIES,
+  NAV_TAB_COMPARE,
+  NAV_TAB_LAYERS,
+} from "../features/layout/bottom-nav-view.js";
 import { mountThemeToggle } from "../features/layout/theme-toggle-view.js";
 import { mountLevelView } from "../features/level/level-view.js";
 import { mountHowToReadView } from "../features/scale/how-to-read-view.js";
@@ -393,9 +401,18 @@ export async function bootApplication(documentRef = document, windowRef = window
       },
     });
 
+    const geometryIndexByCode = indexByCode(geo.municipalities);
+
     panelView = mountPanelView(documentRef, store.dispatch, {
       onPointUnit: (code) => {
         store.dispatch(changePointedUnit(code));
+      },
+      onFocusUnit: (code) => {
+        const indexes = readGeometryIndexes([code], geometryIndexByCode);
+        if (indexes.length > 0) {
+          engine.frameNow(indexes);
+          updateZoomButtons();
+        }
       },
     });
 
@@ -440,16 +457,20 @@ export async function bootApplication(documentRef = document, windowRef = window
         engine.resetView();
         updateZoomButtons();
       },
+      onToggle3d: () => {
+        const cam = engine.readCamera();
+        let nextAngle = 55;
+        if (cam.viewAngleDegrees >= 50) {
+          nextAngle = 0;
+        }
+        engine.setCameraOptions({ viewAngleDegrees: nextAngle });
+        updateZoomButtons();
+      },
+      onCompass: () => {
+        engine.resetView();
+        updateZoomButtons();
+      },
     });
-    if (cameraContainer.children[0]) {
-      cameraContainer.children[0].id = "zoom-in";
-    }
-    if (cameraContainer.children[1]) {
-      cameraContainer.children[1].id = "zoom-out";
-    }
-    if (cameraContainer.children[2]) {
-      cameraContainer.children[2].id = "zoom-reset";
-    }
     updateZoomButtons();
   }
 
@@ -464,6 +485,76 @@ export async function bootApplication(documentRef = document, windowRef = window
       updateZoomButtons();
     },
   });
+
+  const mobileBottomNavContainer = documentRef.getElementById("mobile-bottom-nav");
+  /** @type {ReturnType<typeof mountBottomNavView> | null} */
+  let mobileBottomNav = null;
+  if (mobileBottomNavContainer) {
+    const initialTab = store.getState().tab;
+    const isInitialElection = initialTab === "first-round" || initialTab === "second-round";
+    mobileBottomNav = mountBottomNavView(documentRef, mobileBottomNavContainer, {
+      activeTab: NAV_TAB_MAP,
+      isElection: isInitialElection,
+      onTabSelect: (navTab) => {
+        if (navTab === NAV_TAB_MAP) {
+          if (layoutToggle) {
+            layoutToggle.setSheetState("collapsed");
+          }
+          engine.resetView();
+          updateZoomButtons();
+          return;
+        }
+        if (navTab === NAV_TAB_INDICATORS) {
+          if (layoutToggle) {
+            layoutToggle.setSheetState("half");
+          }
+          const modeSlot = documentRef.getElementById("mode-selector-slot");
+          if (modeSlot && !modeSlot.hidden) {
+            modeSlot.scrollIntoView({ behavior: "smooth", block: "start" });
+            return;
+          }
+          if (indicatorContainer) {
+            indicatorContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+          return;
+        }
+        if (navTab === NAV_TAB_MUNICIPALITIES) {
+          if (layoutToggle) {
+            layoutToggle.setSheetState("expanded");
+          }
+          const searchInput = documentRef.getElementById("city-search");
+          if (searchInput) {
+            searchInput.focus();
+          }
+          if (selectionContainer) {
+            selectionContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+          return;
+        }
+        if (navTab === NAV_TAB_COMPARE) {
+          const currentCodes = store.getState().selection.selectedCodes;
+          if (currentCodes.length < 2) {
+            store.dispatch(toggleMunicipalityAction("3550308"));
+            store.dispatch(toggleMunicipalityAction("3509502"));
+          }
+          const compareDock = documentRef.getElementById("compare-dock");
+          if (compareDock) {
+            compareDock.hidden = false;
+            compareDock.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }
+          return;
+        }
+        if (navTab === NAV_TAB_LAYERS) {
+          if (layoutToggle) {
+            layoutToggle.setSheetState("half");
+          }
+          if (levelContainer) {
+            levelContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }
+      },
+    });
+  }
 
   const settingsContainer = documentRef.getElementById("settings-container");
   /** @type {ReturnType<typeof mountSettingsPanel> | null} */
@@ -636,6 +727,10 @@ export async function bootApplication(documentRef = document, windowRef = window
     }
     updateRegionLabels();
     const currentState = store.getState();
+    const isElection = currentState.tab === "first-round" || currentState.tab === "second-round";
+    if (mobileBottomNav) {
+      mobileBottomNav.setElectionMode(isElection);
+    }
     syncUrlState(windowRef, {
       indicatorId: currentState.indicator.id,
       levelId: currentState.level.id,
@@ -863,6 +958,9 @@ export async function bootApplication(documentRef = document, windowRef = window
         windowRef,
         status,
         fetchImpl: fetch,
+        restoreIndicator: () => {
+          project(store.getState());
+        },
       });
     })
     .catch((error) => {

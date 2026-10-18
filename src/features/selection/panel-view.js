@@ -180,16 +180,28 @@ export function mountPanelView(documentRef, dispatch, options = {}) {
     const titleGroup = documentRef.createElement("div");
     titleGroup.className = "inspected-card-title-group";
 
+    const titleRow = documentRef.createElement("div");
+    titleRow.className = "inspected-card-title-row";
+
     const title = documentRef.createElement("h3");
     title.className = "inspected-card-title";
     title.textContent = mun.name;
+    titleRow.append(title);
+
+    const stateRank = computeStateRank(mun.code, cachedMunicipalities, cachedIndicator);
+    if (stateRank !== null) {
+      const rankBadge = documentRef.createElement("span");
+      rankBadge.className = "inspected-rank-badge";
+      rankBadge.textContent = `#${stateRank} no Estado`;
+      titleRow.append(rankBadge);
+    }
 
     const contextText = resolveMunicipalityContext(mun, cachedTerritory);
     const contextElem = documentRef.createElement("p");
     contextElem.className = "inspected-card-context";
     contextElem.textContent = contextText;
 
-    titleGroup.append(title, contextElem);
+    titleGroup.append(titleRow, contextElem);
 
     const closeBtn = documentRef.createElement("button");
     closeBtn.type = "button";
@@ -203,52 +215,245 @@ export function mountPanelView(documentRef, dispatch, options = {}) {
 
     header.append(titleGroup, closeBtn);
 
-    const metrics = documentRef.createElement("div");
-    metrics.className = "inspected-card-metrics";
-
-    const metricLabel = documentRef.createElement("span");
-    metricLabel.className = "inspected-metric-label";
-    if (cachedIndicator) {
-      metricLabel.textContent = cachedIndicator.label;
-    }
-
-    const metricValue = documentRef.createElement("span");
-    metricValue.className = "inspected-metric-value";
-    if (cachedIndicator) {
-      const val = cachedIndicator.computeValue(mun);
-      if (val !== null && Number.isFinite(val)) {
-        metricValue.textContent = cachedIndicator.format(val);
-      }
-      if (val === null || !Number.isFinite(val)) {
-        metricValue.textContent = "sem dado";
+    const win = resolveWindow(documentRef);
+    const appStore = /** @type {any} */ (win)?.__appStore;
+    let isElectionMode = false;
+    if (appStore && typeof appStore.getState === "function") {
+      const currentTab = appStore.getState().tab;
+      if (currentTab === "first-round" || currentTab === "second-round") {
+        isElectionMode = true;
       }
     }
 
-    metrics.append(metricLabel, metricValue);
+    const electionResults = /** @type {any} */ (win)?.__electionResults;
+    let electionData = null;
+    if (isElectionMode && electionResults) {
+      electionData = electionResults[mun.code] || null;
+    }
+
+    const statGrid = documentRef.createElement("div");
+    statGrid.className = "inspected-stat-grid";
+
+    if (electionData && electionData.leader) {
+      const leaderBox = documentRef.createElement("div");
+      leaderBox.className = "inspected-stat-box";
+
+      const leaderLabel = documentRef.createElement("span");
+      leaderLabel.className = "inspected-stat-label";
+      const officeName = /** @type {any} */ (win)?.__activeElectionOffice || "cargo";
+      leaderLabel.textContent = `LÍDER (${officeName.toUpperCase()})`;
+
+      const leaderValue = documentRef.createElement("span");
+      leaderValue.className = "inspected-stat-value";
+      let partyStr = "";
+      if (electionData.leader.party) {
+        partyStr = ` (${electionData.leader.party})`;
+      }
+      leaderValue.textContent = `${electionData.leader.name}${partyStr}`;
+
+      const leaderSub = documentRef.createElement("span");
+      leaderSub.className = "inspected-stat-sub";
+      let shareStr = "0.0";
+      if (typeof electionData.leader.sharePct === "number") {
+        shareStr = electionData.leader.sharePct.toFixed(1);
+      }
+      let votesStr = "0";
+      if (typeof electionData.leader.validVotes === "number") {
+        votesStr = electionData.leader.validVotes.toLocaleString("pt-BR");
+      }
+      leaderSub.textContent = `${shareStr}% dos votos válidos (${votesStr} votos)`;
+
+      leaderBox.append(leaderLabel, leaderValue, leaderSub);
+
+      const marginBox = documentRef.createElement("div");
+      marginBox.className = "inspected-stat-box";
+
+      const marginLabel = documentRef.createElement("span");
+      marginLabel.className = "inspected-stat-label";
+      marginLabel.textContent = "VANTAGEM / MARGEM";
+
+      const marginValue = documentRef.createElement("span");
+      marginValue.className = "inspected-stat-value";
+      let marginNum = 0;
+      if (typeof electionData.marginPp === "number") {
+        marginNum = electionData.marginPp;
+      }
+      marginValue.textContent = `+${marginNum.toFixed(1)} pp`;
+
+      const marginSub = documentRef.createElement("span");
+      marginSub.className = "inspected-stat-sub";
+      if (electionData.runnerUp) {
+        let runnerShare = "0.0";
+        if (typeof electionData.runnerUp.sharePct === "number") {
+          runnerShare = electionData.runnerUp.sharePct.toFixed(1);
+        }
+        marginSub.textContent = `sobre ${electionData.runnerUp.name} (${runnerShare}%)`;
+      }
+      if (!electionData.runnerUp) {
+        marginSub.textContent = "votos apurados";
+      }
+
+      marginBox.append(marginLabel, marginValue, marginSub);
+      statGrid.append(leaderBox, marginBox);
+    }
+
+    if (!electionData || !electionData.leader) {
+      const popBox = documentRef.createElement("div");
+      popBox.className = "inspected-stat-box";
+
+      const popLabel = documentRef.createElement("span");
+      popLabel.className = "inspected-stat-label";
+      popLabel.textContent = "POPULAÇÃO 2022";
+
+      const popValue = documentRef.createElement("span");
+      popValue.className = "inspected-stat-value";
+      const popNum = mun.population || 0;
+      popValue.textContent = `${popNum.toLocaleString("pt-BR")} hab`;
+
+      const popSub = documentRef.createElement("span");
+      popSub.className = "inspected-stat-sub";
+      popSub.textContent = "Censo Demográfico IBGE";
+
+      popBox.append(popLabel, popValue, popSub);
+
+      const densBox = documentRef.createElement("div");
+      densBox.className = "inspected-stat-box";
+
+      const densLabel = documentRef.createElement("span");
+      densLabel.className = "inspected-stat-label";
+      densLabel.textContent = "DENSIDADE";
+
+      const densValue = documentRef.createElement("span");
+      densValue.className = "inspected-stat-value";
+      let densText = "sem dado";
+      if (mun.population && mun.areaKm2 && mun.areaKm2 > 0) {
+        const dens = mun.population / mun.areaKm2;
+        densText = `${dens.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} hab/km²`;
+      }
+      densValue.textContent = densText;
+
+      const densSub = documentRef.createElement("span");
+      densSub.className = "inspected-stat-sub";
+      densSub.textContent = "habitantes por km²";
+
+      densBox.append(densLabel, densValue, densSub);
+      statGrid.append(popBox, densBox);
+    }
+
+    const chipsRow = documentRef.createElement("div");
+    chipsRow.className = "inspected-chips-row";
+
+    if (electionData) {
+      const chipValid = documentRef.createElement("span");
+      chipValid.className = "inspected-chip";
+      const totalV = electionData.totalValidVotes || 0;
+      chipValid.textContent = `Votos válidos: ${totalV.toLocaleString("pt-BR")}`;
+      chipsRow.append(chipValid);
+
+      if (electionData.sectionsTotal) {
+        const chipSec = documentRef.createElement("span");
+        chipSec.className = "inspected-chip";
+        chipSec.textContent = `Seções: ${electionData.sectionsCounted || 0}/${electionData.sectionsTotal}`;
+        chipsRow.append(chipSec);
+      }
+
+      const chipIbge = documentRef.createElement("span");
+      chipIbge.className = "inspected-chip";
+      chipIbge.textContent = `TSE: ${mun.code}`;
+      chipsRow.append(chipIbge);
+    }
+
+    if (!electionData) {
+      const chipArea = documentRef.createElement("span");
+      chipArea.className = "inspected-chip";
+      const areaNum = mun.areaKm2 || 0;
+      chipArea.textContent = `Área: ${areaNum.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km²`;
+      chipsRow.append(chipArea);
+
+      if (mun.gdpThousandBrl && mun.population && mun.population > 0) {
+        const chipPib = documentRef.createElement("span");
+        chipPib.className = "inspected-chip";
+        const pibPerCap = (mun.gdpThousandBrl * 1000) / mun.population;
+        if (pibPerCap >= 1000) {
+          chipPib.textContent = `PIB per cap: R$ ${(pibPerCap / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil`;
+        }
+        if (pibPerCap < 1000) {
+          chipPib.textContent = `PIB per cap: R$ ${pibPerCap.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
+        }
+        chipsRow.append(chipPib);
+      }
+
+      if (cachedIndicator && cachedIndicator.id !== "population") {
+        const val = cachedIndicator.computeValue(mun);
+        if (val !== null && Number.isFinite(val)) {
+          const chipInd = documentRef.createElement("span");
+          chipInd.className = "inspected-chip";
+          chipInd.textContent = `${cachedIndicator.label}: ${cachedIndicator.format(val)}`;
+          chipsRow.append(chipInd);
+        }
+      }
+
+      const chipIbge = documentRef.createElement("span");
+      chipIbge.className = "inspected-chip";
+      chipIbge.textContent = `IBGE: ${mun.code}`;
+      chipsRow.append(chipIbge);
+    }
+
+    const actionsRow = documentRef.createElement("div");
+    actionsRow.className = "inspected-actions-row";
+
+    const compareBtn = documentRef.createElement("button");
+    compareBtn.type = "button";
+    compareBtn.className = "inspected-btn-secondary";
+    compareBtn.innerHTML = '<span aria-hidden="true">⇄</span> Comparar';
+    compareBtn.setAttribute("aria-label", `Comparar ${mun.name}`);
+    compareBtn.addEventListener("click", () => {
+      if (!cachedSelectedCodes.includes(inspectedCode)) {
+        dispatch(toggleMunicipalityAction(inspectedCode));
+      }
+      const compareDock = documentRef.getElementById("compare-dock");
+      if (compareDock) {
+        compareDock.hidden = false;
+        compareDock.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    });
 
     const isSelected = cachedSelectedCodes.includes(inspectedCode);
-    const actionBtn = documentRef.createElement("button");
-    actionBtn.type = "button";
-    actionBtn.className = "inspected-action-button";
+    const selectBtn = documentRef.createElement("button");
+    selectBtn.type = "button";
+    selectBtn.className = "inspected-action-button";
 
     if (isSelected) {
-      actionBtn.classList.add("inspected-action-remove");
-      actionBtn.textContent = "Remover da seleção";
-      actionBtn.setAttribute("aria-label", `Remover ${mun.name} da seleção`);
-      actionBtn.addEventListener("click", () => {
+      selectBtn.classList.add("inspected-action-remove");
+      selectBtn.textContent = "Remover da seleção";
+      selectBtn.setAttribute("aria-label", `Remover ${mun.name} da seleção`);
+      selectBtn.addEventListener("click", () => {
         dispatch(toggleMunicipalityAction(inspectedCode));
       });
     }
     if (!isSelected) {
-      actionBtn.classList.add("inspected-action-add");
-      actionBtn.textContent = "Adicionar à seleção";
-      actionBtn.setAttribute("aria-label", `Adicionar ${mun.name} à seleção`);
-      actionBtn.addEventListener("click", () => {
+      selectBtn.classList.add("inspected-action-add");
+      selectBtn.textContent = "Adicionar à seleção";
+      selectBtn.setAttribute("aria-label", `Adicionar ${mun.name} à seleção`);
+      selectBtn.addEventListener("click", () => {
         dispatch(toggleMunicipalityAction(inspectedCode));
       });
     }
 
-    inspectedCard.append(header, metrics, actionBtn);
+    const isolateBtn = documentRef.createElement("button");
+    isolateBtn.type = "button";
+    isolateBtn.className = "inspected-btn-secondary";
+    isolateBtn.innerHTML = '<span aria-hidden="true">⌖</span> Isolar 3D';
+    isolateBtn.setAttribute("aria-label", `Isolar ${mun.name} no mapa 3D`);
+    isolateBtn.addEventListener("click", () => {
+      if (typeof options.onFocusUnit === "function") {
+        options.onFocusUnit(inspectedCode);
+      }
+    });
+
+    actionsRow.append(compareBtn, selectBtn, isolateBtn);
+
+    inspectedCard.append(header, statGrid, chipsRow, actionsRow);
     inspectedCard.hidden = false;
     inspectedCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
@@ -792,4 +997,35 @@ function formatUnitValue(unit, indicator, municipalities) {
   const regionRecords = municipalities.filter((m) => unit.codes.includes(m.code));
   const agg = aggregateIndicator(indicator, regionRecords);
   return formatAggregatedValue(agg, indicator);
+}
+
+/**
+ * Computes state ranking (1-based) of municipality for active indicator.
+ *
+ * @param {string} code
+ * @param {MunicipalityRecord[]} municipalities
+ * @param {IndicatorDefinition | null} indicator
+ * @returns {number | null}
+ */
+function computeStateRank(code, municipalities, indicator) {
+  if (!indicator || !municipalities || municipalities.length === 0) {
+    return null;
+  }
+  const scored = [];
+  for (let i = 0; i < municipalities.length; i += 1) {
+    const m = municipalities[i];
+    const val = indicator.computeValue(m);
+    if (val !== null && Number.isFinite(val)) {
+      scored.push({ code: m.code, val });
+    }
+  }
+  if (scored.length === 0) {
+    return null;
+  }
+  scored.sort((a, b) => b.val - a.val);
+  const foundIndex = scored.findIndex((s) => s.code === code);
+  if (foundIndex < 0) {
+    return null;
+  }
+  return foundIndex + 1;
 }
