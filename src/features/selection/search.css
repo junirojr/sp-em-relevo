@@ -146,7 +146,18 @@
   padding: 0 4px;
 }
 
-.search-count,
+.search-count {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  background: rgba(255, 75, 110, 0.16);
+  border: 1px solid rgba(255, 75, 110, 0.28);
+  color: var(--coral-text, #ff5c77);
+  white-space: nowrap;
+}
+
 .search-section-title {
   margin: 0;
   font-size: var(--font-size-xs);
@@ -195,23 +206,25 @@
 
 .search-option {
   display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
   grid-template-areas:
     "swatch name rank"
     ". context value";
-  align-items: start;
-  gap: 2px var(--space-2);
-  padding: 6px var(--space-2);
+  align-items: center;
+  gap: 3px var(--space-2);
+  padding: 8px 10px;
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .search-option:hover {
   background: var(--row-hover);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .search-option[aria-selected="true"] {
