@@ -99,6 +99,14 @@
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
     white-space: nowrap;
     animation: fadeInPill 0.4s ease;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  html[data-sheet-state="half"] .map-gesture-pill,
+  html[data-sheet-state="expanded"] .map-gesture-pill {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 10px);
   }
 
   @keyframes fadeInPill {
