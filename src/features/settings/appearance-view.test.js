@@ -25,13 +25,27 @@ test("CFG-05 view model writes the exaggeration with a decimal comma", () => {
   assert.equal(buildAppearanceViewModel(state).exaggerationText, "1,3x");
 });
 
-test("LAY-10 color group is a fieldset with 2 cards: Mapa de calor and Destaque", () => {
+test("LAY-10 color group is a fieldset with 3 cards: Mapa de calor, Destaque and Regiao", () => {
   const view = mountView();
   const fieldset = findFieldsetByName(view.element, "color-mode");
   assert.equal(legendText(fieldset), "Cor do mapa");
   assert.deepEqual(readCards(fieldset), [
     { value: "heat", name: "Mapa de calor", note: "7 faixas" },
     { value: "selection", name: "Destaque", note: "Só a seleção" },
+    { value: "region", name: "Região", note: "16 cores" },
+  ]);
+});
+
+test("REG-01 color group has region card with value 'region' dispatching changeColorMode", () => {
+  const dispatched = /** @type {any[]} */ ([]);
+  const view = mountView(createSettingsState(), (action) => dispatched.push(action));
+  const fieldset = findFieldsetByName(view.element, "color-mode");
+  const radios = findAll(fieldset, isRadio);
+  const regionRadio = radios.find((r) => r.value === "region");
+  assert.ok(regionRadio);
+  regionRadio.fire("change");
+  assert.deepEqual(dispatched, [
+    { type: "settings/changed", name: "colorMode", value: "region" },
   ]);
 });
 
@@ -79,6 +93,7 @@ test("LAY-10 each radio value maps to the settings action of its group", () => {
   assert.deepEqual(changes, [
     ["colorMode", "heat"],
     ["colorMode", "selection"],
+    ["colorMode", "region"],
     ["heightMode", "flat"],
     ["heightMode", "step"],
     ["heightMode", "data"],

@@ -40,6 +40,7 @@ import {
   toggleRegionAction,
 } from "../features/selection/selection-slice.js";
 import { mountTableFeature } from "../features/table/table-slice.js";
+import { mountRegionLabelsView } from "../features/region-labels/region-labels-view.js";
 import {
   buildAppearanceViewModel,
   createAppearanceView,
@@ -264,6 +265,27 @@ export async function bootApplication(documentRef = document, windowRef = window
   legendView.element.append(howToReadView.element);
 
   stageOverlay.append(legendView.element, sourceView.element);
+
+  const regionLabelsView = mountRegionLabelsView(documentRef, stageOverlay);
+  const updateRegionLabels = () => {
+    if (!stageElement) {
+      return;
+    }
+    const stageRect = stageElement.getBoundingClientRect();
+    let width = stageRect.width;
+    let height = stageRect.height;
+    if (width <= 0) {
+      width = windowRef?.innerWidth || 1366;
+    }
+    if (height <= 0) {
+      height = windowRef?.innerHeight || 768;
+    }
+    regionLabelsView.update(width, height);
+  };
+  updateRegionLabels();
+  if (windowRef) {
+    windowRef.addEventListener("resize", updateRegionLabels);
+  }
 
   /** @type {import("../engine/engine.js").Engine} */
   let engine;
@@ -569,6 +591,9 @@ export async function bootApplication(documentRef = document, windowRef = window
     if (documentRef?.documentElement) {
       documentRef.documentElement.dataset.mode = mode;
     }
+    if (regionLabelsView) {
+      regionLabelsView.element.hidden = mode === "election";
+    }
     const currentState = store.getState();
     syncUrlState(windowRef, {
       indicatorId: currentState.indicator.id,
@@ -726,6 +751,10 @@ export async function bootApplication(documentRef = document, windowRef = window
       return;
     }
     appearanceView.update(viewModel);
+    legendView.updateColorMode(viewModel.colorMode);
+    howToReadView.updateColorMode(viewModel.colorMode);
+    const updatedPalette = projectPaletteForMode(readPalette(documentRef), store.getState());
+    engine.setPalette(updatedPalette);
   });
 
   // The "Altura 3D" legend row and the height line of "Como ler este mapa" follow the mode (ESC-11)

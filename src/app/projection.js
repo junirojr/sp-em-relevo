@@ -318,8 +318,9 @@ export function createRootSelectors(scale, centers = new Map()) {
     selectHeatBreaks,
     selectModeAttribute,
     selectColorPositions: createSelector(
-      [selectIndicatorValues, selectHeatBreaks, readColorMode],
-      (values, breaks, colorMode) => toColorPositions(scale, { values, breaks, colorMode }),
+      [selectIndicatorValues, selectHeatBreaks, readColorMode, readMunicipalities],
+      (values, breaks, colorMode, municipalities) =>
+        toColorPositions(scale, { values, breaks, colorMode, municipalities }),
     ),
     selectHeightTargets: createSelector(
       [selectIndicatorValues, selectHeatBreaks, readHeightMode, readExaggeration],
@@ -452,12 +453,27 @@ function isPositiveFinite(value) {
 /**
  * With "selection" color mode every block takes the lowest palette position; the engine paints
  * the selected ones in the selection color on top.
+ * With "region" color mode each block takes its administrative region position (0..15).
  *
  * @param {ScaleRules} scale
- * @param {{ values: Float64Array, breaks: number[], colorMode: string }} coloring
+ * @param {{ values: Float64Array, breaks: number[], colorMode: string, municipalities?: readonly IndicatorRecord[] }} coloring
  * @returns {Uint8Array}
  */
-function toColorPositions(scale, { values, breaks, colorMode }) {
+function toColorPositions(scale, { values, breaks, colorMode, municipalities = [] }) {
+  if (colorMode === "region") {
+    const positions = new Uint8Array(values.length);
+    for (let i = 0; i < municipalities.length; i += 1) {
+      const regionCode = municipalities[i]?.regionCode;
+      let parsed = Number.parseInt(String(regionCode), 10);
+      if (regionCode === undefined || regionCode === null) {
+        parsed = 0;
+      }
+      if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 16) {
+        positions[i] = parsed - 1;
+      }
+    }
+    return positions;
+  }
   if (colorMode === "selection") {
     const positions = new Uint8Array(values.length);
     for (let i = 0; i < values.length; i += 1) {

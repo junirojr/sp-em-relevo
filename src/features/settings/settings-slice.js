@@ -6,7 +6,7 @@ import { createSelector } from "../../domain/memo.js";
  * the binding is done outside this slice.
  *
  * @typedef {import("../../domain/height.js").HeightMode} HeightMode
- * @typedef {"heat" | "selection"} ColorMode
+ * @typedef {"heat" | "selection" | "region"} ColorMode
  * @typedef {{
  *   heightMode: HeightMode,
  *   exaggeration: number,
@@ -39,7 +39,7 @@ export const VIEW_ANGLE_MIN = 5;
 export const VIEW_ANGLE_MAX = 60;
 
 const HEIGHT_MODES = ["data", "step", "flat"];
-const COLOR_MODES = ["heat", "selection"];
+const COLOR_MODES = ["heat", "selection", "region"];
 
 /**
  * Each normalizer returns the accepted value, or `undefined` when the input must be rejected.

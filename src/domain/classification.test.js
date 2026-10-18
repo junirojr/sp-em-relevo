@@ -4,13 +4,22 @@ import { test } from "node:test";
 import { aggregateIndicator } from "./aggregation.js";
 import {
   classify,
+  classifyRegionColors,
   computeBreaks,
   computeGeometricBreaks,
   computeQuantileBreaks,
+  deltaEOklab,
+  getRegionColor,
   HEAT_BAND_COUNT,
-  REGION_BAND_SIZES,
+  oklabChroma,
   readLogPosition,
+  REGION_BAND_SIZES,
+  REGION_COLOR_COUNT,
+  REGION_COLORS_DARK,
+  REGION_COLORS_LIGHT,
+  REGION_PALETTES,
   roundSignificant,
+  simulateColorblind,
 } from "./classification.js";
 import { INDICATORS } from "./indicator.js";
 
@@ -129,4 +138,128 @@ test("ESC-06 readLogPosition maps values logarithmically between 0 and 1", () =>
   assert.ok(Math.abs(readLogPosition(100, min, max) - 0.5) < 1e-12);
   assert.equal(readLogPosition(5, min, max), 0);
   assert.equal(readLogPosition(2000, min, max), 1);
+});
+
+test("REG-02 the 16 region colors have low OKLab chroma (< 0.10) in both light and dark themes", () => {
+  assert.equal(REGION_COLORS_LIGHT.length, REGION_COLOR_COUNT);
+  assert.equal(REGION_COLORS_DARK.length, REGION_COLOR_COUNT);
+  assert.equal(REGION_PALETTES.light, REGION_COLORS_LIGHT);
+  assert.equal(REGION_PALETTES.dark, REGION_COLORS_DARK);
+
+  const candidateMinChroma = 0.10;
+
+  for (let i = 0; i < REGION_COLOR_COUNT; i += 1) {
+    const lightColor = REGION_COLORS_LIGHT[i];
+    const lightChroma = oklabChroma(lightColor);
+    assert.ok(
+      lightChroma < candidateMinChroma,
+      `Light region color ${i + 1} (${lightColor}) chroma ${lightChroma} must be < ${candidateMinChroma}`,
+    );
+    assert.ok(
+      lightChroma >= 0.05,
+      `Light region color ${i + 1} (${lightColor}) chroma ${lightChroma} must be >= 0.05`,
+    );
+
+    const darkColor = REGION_COLORS_DARK[i];
+    const darkChroma = oklabChroma(darkColor);
+    assert.ok(
+      darkChroma < candidateMinChroma,
+      `Dark region color ${i + 1} (${darkColor}) chroma ${darkChroma} must be < ${candidateMinChroma}`,
+    );
+    assert.ok(
+      darkChroma >= 0.05,
+      `Dark region color ${i + 1} (${darkColor}) chroma ${darkChroma} must be >= 0.05`,
+    );
+  }
+});
+
+test("REG-02 the 16 region colors maintain perceptual distance under normal vision and colorblind simulations", () => {
+  const themes = ["light", "dark"];
+
+  for (const theme of themes) {
+    const colors = REGION_PALETTES[theme];
+    let minNormalDistance = Number.POSITIVE_INFINITY;
+    let minProtanDistance = Number.POSITIVE_INFINITY;
+    let minDeutanDistance = Number.POSITIVE_INFINITY;
+    let minTritanDistance = Number.POSITIVE_INFINITY;
+
+    for (let i = 0; i < colors.length; i += 1) {
+      for (let j = i + 1; j < colors.length; j += 1) {
+        const dNormal = deltaEOklab(colors[i], colors[j]);
+        if (dNormal < minNormalDistance) {
+          minNormalDistance = dNormal;
+        }
+
+        const simProtanA = simulateColorblind(colors[i], "protan");
+        const simProtanB = simulateColorblind(colors[j], "protan");
+        const dProtan = deltaEOklab(simProtanA, simProtanB);
+        if (dProtan < minProtanDistance) {
+          minProtanDistance = dProtan;
+        }
+
+        const simDeutanA = simulateColorblind(colors[i], "deutan");
+        const simDeutanB = simulateColorblind(colors[j], "deutan");
+        const dDeutan = deltaEOklab(simDeutanA, simDeutanB);
+        if (dDeutan < minDeutanDistance) {
+          minDeutanDistance = dDeutan;
+        }
+
+        const simTritanA = simulateColorblind(colors[i], "tritan");
+        const simTritanB = simulateColorblind(colors[j], "tritan");
+        const dTritan = deltaEOklab(simTritanA, simTritanB);
+        if (dTritan < minTritanDistance) {
+          minTritanDistance = dTritan;
+        }
+      }
+    }
+
+    assert.ok(
+      minNormalDistance >= 0.045,
+      `${theme} theme normal min distance ${minNormalDistance} must be >= 0.045`,
+    );
+    assert.ok(
+      minProtanDistance >= 0.018,
+      `${theme} theme protanopia min distance ${minProtanDistance} must be >= 0.018`,
+    );
+    assert.ok(
+      minDeutanDistance >= 0.018,
+      `${theme} theme deuteranopia min distance ${minDeutanDistance} must be >= 0.018`,
+    );
+    assert.ok(
+      minTritanDistance >= 0.018,
+      `${theme} theme tritanopia min distance ${minTritanDistance} must be >= 0.018`,
+    );
+  }
+});
+
+test("REG-02 classifyRegionColors maps municipalities by regionCode to their respective hex colors", () => {
+  const sample = [
+    { code: "3550308", name: "São Paulo", regionCode: "1" },
+    { code: "3542602", name: "Registro", regionCode: 2 },
+    { code: "3509502", name: "Campinas", regionCode: "6" },
+    { code: "3522406", name: "Itapeva", regionCode: "16" },
+  ];
+
+  const lightColors = classifyRegionColors(sample, "light");
+  assert.equal(lightColors.length, 4);
+  assert.equal(lightColors[0], REGION_COLORS_LIGHT[0]);
+  assert.equal(lightColors[1], REGION_COLORS_LIGHT[1]);
+  assert.equal(lightColors[2], REGION_COLORS_LIGHT[5]);
+  assert.equal(lightColors[3], REGION_COLORS_LIGHT[15]);
+
+  const darkColors = classifyRegionColors(sample, "dark");
+  assert.equal(darkColors.length, 4);
+  assert.equal(darkColors[0], REGION_COLORS_DARK[0]);
+  assert.equal(darkColors[1], REGION_COLORS_DARK[1]);
+  assert.equal(darkColors[2], REGION_COLORS_DARK[5]);
+  assert.equal(darkColors[3], REGION_COLORS_DARK[15]);
+});
+
+test("REG-02 getRegionColor handles numeric, string, and invalid region codes with safe fallback", () => {
+  assert.equal(getRegionColor("1", "light"), REGION_COLORS_LIGHT[0]);
+  assert.equal(getRegionColor(16, "dark"), REGION_COLORS_DARK[15]);
+  assert.equal(getRegionColor("invalid", "light"), "#888888");
+  assert.equal(getRegionColor(null, "light"), "#888888");
+  assert.equal(getRegionColor(0, "light"), "#888888");
+  assert.equal(getRegionColor(17, "light"), "#888888");
 });

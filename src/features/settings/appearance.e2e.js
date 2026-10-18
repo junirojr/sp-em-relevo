@@ -42,12 +42,14 @@ test.describe("LAY-10 color and height cards in the column", () => {
       await expect(colorGroup.locator(".appearance-card-name")).toHaveText([
         "Mapa de calor",
         "Destaque",
+        "Região",
       ]);
       await expect(colorGroup.locator(".appearance-card-note")).toHaveText([
         "7 faixas",
         "Só a seleção",
+        "16 cores",
       ]);
-      expect(await readRadioValues(colorGroup)).toEqual(["heat", "selection"]);
+      expect(await readRadioValues(colorGroup)).toEqual(["heat", "selection", "region"]);
 
       const heightGroup = findGroupByRadioName(page, "height-mode");
       await expect(heightGroup.locator("legend")).toHaveText("Altura (eixo Z)");
@@ -72,7 +74,7 @@ test.describe("LAY-10 color and height cards in the column", () => {
       expect(heightBox.y).toBeGreaterThanOrEqual(colorBox.y + colorBox.height);
       expect(bandFilterBox.y).toBeGreaterThanOrEqual(heightBox.y + heightBox.height);
 
-      expectCardsInOneRow(await readCardBoxes(colorGroup), 2);
+      expectCardsInOneRow(await readCardBoxes(colorGroup), 3);
       expectCardsInOneRow(await readCardBoxes(heightGroup), 3);
 
       const markedLook = await page.evaluate(readMarkedLook);
@@ -97,7 +99,7 @@ test.describe("LAY-10 color and height cards in the column", () => {
       const radioOpacities = await page
         .locator(".appearance-card > input[type='radio']")
         .evaluateAll((inputs) => inputs.map((input) => getComputedStyle(input).opacity));
-      expect(radioOpacities).toEqual(["0", "0", "0", "0", "0"]);
+      expect(radioOpacities).toEqual(["0", "0", "0", "0", "0", "0"]);
 
       await page.locator("#appearance-color-heat").focus();
       await page.keyboard.press("ArrowRight");
@@ -139,7 +141,7 @@ test.describe("LAY-10 color and height cards in the column", () => {
       try {
         const fit = await page.evaluate(readCardFit);
         const size = `${viewport.width}x${viewport.height}`;
-        expect(fit.cardCount, size).toBe(5);
+        expect(fit.cardCount, size).toBe(6);
         expect(fit.columnOverflow, size).toBeLessThanOrEqual(0);
         expect(fit.clippedTexts, size).toEqual([]);
         expect(fit.cardsPastColumn, size).toEqual([]);
@@ -170,7 +172,7 @@ test.describe("CFG-05 height, exaggeration and color in the column", () => {
       const autocompleteValues = await page
         .locator(".appearance input")
         .evaluateAll((inputs) => inputs.map((input) => input.getAttribute("autocomplete")));
-      expect(autocompleteValues).toEqual(["off", "off", "off", "off", "off", "off"]);
+      expect(autocompleteValues).toEqual(["off", "off", "off", "off", "off", "off", "off"]);
     } finally {
       await context.close();
     }
@@ -307,9 +309,34 @@ test.describe("ESC-10 to ESC-12 height and color modes on the page", () => {
       expect((await inspect(page, SAO_PAULO_CODE)).classIndex).toBe(0);
       expect(await readGeometryStats(page)).toEqual(statsBefore);
 
+      await page.locator("#appearance-color-region").check();
+      await settle(page);
+      expect((await readState(page)).settings.colorMode).toBe("region");
+      expect(await readGeometryStats(page)).toEqual(statsBefore);
+
       await page.locator("#appearance-color-heat").check();
       await settle(page);
       expect((await inspect(page, SAO_PAULO_CODE)).classIndex).toBeGreaterThan(0);
+      expect(await readGeometryStats(page)).toEqual(statsBefore);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("REG-01 region color mode is selectable in appearance and repaints without changing geometry", async ({
+    browser,
+  }) => {
+    const { context, page } = await openPage(browser, { viewport: VIEWPORT_1280_900 });
+    try {
+      const regionCard = page.locator("#appearance-color-region");
+      await expect(regionCard).toBeVisible();
+      const statsBefore = await readGeometryStats(page);
+
+      await regionCard.check();
+      await settle(page);
+
+      const state = await readState(page);
+      expect(state.settings.colorMode).toBe("region");
       expect(await readGeometryStats(page)).toEqual(statsBefore);
     } finally {
       await context.close();

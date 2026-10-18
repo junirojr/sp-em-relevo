@@ -100,8 +100,10 @@ export function withColors(palette, customColors, options = {}) {
   };
 }
 
+import { REGION_COLORS_DARK, REGION_COLORS_LIGHT } from "../domain/classification.js";
+
 /**
- * Re-projects a base theme palette according to the active mode or custom color list (ELE-15).
+ * Re-projects a base theme palette according to the active mode or custom color list (ELE-15, REG-01).
  *
  * @param {EnginePalette} basePalette
  * @param {any} [state]
@@ -112,7 +114,7 @@ export function projectPaletteForMode(basePalette, state, customColors = null) {
   if (Array.isArray(customColors) && customColors.length > 0) {
     return withColors(basePalette, customColors);
   }
-  const stateColors = readModeColorsFromState(state);
+  const stateColors = readModeColorsFromState(state, basePalette);
   if (stateColors !== null) {
     return withColors(basePalette, stateColors);
   }
@@ -121,14 +123,22 @@ export function projectPaletteForMode(basePalette, state, customColors = null) {
 
 /**
  * @param {any} state
+ * @param {EnginePalette} basePalette
  * @returns {readonly string[] | null}
  */
-function readModeColorsFromState(state) {
+function readModeColorsFromState(state, basePalette) {
   if (!state || typeof state !== "object") {
     return null;
   }
   if (state.tab !== "indicators" && Array.isArray(state.election?.paletteColors)) {
     return state.election.paletteColors;
+  }
+  if (state.settings?.colorMode === "region") {
+    const isDark = basePalette.background === DARK_PALETTE.background;
+    if (isDark) {
+      return REGION_COLORS_DARK;
+    }
+    return REGION_COLORS_LIGHT;
   }
   if (Array.isArray(state.modePaletteColors) && state.modePaletteColors.length > 0) {
     return state.modePaletteColors;

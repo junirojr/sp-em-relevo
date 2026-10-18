@@ -12,7 +12,8 @@ import { DEFAULT_HEIGHT_MODE } from "../../domain/height.js";
  *   colors: readonly string[],
  *   hasMissing: boolean,
  *   metrics?: LegendMetrics,
- *   heightMode?: HeightMode
+ *   heightMode?: HeightMode,
+ *   colorMode?: string
  * }} LegendProps
  *   `heightMode` defaults to the proportional mode; on `update` it keeps the current mode when
  *   left out.
@@ -33,7 +34,8 @@ import { DEFAULT_HEIGHT_MODE } from "../../domain/height.js";
  *   source: string,
  *   bands: BandItemModel[],
  *   hasMissing: boolean,
- *   heightDescription: string | null
+ *   heightDescription: string | null,
+ *   colorDescription: string
  * }} LegendViewModel `heightDescription` is null when the "Altura 3D" row must not show.
  *
  * @typedef {{ termElement: any, descriptionElement: any }} LegendRow
@@ -56,8 +58,8 @@ const LEVEL_LABELS = {
 
 /**
  * Builds the view model for the scale legend.
- * Follows ESC-07 and ESC-11: the "Altura 3D" text follows the height mode, and the row is gone
- * in the flat mode.
+ * Follows ESC-07, ESC-11 and REG-01: the "Altura 3D" text follows the height mode, and the row is gone
+ * in the flat mode. The color description adapts when 16 regions are shown.
  *
  * @param {LegendProps} props
  * @returns {LegendViewModel}
@@ -81,7 +83,20 @@ export function buildLegendViewModel(props) {
     bands,
     hasMissing: props.hasMissing,
     heightDescription: describeHeight(props.heightMode ?? DEFAULT_HEIGHT_MODE),
+    colorDescription: formatColorDescription(props.colorMode, bands.length),
   };
+}
+
+/**
+ * @param {string | undefined} colorMode
+ * @param {number} bandCount
+ * @returns {string}
+ */
+export function formatColorDescription(colorMode, bandCount) {
+  if (colorMode === "region" || bandCount === 16) {
+    return "16 regiões administrativas";
+  }
+  return `${bandCount} faixas de calor`;
 }
 
 /**
@@ -207,7 +222,7 @@ export function mountLegendView(documentRef, initialProps) {
     }
     ramp.style.backgroundImage = buildRampGradient(props.colors);
     renderHeightRow(heightRow, model.heightDescription);
-    colorRow.descriptionElement.textContent = `${model.bands.length} faixas de calor`;
+    colorRow.descriptionElement.textContent = model.colorDescription;
     renderBands(bandsList, model.bands, documentRef);
     missingContainer.hidden = !model.hasMissing;
   }
@@ -226,6 +241,12 @@ export function mountLegendView(documentRef, initialProps) {
     updateHeightMode: (/** @type {HeightMode} */ nextHeightMode) => {
       heightMode = nextHeightMode;
       renderHeightRow(heightRow, describeHeight(nextHeightMode));
+    },
+    updateColorMode: (/** @type {string} */ nextColorMode) => {
+      colorRow.descriptionElement.textContent = formatColorDescription(
+        nextColorMode,
+        bandsList.children.length,
+      );
     },
   };
 }

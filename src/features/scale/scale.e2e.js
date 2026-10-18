@@ -232,4 +232,28 @@ test.describe("ESC scale slice (ESC-05, ESC-07 to ESC-09)", () => {
       await context.close();
     }
   });
+
+  test("REG-01 and REG-02 in region color mode the legend displays 16 administrative regions with low chroma colors", async ({
+    browser,
+  }) => {
+    const { context, page } = await openPage(browser, { viewport: VIEWPORT_1280_900 });
+    try {
+      const regionRadio = page.locator("#appearance-color-region");
+      await regionRadio.check();
+      await settle(page);
+
+      const colorDesc = page.locator(".scale-legend .legend-rows dd").nth(1);
+      await expect(colorDesc).toBeVisible();
+
+      const howToReadLine = page.locator(".how-to-read-line.line-scale");
+      await expect(howToReadLine).toBeVisible();
+
+      // Verify no forbidden dashes in scale line
+      const scaleText = await howToReadLine.textContent();
+      expect(scaleText?.includes("\u2013")).toBe(false);
+      expect(scaleText?.includes("\u2014")).toBe(false);
+    } finally {
+      await context.close();
+    }
+  });
 });

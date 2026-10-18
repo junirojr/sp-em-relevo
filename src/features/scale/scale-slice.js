@@ -1,7 +1,13 @@
 import {
   classify,
-  HEAT_BAND_COUNT as DOMAIN_HEAT_BAND_COUNT,
+  classifyRegionColors,
   computeBreaks as domainComputeBreaks,
+  getRegionColor,
+  HEAT_BAND_COUNT as DOMAIN_HEAT_BAND_COUNT,
+  REGION_COLOR_COUNT as DOMAIN_REGION_COLOR_COUNT,
+  REGION_COLORS_DARK,
+  REGION_COLORS_LIGHT,
+  REGION_PALETTES,
 } from "../../domain/classification.js";
 import { formatAbbreviated } from "../../domain/format.js";
 import {
@@ -14,6 +20,15 @@ import {
  */
 
 export const HEAT_BAND_COUNT = DOMAIN_HEAT_BAND_COUNT;
+export const REGION_COLOR_COUNT = DOMAIN_REGION_COLOR_COUNT;
+
+export {
+  classifyRegionColors,
+  getRegionColor,
+  REGION_COLORS_DARK,
+  REGION_COLORS_LIGHT,
+  REGION_PALETTES,
+};
 
 /**
  * Computes the 6 heat breaks for a given level and array of values.
@@ -133,4 +148,42 @@ export function hasMissingValues(values) {
     }
   }
   return false;
+}
+
+/**
+ * Computes region color index (0..15, or -1 for missing) for an array of municipalities.
+ *
+ * @param {ArrayLike<any>} municipalities
+ * @returns {Int8Array}
+ */
+export function selectRegionClassIndexes(municipalities) {
+  const result = new Int8Array(municipalities.length);
+  for (let i = 0; i < municipalities.length; i += 1) {
+    const item = municipalities[i];
+    const raw = readItemRegionCode(item);
+    const parsed = Number.parseInt(String(raw ?? ""), 10);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > REGION_COLOR_COUNT) {
+      result[i] = -1;
+      continue;
+    }
+    result[i] = parsed - 1;
+  }
+  return result;
+}
+
+/**
+ * @param {any} item
+ * @returns {string | number | undefined}
+ */
+function readItemRegionCode(item) {
+  if (!item || typeof item !== "object") {
+    return undefined;
+  }
+  if (item.regionCode !== undefined) {
+    return item.regionCode;
+  }
+  if (item.regionId !== undefined) {
+    return item.regionId;
+  }
+  return undefined;
 }

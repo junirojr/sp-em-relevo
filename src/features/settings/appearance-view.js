@@ -46,6 +46,7 @@ const COLOR_GROUP = {
   options: [
     { value: "heat", label: "Mapa de calor", note: "7 faixas" },
     { value: "selection", label: "Destaque", note: "Só a seleção" },
+    { value: "region", label: "Região", note: "16 cores" },
   ],
   createAction: changeColorMode,
 };

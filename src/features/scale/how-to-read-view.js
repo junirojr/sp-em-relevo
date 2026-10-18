@@ -32,6 +32,13 @@ const SCALE_LINE = {
 };
 
 /** @type {HowToReadLine} */
+const REGION_SCALE_LINE = {
+  key: "scale",
+  title: "Escala",
+  text: "Escala: 16 cores distintas, uma para cada região administrativa.",
+};
+
+/** @type {HowToReadLine} */
 const AGGREGATION_LINE = {
   key: "aggregation",
   title: "Agregação",
@@ -40,16 +47,32 @@ const AGGREGATION_LINE = {
 
 /**
  * Builds the view model for the 'Como ler este mapa' expandable section.
- * Follows ESC-09 and ESC-11: the height line follows the height mode.
+ * Follows ESC-09, ESC-11 and REG-01: the height line follows the height mode
+ * and the scale line follows the color mode.
  *
  * @param {HeightMode} [heightMode] defaults to the proportional mode.
+ * @param {string} [colorMode] defaults to heat.
  * @returns {HowToReadViewModel}
  */
-export function buildHowToReadViewModel(heightMode = DEFAULT_HEIGHT_MODE) {
+export function buildHowToReadViewModel(
+  heightMode = DEFAULT_HEIGHT_MODE,
+  colorMode = "heat",
+) {
   return {
     title: TITLE,
-    lines: [SCALE_LINE, buildHeightLine(heightMode), AGGREGATION_LINE],
+    lines: [buildScaleLine(colorMode), buildHeightLine(heightMode), AGGREGATION_LINE],
   };
+}
+
+/**
+ * @param {string} [colorMode]
+ * @returns {HowToReadLine}
+ */
+function buildScaleLine(colorMode) {
+  if (colorMode === "region") {
+    return REGION_SCALE_LINE;
+  }
+  return SCALE_LINE;
 }
 
 /**
@@ -66,13 +89,20 @@ function buildHeightLine(heightMode) {
 
 /**
  * Mounts the collapsed <details> element with the three explanatory lines.
- * Follows ESC-09 and ESC-11.
+ * Follows ESC-09, ESC-11 and REG-01.
  *
  * @param {any} documentRef
  * @param {HeightMode} [initialHeightMode] defaults to the proportional mode.
+ * @param {string} [initialColorMode] defaults to heat.
  */
-export function mountHowToReadView(documentRef, initialHeightMode = DEFAULT_HEIGHT_MODE) {
-  const model = buildHowToReadViewModel(initialHeightMode);
+export function mountHowToReadView(
+  documentRef,
+  initialHeightMode = DEFAULT_HEIGHT_MODE,
+  initialColorMode = "heat",
+) {
+  let heightMode = initialHeightMode;
+  let colorMode = initialColorMode;
+  const model = buildHowToReadViewModel(heightMode, colorMode);
 
   const details = documentRef.createElement("details");
   details.className = "how-to-read-details";
@@ -93,8 +123,13 @@ export function mountHowToReadView(documentRef, initialHeightMode = DEFAULT_HEIG
     element: details,
     summaryElement: summary,
     listElement: list,
-    updateHeightMode: (/** @type {HeightMode} */ heightMode) => {
-      writeLineTexts(lineElements, buildHowToReadViewModel(heightMode).lines);
+    updateHeightMode: (/** @type {HeightMode} */ nextHeightMode) => {
+      heightMode = nextHeightMode;
+      writeLineTexts(lineElements, buildHowToReadViewModel(heightMode, colorMode).lines);
+    },
+    updateColorMode: (/** @type {string} */ nextColorMode) => {
+      colorMode = nextColorMode;
+      writeLineTexts(lineElements, buildHowToReadViewModel(heightMode, colorMode).lines);
     },
   };
 }
