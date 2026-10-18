@@ -250,6 +250,7 @@ export function mountPanelView(documentRef, dispatch, options = {}) {
 
     inspectedCard.append(header, metrics, actionBtn);
     inspectedCard.hidden = false;
+    inspectedCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   function subscribeToStore() {

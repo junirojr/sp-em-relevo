@@ -82,6 +82,9 @@ export const DEFAULT_MARGIN_PX = 12;
  *   margin?: number,
  *   estimateWidth?: (text: string) => number,
  *   labelHeight?: number
+ *   labelHeight?: number,
+ *   occlusionBoxes?: BoundingBox[],
+ *   useShortLabel?: boolean
  * }} [options]
  * @returns {LabelPlacement[]}
  */
@@ -95,6 +98,8 @@ export function computeLabelCollisions(
   const margin = options.margin ?? DEFAULT_MARGIN_PX;
   const labelHeight = options.labelHeight ?? DEFAULT_LABEL_HEIGHT;
   const estimateWidth = options.estimateWidth ?? estimateLabelWidth;
+  const occlusionBoxes = options.occlusionBoxes ?? [];
+  const useShortLabel = options.useShortLabel ?? true;
 
   const sorted = [...definitions].sort((a, b) => a.priority - b.priority);
   /** @type {BoundingBox[]} */
@@ -107,7 +112,11 @@ export function computeLabelCollisions(
 
   for (let i = 0; i < sorted.length; i += 1) {
     const item = sorted[i];
-    const width = estimateWidth(item.label);
+    let displayText = item.label;
+    if (useShortLabel && item.shortLabel) {
+      displayText = item.shortLabel;
+    }
+    const width = estimateWidth(displayText);
     const centerX = margin + item.x * availableWidth;
     const centerY = margin + item.y * availableHeight;
 
@@ -122,7 +131,7 @@ export function computeLabelCollisions(
     if (isOutOfBounds) {
       placements.push({
         code: item.code,
-        label: item.label,
+        label: displayText,
         box: candidateBox,
         visible: false,
         inTable: true,
@@ -131,11 +140,24 @@ export function computeLabelCollisions(
       continue;
     }
 
+    const collidesWithOcclusion = checkCollisions(candidateBox, occlusionBoxes, padding);
+    if (collidesWithOcclusion) {
+      placements.push({
+        code: item.code,
+        label: displayText,
+        box: candidateBox,
+        visible: false,
+        inTable: true,
+        reason: "collision",
+      });
+      continue;
+    }
+
     const collides = checkCollisions(candidateBox, acceptedBoxes, padding);
     if (collides) {
       placements.push({
         code: item.code,
-        label: item.label,
+        label: displayText,
         box: candidateBox,
         visible: false,
         inTable: true,
@@ -147,7 +169,7 @@ export function computeLabelCollisions(
     acceptedBoxes.push(candidateBox);
     placements.push({
       code: item.code,
-      label: item.label,
+      label: displayText,
       box: candidateBox,
       visible: true,
       inTable: true,
@@ -261,7 +283,11 @@ export function mountRegionLabelsView(documentRef, container, options = {}) {
     const span = documentRef.createElement("span");
     span.className = "region-label region-label-hidden";
     span.dataset.regionCode = item.code;
-    span.textContent = item.label;
+    let labelText = item.label;
+    if (item.shortLabel) {
+      labelText = item.shortLabel;
+    }
+    span.textContent = labelText;
     span.hidden = true;
     layer.append(span);
     elementByCode.set(item.code, span);
@@ -278,10 +304,11 @@ export function mountRegionLabelsView(documentRef, container, options = {}) {
    *
    * @param {number} width
    * @param {number} height
+   * @param {{ occlusionBoxes?: BoundingBox[], useShortLabel?: boolean }} [updateOptions]
    * @returns {LabelPlacement[]}
    */
-  function update(width, height) {
-    currentPlacements = computeLabelCollisions(definitions, width, height);
+  function update(width, height, updateOptions = {}) {
+    currentPlacements = computeLabelCollisions(definitions, width, height, updateOptions);
 
     for (let i = 0; i < currentPlacements.length; i += 1) {
       const placement = currentPlacements[i];

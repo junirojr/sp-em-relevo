@@ -474,6 +474,10 @@
     display: none;
   }
 
+  .app-title {
+    font-size: var(--font-size-md, 14px);
+  }
+
   .sheet-header {
     display: flex;
   }

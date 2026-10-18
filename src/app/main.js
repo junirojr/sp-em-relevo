@@ -266,9 +266,18 @@ export async function bootApplication(documentRef = document, windowRef = window
 
   stageOverlay.append(legendView.element, sourceView.element);
 
-  const regionLabelsView = mountRegionLabelsView(documentRef, stageOverlay);
+  const regionLabelsView = mountRegionLabelsView(documentRef, stageElement);
   const updateRegionLabels = () => {
-    if (!stageElement) {
+    if (!stageElement || !regionLabelsView) {
+      return;
+    }
+    const state = store.getState();
+    const isRegionLevel = state.level?.id === "region";
+    const isRegionColor = state.settings?.colorMode === "region";
+    const isElection = state.tab === "first-round" || state.tab === "second-round";
+    const shouldShow = (isRegionLevel || isRegionColor) && !isElection;
+    regionLabelsView.element.hidden = !shouldShow;
+    if (!shouldShow) {
       return;
     }
     const stageRect = stageElement.getBoundingClientRect();
@@ -280,7 +289,17 @@ export async function bootApplication(documentRef = document, windowRef = window
     if (height <= 0) {
       height = windowRef?.innerHeight || 768;
     }
-    regionLabelsView.update(width, height);
+    const occlusionBoxes = [];
+    if (stageOverlay) {
+      const overlayRect = stageOverlay.getBoundingClientRect();
+      occlusionBoxes.push({
+        x: overlayRect.left - stageRect.left,
+        y: overlayRect.top - stageRect.top,
+        width: overlayRect.width,
+        height: overlayRect.height,
+      });
+    }
+    regionLabelsView.update(width, height, { occlusionBoxes });
   };
   updateRegionLabels();
   if (windowRef) {
@@ -578,6 +597,7 @@ export async function bootApplication(documentRef = document, windowRef = window
         hasMissing: hasMissingValues(values),
       });
       engine.setLimits({ level: currentLevel });
+      updateRegionLabels();
       syncUrlState(windowRef, {
         indicatorId,
         levelId,
@@ -591,9 +611,7 @@ export async function bootApplication(documentRef = document, windowRef = window
     if (documentRef?.documentElement) {
       documentRef.documentElement.dataset.mode = mode;
     }
-    if (regionLabelsView) {
-      regionLabelsView.element.hidden = mode === "election";
-    }
+    updateRegionLabels();
     const currentState = store.getState();
     syncUrlState(windowRef, {
       indicatorId: currentState.indicator.id,
@@ -713,6 +731,9 @@ export async function bootApplication(documentRef = document, windowRef = window
       if (selectionContainer && selectedCodes.length > 0) {
         selectionContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
+      if (selectionContainer && inspectedCode) {
+        selectionContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
     },
   );
 
@@ -755,6 +776,7 @@ export async function bootApplication(documentRef = document, windowRef = window
     howToReadView.updateColorMode(viewModel.colorMode);
     const updatedPalette = projectPaletteForMode(readPalette(documentRef), store.getState());
     engine.setPalette(updatedPalette);
+    updateRegionLabels();
   });
 
   // The "Altura 3D" legend row and the height line of "Como ler este mapa" follow the mode (ESC-11)
@@ -808,6 +830,21 @@ export async function bootApplication(documentRef = document, windowRef = window
   });
   attachProjection(store, project);
   mountTableFeature(documentRef, { store, territory, data });
+
+  import("./election-wiring.js")
+    .then(({ initElectionWiring }) => {
+      initElectionWiring({
+        store,
+        engine,
+        documentRef,
+        windowRef,
+        status,
+        fetchImpl: fetch,
+      });
+    })
+    .catch((error) => {
+      console.warn("Failed to initialize election wiring:", error);
+    });
 
   installTestHooks({
     windowRef,
