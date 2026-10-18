@@ -36,6 +36,10 @@ import {
 } from "./election-loader.js";
 import {
   applyElectionEngineSettings,
+  projectElectionComparison,
+  projectElectionSearch,
+  projectElectionSelection,
+  projectElectionTable,
   projectElectionToEngine,
 } from "./election-projection.js";
 import { changeTab } from "./state.js";
@@ -301,9 +305,46 @@ export function initElectionWiring(options) {
   const unsubscribe = store.subscribe(handleStateChange);
   handleStateChange();
 
-  return {
+  const wiring = {
     countSource,
     getCountState: () => countState,
+    getSelectionProjection(selectedCodes, opts = {}) {
+      const state = store.getState();
+      return projectElectionSelection(selectedCodes, countState.municipalResults, {
+        office: state.election?.office ?? "presidente",
+        level: state.level?.id ?? "municipality",
+        theme: state.theme ?? "dark",
+        ...opts,
+      });
+    },
+    getComparisonProjection(pair, opts = {}) {
+      const state = store.getState();
+      return projectElectionComparison(pair, countState.municipalResults, {
+        office: state.election?.office ?? "presidente",
+        level: state.level?.id ?? "municipality",
+        theme: state.theme ?? "dark",
+        ...opts,
+      });
+    },
+    getSearchProjection(query, entries, opts = {}) {
+      const state = store.getState();
+      return projectElectionSearch(query, entries, countState.municipalResults, {
+        office: state.election?.office ?? "presidente",
+        level: state.level?.id ?? "municipality",
+        theme: state.theme ?? "dark",
+        ...opts,
+      });
+    },
+    getTableProjection(municipalities, opts = {}) {
+      const state = store.getState();
+      return projectElectionTable(municipalities, countState.municipalResults, {
+        office: state.election?.office ?? "presidente",
+        mode: state.tab ?? "second-round",
+        level: state.level?.id ?? "municipality",
+        theme: state.theme ?? "dark",
+        ...opts,
+      });
+    },
     destroy() {
       unsubscribe();
       if (countSource) {
@@ -320,6 +361,13 @@ export function initElectionWiring(options) {
       }
     },
   };
+
+  if (windowRef) {
+    const win = /** @type {any} */ (windowRef);
+    win.__electionWiring = wiring;
+  }
+
+  return wiring;
 }
 
 // Auto-wire if loaded in browser and appStore is ready

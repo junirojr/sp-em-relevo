@@ -1,8 +1,9 @@
 import { aggregateIndicator, formatAggregatedValue } from "../../domain/aggregation.js";
 import { classify } from "../../domain/classification.js";
-import { computeUnitElectionResult } from "../../domain/election.js";
+import { aggregateElectionUnits, computeUnitElectionResult } from "../../domain/election.js";
 import { formatValue } from "../../domain/format.js";
 import { INDICATORS } from "../../domain/indicator.js";
+import { groupOf } from "../../domain/territory.js";
 
 /**
  * Pure data model generator for the alternative data table.
@@ -108,6 +109,27 @@ export function resolveRoundLabel(round) {
     return match;
   }
   return "Eleição";
+}
+
+const OFFICE_LABELS = {
+  presidente: "Presidente",
+  governador: "Governador",
+  senador: "Senador",
+  "deputado-federal": "Deputado federal",
+  "deputado-estadual": "Deputado estadual",
+};
+
+/**
+ * @param {string | undefined | null} office
+ * @returns {string}
+ */
+export function resolveOfficeLabel(office) {
+  const key = String(office ?? "presidente").trim();
+  const match = OFFICE_LABELS[key];
+  if (match) {
+    return match;
+  }
+  return "Presidente";
 }
 
 /**
@@ -258,10 +280,15 @@ export function buildTableColumns(options = {}) {
   const unitLabel = resolveLevelLabel(level);
 
   if (mode === "first-round" || mode === "second-round") {
-    return [
+    const cols = [
       { key: "selection", label: "Seleção", align: "center", type: "control" },
       { key: "code", label: "Código", align: "left", type: "text" },
       { key: "name", label: unitLabel, align: "left", type: "text" },
+    ];
+    if (options.includeOffice || options.office) {
+      cols.push({ key: "office", label: "Cargo", align: "left", type: "text" });
+    }
+    cols.push(
       { key: "leader", label: "Líder", align: "left", type: "text" },
       { key: "party", label: "Partido", align: "left", type: "text" },
       { key: "leaderPct", label: "% Líder", align: "right", type: "numeric" },
@@ -270,7 +297,8 @@ export function buildTableColumns(options = {}) {
       { key: "sectionsPct", label: "% Seções", align: "right", type: "numeric" },
       { key: "colorText", label: "Cor", align: "left", type: "text" },
       { key: "actions", label: "Ações", align: "center", type: "control" },
-    ];
+    );
+    return cols;
   }
 
   const indicatorLabel = resolveIndicatorLabel(options.indicator);
@@ -336,6 +364,9 @@ export function buildTableRows(options = {}) {
       inspectedCode,
       electionUnits: options.electionUnits,
       theme: options.theme,
+      office: options.office,
+      territory: options.territory,
+      isDeputyFreeSelection: options.isDeputyFreeSelection,
     });
   }
 
@@ -350,6 +381,9 @@ export function buildTableRows(options = {}) {
       inspectedCode,
       electionUnits: options.electionUnits,
       theme: options.theme,
+      office: options.office,
+      territory: options.territory,
+      isDeputyFreeSelection: options.isDeputyFreeSelection,
     });
   }
 
@@ -365,6 +399,9 @@ export function buildTableRows(options = {}) {
     inspectedCode,
     electionUnits: options.electionUnits,
     theme: options.theme,
+    office: options.office,
+    territory: options.territory,
+    isDeputyFreeSelection: options.isDeputyFreeSelection,
   });
 }
 
@@ -438,19 +475,30 @@ function buildMunicipalityRows(ctx) {
       if (elecResult.status === "tie") {
         leaderName = "Empate";
       }
+      if (elecResult.status === "uncertain-leader" || elecResult.uncertainLeader) {
+        leaderName = "Liderança indefinida";
+      }
+
+      let leaderPctNum = 0;
+      let secondPctNum = 0;
 
       if (leaderCandidate) {
         leaderName = leaderCandidate.name;
         party = leaderCandidate.party || "-";
-        leaderPct = formatPercentage(leaderCandidate.sharePct);
+        leaderPctNum = leaderCandidate.sharePct;
+        leaderPct = formatPercentage(leaderPctNum);
       }
 
       if (elecResult.candidates && elecResult.candidates.length >= 2) {
         const secondCandidate = elecResult.candidates[1];
-        secondPct = formatPercentage(secondCandidate.sharePct);
+        secondPctNum = secondCandidate.sharePct;
+        secondPct = formatPercentage(secondPctNum);
       }
 
-      const margin = formatMarginPoints(elecResult.marginPp);
+      const p1 = Number(leaderPctNum.toFixed(2));
+      const p2 = Number(secondPctNum.toFixed(2));
+      const displayedMarginPp = Math.max(0, Number((p1 - p2).toFixed(2)));
+      const margin = formatMarginPoints(displayedMarginPp);
       const sectionsPct = formatPercentage(elecResult.sectionsPct);
       const colorText = resolveColorText(party, elecResult.status);
 
@@ -462,6 +510,7 @@ function buildMunicipalityRows(ctx) {
         isInspected,
         regionName,
         govRegionName,
+        office: resolveOfficeLabel(ctx.office),
         leader: leaderName,
         party,
         leaderPct,
@@ -519,6 +568,7 @@ function buildMunicipalityRows(ctx) {
  * @returns {TableRow[]}
  */
 function buildGovernmentRegionRows(ctx) {
+  const electionLookup = resolveElectionLookup(ctx.electionUnits);
   const sorted = [...ctx.governmentRegions].sort((a, b) => {
     if (a.code < b.code) {
       return -1;
@@ -531,11 +581,12 @@ function buildGovernmentRegionRows(ctx) {
 
   return sorted.map((gov) => {
     const inGov = ctx.municipalities.filter((m) => {
-      if (m.governmentRegionCode === gov.code) {
+      const resolvedGroup = groupOf("governmentRegion", m, ctx.territory);
+      if (resolvedGroup === gov.code) {
         return true;
       }
       const stripped = String(gov.code).replace(/^rg-/, "");
-      return m.governmentRegionCode === stripped;
+      return resolvedGroup === stripped;
     });
 
     const isSelected =
@@ -545,6 +596,58 @@ function buildGovernmentRegionRows(ctx) {
     const isInspected = ctx.inspectedCode === gov.code;
 
     if (ctx.mode === "first-round" || ctx.mode === "second-round") {
+      const childInputs = [];
+      for (let i = 0; i < inGov.length; i += 1) {
+        const mun = inGov[i];
+        const munData = electionLookup.get(mun.code) || {
+          code: mun.code,
+          name: mun.name,
+        };
+        childInputs.push(munData);
+      }
+
+      const aggResult = aggregateElectionUnits(childInputs, {
+        code: gov.code,
+        name: gov.label,
+        mode: ctx.mode,
+        theme: ctx.theme || "dark",
+        isDeputyFreeSelection: ctx.isDeputyFreeSelection,
+      });
+
+      const leader = aggResult.leader;
+      const second = aggResult.candidates[1] ?? null;
+
+      let leaderName = "Sem resultado";
+      let party = "-";
+      let leaderPct = "-";
+      let secondPct = "-";
+      let leaderPctNum = 0;
+      let secondPctNum = 0;
+
+      if (aggResult.status === "tie") {
+        leaderName = "Empate";
+      }
+      if (aggResult.status === "uncertain-leader" || aggResult.uncertainLeader) {
+        leaderName = "Liderança indefinida";
+      }
+      if (leader) {
+        leaderName = leader.name;
+        party = leader.party || "-";
+        leaderPctNum = leader.sharePct;
+        leaderPct = formatPercentage(leaderPctNum);
+      }
+      if (second) {
+        secondPctNum = second.sharePct;
+        secondPct = formatPercentage(secondPctNum);
+      }
+
+      const p1 = Number(leaderPctNum.toFixed(2));
+      const p2 = Number(secondPctNum.toFixed(2));
+      const displayedMarginPp = Math.max(0, Number((p1 - p2).toFixed(2)));
+      const margin = formatMarginPoints(displayedMarginPp);
+      const sectionsPct = formatPercentage(aggResult.sectionsPct);
+      const colorText = resolveColorText(party, aggResult.status);
+
       return {
         code: gov.code,
         name: gov.label,
@@ -552,13 +655,15 @@ function buildGovernmentRegionRows(ctx) {
         isPointed,
         isInspected,
         count: inGov.length,
-        leader: "-",
-        party: "-",
-        leaderPct: "-",
-        secondPct: "-",
-        margin: "-",
-        sectionsPct: "-",
-        colorText: "Neutro",
+        office: resolveOfficeLabel(ctx.office),
+        leader: leaderName,
+        party,
+        leaderPct,
+        secondPct,
+        margin,
+        sectionsPct,
+        colorText,
+        rawResult: aggResult,
       };
     }
 
@@ -588,11 +693,15 @@ function buildGovernmentRegionRows(ctx) {
  *   pointedCode: string | null,
  *   inspectedCode: string | null,
  *   electionUnits?: any,
- *   theme?: ThemeId
+ *   theme?: ThemeId,
+ *   office?: string,
+ *   territory?: any,
+ *   isDeputyFreeSelection?: boolean
  * }} ctx
  * @returns {TableRow[]}
  */
 function buildRegionRows(ctx) {
+  const electionLookup = resolveElectionLookup(ctx.electionUnits);
   const sorted = [...ctx.regions].sort((a, b) => {
     const numA = Number.parseInt(a.code, 10);
     const numB = Number.parseInt(b.code, 10);
@@ -609,7 +718,10 @@ function buildRegionRows(ctx) {
   });
 
   return sorted.map((reg) => {
-    const inReg = ctx.municipalities.filter((m) => m.regionCode === reg.code);
+    const inReg = ctx.municipalities.filter((m) => {
+      const resolvedGroup = groupOf("region", m, ctx.territory);
+      return resolvedGroup === reg.code;
+    });
     const isSelected =
       ctx.selectedSet.has(reg.code) ||
       (inReg.length > 0 && inReg.every((m) => ctx.selectedSet.has(m.code)));
@@ -617,6 +729,58 @@ function buildRegionRows(ctx) {
     const isInspected = ctx.inspectedCode === reg.code;
 
     if (ctx.mode === "first-round" || ctx.mode === "second-round") {
+      const childInputs = [];
+      for (let i = 0; i < inReg.length; i += 1) {
+        const mun = inReg[i];
+        const munData = electionLookup.get(mun.code) || {
+          code: mun.code,
+          name: mun.name,
+        };
+        childInputs.push(munData);
+      }
+
+      const aggResult = aggregateElectionUnits(childInputs, {
+        code: reg.code,
+        name: reg.label,
+        mode: ctx.mode,
+        theme: ctx.theme || "dark",
+        isDeputyFreeSelection: ctx.isDeputyFreeSelection,
+      });
+
+      const leader = aggResult.leader;
+      const second = aggResult.candidates[1] ?? null;
+
+      let leaderName = "Sem resultado";
+      let party = "-";
+      let leaderPct = "-";
+      let secondPct = "-";
+      let leaderPctNum = 0;
+      let secondPctNum = 0;
+
+      if (aggResult.status === "tie") {
+        leaderName = "Empate";
+      }
+      if (aggResult.status === "uncertain-leader" || aggResult.uncertainLeader) {
+        leaderName = "Liderança indefinida";
+      }
+      if (leader) {
+        leaderName = leader.name;
+        party = leader.party || "-";
+        leaderPctNum = leader.sharePct;
+        leaderPct = formatPercentage(leaderPctNum);
+      }
+      if (second) {
+        secondPctNum = second.sharePct;
+        secondPct = formatPercentage(secondPctNum);
+      }
+
+      const p1 = Number(leaderPctNum.toFixed(2));
+      const p2 = Number(secondPctNum.toFixed(2));
+      const displayedMarginPp = Math.max(0, Number((p1 - p2).toFixed(2)));
+      const margin = formatMarginPoints(displayedMarginPp);
+      const sectionsPct = formatPercentage(aggResult.sectionsPct);
+      const colorText = resolveColorText(party, aggResult.status);
+
       return {
         code: reg.code,
         name: reg.label,
@@ -624,13 +788,15 @@ function buildRegionRows(ctx) {
         isPointed,
         isInspected,
         count: inReg.length,
-        leader: "-",
-        party: "-",
-        leaderPct: "-",
-        secondPct: "-",
-        margin: "-",
-        sectionsPct: "-",
-        colorText: "Neutro",
+        office: resolveOfficeLabel(ctx.office),
+        leader: leaderName,
+        party,
+        leaderPct,
+        secondPct,
+        margin,
+        sectionsPct,
+        colorText,
+        rawResult: aggResult,
       };
     }
 

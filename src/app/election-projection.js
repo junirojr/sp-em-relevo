@@ -7,9 +7,21 @@ import {
   getElectionNeutrals,
 } from "../domain/election-colors.js";
 import {
+  aggregateElectionUnits,
   computeElectionHeight,
+  computeUnitElectionResult,
   isBelowSectionsThreshold,
 } from "../domain/election.js";
+import {
+  buildElectionCompareModel,
+  computeDisplayedMarginPp,
+  formatCandidateMargin,
+  formatCandidateShare,
+  resolveCalculationBase,
+  resolveOfficeLabel,
+} from "../features/election/election-compare-model.js";
+import { findElectionSearchResults } from "../features/election/election-search-model.js";
+import { buildElectionTableModel } from "../features/election/election-table-model.js";
 
 /**
  * Election projection mapping domain electoral results to engine height targets and color positions (N13, ELE-04, ELE-05, ELE-06, ELE-10, ELE-12, ELE-15).
@@ -164,4 +176,162 @@ export function applyElectionEngineSettings(engine, isElection) {
     }
     engine.setLiftEnabled({ pointed: true, selected: true });
   }
+}
+
+/**
+ * Projects the active election selection for panel display (ELE-11, ELE-22, TUR-04).
+ *
+ * @param {readonly string[]} selectedCodes
+ * @param {Record<string, ElectionUnitResult | ElectionUnitInput> | Map<string, ElectionUnitResult | ElectionUnitInput>} municipalResults
+ * @param {{
+ *   office?: string,
+ *   theme?: ThemeMode,
+ *   territory?: any,
+ *   level?: string,
+ *   isDeputyFreeSelection?: boolean
+ * }} [options]
+ * @returns {any | null}
+ */
+export function projectElectionSelection(selectedCodes, municipalResults, options = {}) {
+  if (!selectedCodes || selectedCodes.length === 0) {
+    return null;
+  }
+
+  const office = options.office ?? "presidente";
+  const officeLabel = resolveOfficeLabel(office);
+  const calculationBase = resolveCalculationBase(office);
+  const lookupMap = toLookupMap(municipalResults);
+
+  if (selectedCodes.length === 1) {
+    const code = selectedCodes[0];
+    const raw = lookupMap.get(code) || { code, name: code };
+    const res = computeUnitElectionResult(raw, options);
+
+    const leaderPctNum = res.leader?.sharePct ?? 0;
+    const secondPctNum = res.candidates[1]?.sharePct ?? 0;
+    const marginPp = computeDisplayedMarginPp(leaderPctNum, secondPctNum);
+
+    return {
+      ...res,
+      office,
+      officeLabel,
+      calculationBase,
+      marginPp,
+      formattedMargin: formatCandidateMargin(marginPp),
+      leaderPct: formatCandidateShare(leaderPctNum),
+      secondPct: formatCandidateShare(secondPctNum),
+      count: 1,
+    };
+  }
+
+  // Multi-selection aggregation (ELE-03, TUR-04)
+  const childInputs = [];
+  for (let i = 0; i < selectedCodes.length; i += 1) {
+    const code = selectedCodes[i];
+    const data = lookupMap.get(code) || { code, name: code };
+    childInputs.push(data);
+  }
+
+  const agg = aggregateElectionUnits(childInputs, {
+    ...options,
+    code: "selection-aggregate",
+    name: `${selectedCodes.length} municipios selecionados`,
+    isDeputyFreeSelection: options.isDeputyFreeSelection,
+  });
+
+  const leaderPctNum = agg.leader?.sharePct ?? 0;
+  const secondPctNum = agg.candidates[1]?.sharePct ?? 0;
+  const marginPp = computeDisplayedMarginPp(leaderPctNum, secondPctNum);
+
+  return {
+    ...agg,
+    office,
+    officeLabel,
+    calculationBase,
+    marginPp,
+    formattedMargin: formatCandidateMargin(marginPp),
+    leaderPct: formatCandidateShare(leaderPctNum),
+    secondPct: formatCandidateShare(secondPctNum),
+    count: selectedCodes.length,
+  };
+}
+
+/**
+ * Projects a side-by-side comparison for two territorial units in election mode (ELE-11, ELE-22).
+ *
+ * @param {[
+ *   { code: string, name?: string },
+ *   { code: string, name?: string }
+ * ]} pair
+ * @param {Record<string, any> | Map<string, any>} municipalResults
+ * @param {any} [options]
+ * @returns {any}
+ */
+export function projectElectionComparison(pair, municipalResults, options = {}) {
+  return buildElectionCompareModel(pair, municipalResults, options);
+}
+
+/**
+ * Projects election search results for query (ELE-22, RGV-03).
+ *
+ * @param {string} query
+ * @param {any[]} entries
+ * @param {Record<string, any> | Map<string, any>} municipalResults
+ * @param {any} [options]
+ * @returns {any}
+ */
+export function projectElectionSearch(query, entries, municipalResults, options = {}) {
+  return findElectionSearchResults({
+    query,
+    entries,
+    electionLookup: municipalResults,
+    ...options,
+  });
+}
+
+/**
+ * Projects alternative table model in election mode (ACE-02, RGV-03).
+ *
+ * @param {any[]} municipalities
+ * @param {Record<string, any> | Map<string, any>} municipalResults
+ * @param {any} [options]
+ * @returns {any}
+ */
+export function projectElectionTable(municipalities, municipalResults, options = {}) {
+  return buildElectionTableModel({
+    municipalities,
+    electionUnits: municipalResults,
+    ...options,
+  });
+}
+
+/**
+ * @param {any} input
+ * @returns {Map<string, any>}
+ */
+function toLookupMap(input) {
+  if (!input) {
+    return new Map();
+  }
+  if (input instanceof Map) {
+    return input;
+  }
+  const map = new Map();
+  if (Array.isArray(input)) {
+    for (let i = 0; i < input.length; i += 1) {
+      const item = input[i];
+      if (item && item.code) {
+        map.set(item.code, item);
+      }
+    }
+    return map;
+  }
+  if (typeof input === "object") {
+    const keys = Object.keys(input);
+    for (let i = 0; i < keys.length; i += 1) {
+      const k = keys[i];
+      map.set(k, input[k]);
+    }
+  }
+  return map;
 }
