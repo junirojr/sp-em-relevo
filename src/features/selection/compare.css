@@ -454,3 +454,53 @@
 .compare-reopen:hover {
   background: var(--coral-soft);
 }
+
+/* Responsive mobile anchoring for the comparison dock within the bottom panel (MOB-02) */
+
+@media (max-width: 900px) {
+  .compare-dock,
+  #compare-dock {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 100%;
+    align-items: stretch;
+    z-index: 22;
+    pointer-events: auto;
+    max-height: min(
+      var(--sheet-collapsed-height, 128px),
+      calc(var(--visual-viewport-height, 100dvh) * 0.26)
+    );
+  }
+
+  html[data-sheet-state="half"] .compare-dock,
+  html[data-sheet-state="half"] #compare-dock {
+    max-height: calc(var(--visual-viewport-height, 100dvh) * 0.5);
+  }
+
+  html[data-sheet-state="expanded"] .compare-dock,
+  html[data-sheet-state="expanded"] #compare-dock {
+    max-height: calc(var(--visual-viewport-height, 100dvh) * 0.88);
+  }
+
+  .compare-panel {
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+  }
+
+  .compare-reopen {
+    position: absolute;
+    bottom: calc(
+      min(
+        var(--sheet-collapsed-height, 128px),
+        calc(var(--visual-viewport-height, 100dvh) * 0.26)
+      ) + var(--space-2)
+    );
+    right: var(--space-3);
+  }
+}
+

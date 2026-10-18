@@ -7,9 +7,11 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { inflateRawSync } from "node:zlib";
 
 /**
  * @typedef {{ code: string, population: number, areaKm2: number, density: number, gdpPerCapita: number }} FixtureRegion
+ * @typedef {{ regions: FixtureRegion[], governmentRegions: FixtureRegion[] }} FixtureData
  * @typedef {{ municipalityCode: string, regionCode: string, regionLabel: string }} MembershipEntry
  * @typedef {{ NC: string, D1C: string, D2C: string, D3C: string, V: string }} SidraRow
  * @typedef {{ variable: string, year: string }} Selector
@@ -37,6 +39,13 @@ const CHECKSUMS_FILE = "checksums.json";
 const REGION_MEMBERSHIP_FILE = "seade-codigos-municipios-regioes.csv";
 const POPULATION_AND_AREA_FILE = "sidra-4714.json";
 const GDP_FILE = "sidra-5938.json";
+const GEOSEADE_FILE = "limite_municipal.zip";
+
+const ZIP_LOCAL_FILE_SIGNATURE = 0x04034b50;
+const DBF_HEADER_VERSION = 0x03;
+const DBF_HEADER_TERMINATOR = 0x0d;
+const DEFLATE_COMPRESSION_METHOD = 8;
+const EXPECTED_GOVERNMENT_REGION_COUNT = 43;
 
 const MUNICIPALITY_LEVEL = "6";
 const STATE_PLACEHOLDER_CODE = "3500000";
@@ -56,36 +65,53 @@ const GDP_SELECTOR = { variable: "37", year: "2023" };
  * @returns {number} exit code
  */
 function main(argv) {
-  const regions = buildFixtureRegions();
-  if (argv.includes("--check")) return checkFixture(regions);
-  writeFixture(regions);
-  console.log(`wrote ${regions.length} regions to ${FIXTURE_LABEL}`);
+  const data = buildFixtureData();
+  if (argv.includes("--check")) {
+    return checkFixture(data);
+  }
+  writeFixture(data);
+  console.log(
+    `wrote ${data.regions.length} regions and ${data.governmentRegions.length} government regions to ${FIXTURE_LABEL}`,
+  );
   return 0;
 }
 
 /**
- * @param {FixtureRegion[]} regions
+ * @param {FixtureData} data
  * @returns {number} exit code
  */
-function checkFixture(regions) {
-  const storedRegions = readStoredRegions();
-  const divergence = findDivergence(regions, storedRegions);
-  if (divergence !== undefined) {
-    console.error(`fixture diverges from raw data at ${divergence}`);
+function checkFixture(data) {
+  const stored = readStoredData();
+  const regionDivergence = findDivergence(data.regions, stored.regions, "regions");
+  if (regionDivergence !== undefined) {
+    console.error(`fixture diverges from raw data at ${regionDivergence}`);
+    return 1;
+  }
+  const govDivergence = findDivergence(
+    data.governmentRegions,
+    stored.governmentRegions,
+    "governmentRegions",
+  );
+  if (govDivergence !== undefined) {
+    console.error(`fixture diverges from raw data at ${govDivergence}`);
     return 1;
   }
   console.log("fixture matches raw data");
   return 0;
 }
 
-/** @returns {FixtureRegion[]} */
-function buildFixtureRegions() {
+/** @returns {FixtureData} */
+function buildFixtureData() {
   const checksums = readChecksums();
   const membership = parseRegionMembership(readVerifiedRaw(REGION_MEMBERSHIP_FILE, checksums));
   const populationAndAreaRows = parseSidraRows(
     readVerifiedRaw(POPULATION_AND_AREA_FILE, checksums),
   );
   const gdpRows = parseSidraRows(readVerifiedRaw(GDP_FILE, checksums));
+  const geoseadeZip = readVerifiedRaw(GEOSEADE_FILE, checksums);
+  const dbfBuffer = extractDbfBuffer(geoseadeZip);
+  const governmentRegionMap = parseGovernmentRegionMembership(dbfBuffer);
+
   const sources = {
     population: indexMunicipalValues(populationAndAreaRows, POPULATION_SELECTOR, parseWholeNumber),
     areaThousandths: indexMunicipalValues(
@@ -95,9 +121,13 @@ function buildFixtureRegions() {
     ),
     gdpThousands: indexMunicipalValues(gdpRows, GDP_SELECTOR, parseWholeNumber),
   };
-  return TARGET_REGION_LABELS.map((label) => buildRegion(label, membership, sources)).sort(
+
+  const regions = TARGET_REGION_LABELS.map((label) => buildRegion(label, membership, sources)).sort(
     compareByNumericCode,
   );
+  const governmentRegions = buildGovernmentRegions(governmentRegionMap, sources);
+
+  return { regions, governmentRegions };
 }
 
 /**
@@ -124,16 +154,44 @@ function buildRegion(label, membership, sources) {
 }
 
 /**
- * @param {MembershipEntry[]} membership
+ * @param {Map<string, string[]>} governmentRegionMap
+ * @param {Sources} sources
+ * @returns {FixtureRegion[]}
+ */
+function buildGovernmentRegions(governmentRegionMap, sources) {
+  const regions = [];
+  for (let i = 1; i <= EXPECTED_GOVERNMENT_REGION_COUNT; i += 1) {
+    const code = `rg-${i}`;
+    const municipalityCodes = governmentRegionMap.get(code);
+    if (!municipalityCodes || municipalityCodes.length === 0) {
+      throw new ReferenceValuesError(`empty or missing government region: ${code}`);
+    }
+    const population = sumValues(municipalityCodes, sources.population);
+    const areaKm2 = sumValues(municipalityCodes, sources.areaThousandths) / 1000;
+    const gdpReais = sumValues(municipalityCodes, sources.gdpThousands) * 1000;
+    regions.push({
+      code,
+      population,
+      areaKm2,
+      density: population / areaKm2,
+      gdpPerCapita: gdpReais / population,
+    });
+  }
+  return regions;
+}
+
+/**
  * @param {string} label
+ * @param {MembershipEntry[]} membership
  * @returns {string}
  */
 function resolveRegionCode(membership, label) {
   const codes = new Set(
     membership.filter((entry) => entry.regionLabel === label).map((entry) => entry.regionCode),
   );
-  if (codes.size !== 1)
+  if (codes.size !== 1) {
     throw new ReferenceValuesError(`region label must map to exactly one code: ${label}`);
+  }
   return [...codes][0];
 }
 
@@ -153,8 +211,9 @@ function sumValues(municipalityCodes, valuesByCode) {
  */
 function requireValue(valuesByCode, municipalityCode) {
   const value = valuesByCode.get(municipalityCode);
-  if (value === undefined)
+  if (value === undefined) {
     throw new ReferenceValuesError(`no value for municipality ${municipalityCode}`);
+  }
   return value;
 }
 
@@ -167,7 +226,9 @@ function requireValue(valuesByCode, municipalityCode) {
 function indexMunicipalValues(rows, selector, parseValue) {
   const valuesByCode = new Map();
   for (const row of rows) {
-    if (!isSelectedMunicipalRow(row, selector)) continue;
+    if (!isSelectedMunicipalRow(row, selector)) {
+      continue;
+    }
     addMunicipalValue(valuesByCode, row, parseValue);
   }
   return valuesByCode;
@@ -190,8 +251,9 @@ function isSelectedMunicipalRow(row, selector) {
  * @param {(text: string) => number} parseValue
  */
 function addMunicipalValue(valuesByCode, row, parseValue) {
-  if (valuesByCode.has(row.D1C))
+  if (valuesByCode.has(row.D1C)) {
     throw new ReferenceValuesError(`duplicate municipality row: ${row.D1C}`);
+  }
   valuesByCode.set(row.D1C, parseValue(row.V));
 }
 
@@ -210,7 +272,9 @@ function parseRegionMembership(bytes) {
  */
 function isMunicipalityLine(line) {
   const municipalityCode = line.split(";")[0];
-  if (municipalityCode === STATE_PLACEHOLDER_CODE) return false;
+  if (municipalityCode === STATE_PLACEHOLDER_CODE) {
+    return false;
+  }
   return MUNICIPALITY_CODE_PATTERN.test(municipalityCode);
 }
 
@@ -225,6 +289,117 @@ function parseMembershipLine(line) {
     regionCode: fields[3],
     regionLabel: normalizeLabel(fields[4]),
   };
+}
+
+/**
+ * Extracts LimiteMunicipal.dbf buffer from raw zip or dbf buffer.
+ * @param {Buffer} buffer
+ * @returns {Buffer}
+ */
+function extractDbfBuffer(buffer) {
+  if (buffer.length < 4) {
+    throw new ReferenceValuesError("Geoseade input buffer is too small");
+  }
+  const signature = buffer.readUInt32LE(0);
+  if (signature !== ZIP_LOCAL_FILE_SIGNATURE) {
+    if (buffer[0] === DBF_HEADER_VERSION) {
+      return buffer;
+    }
+    throw new ReferenceValuesError(
+      "Geoseade input is neither a valid ZIP archive nor a valid DBF file",
+    );
+  }
+
+  let offset = 0;
+  while (offset + 30 <= buffer.length) {
+    const sig = buffer.readUInt32LE(offset);
+    if (sig !== ZIP_LOCAL_FILE_SIGNATURE) {
+      break;
+    }
+    const compressionMethod = buffer.readUInt16LE(offset + 8);
+    const compressedSize = buffer.readUInt32LE(offset + 18);
+    const fileNameLength = buffer.readUInt16LE(offset + 26);
+    const extraFieldLength = buffer.readUInt16LE(offset + 28);
+    const fileName = buffer.toString("utf8", offset + 30, offset + 30 + fileNameLength);
+    const dataOffset = offset + 30 + fileNameLength + extraFieldLength;
+
+    if (fileName.toLowerCase().endsWith(".dbf")) {
+      const compressedData = buffer.subarray(dataOffset, dataOffset + compressedSize);
+      if (compressionMethod === DEFLATE_COMPRESSION_METHOD) {
+        return inflateRawSync(compressedData);
+      }
+      return Buffer.from(compressedData);
+    }
+
+    offset = dataOffset + compressedSize;
+  }
+
+  throw new ReferenceValuesError("No .dbf file found inside the Geoseade ZIP archive");
+}
+
+/**
+ * @param {Buffer} dbfBuffer
+ * @returns {Map<string, string[]>}
+ */
+function parseGovernmentRegionMembership(dbfBuffer) {
+  if (dbfBuffer.length < 32) {
+    throw new ReferenceValuesError("DBF buffer too small for header");
+  }
+  const numRecords = dbfBuffer.readUInt32LE(4);
+  const headerLength = dbfBuffer.readUInt16LE(8);
+  const recordLength = dbfBuffer.readUInt16LE(10);
+
+  const fields = [];
+  let offset = 32;
+  const maxDescriptorOffset = headerLength - 1;
+  while (offset < maxDescriptorOffset) {
+    if (dbfBuffer[offset] === DBF_HEADER_TERMINATOR) {
+      break;
+    }
+    const rawName = dbfBuffer.toString("ascii", offset, offset + 11);
+    const nullIndex = rawName.indexOf("\0");
+    let name = rawName;
+    if (nullIndex >= 0) {
+      name = rawName.slice(0, nullIndex);
+    }
+    fields.push({ name: name.trim(), len: dbfBuffer[offset + 16] });
+    offset += 32;
+  }
+
+  /** @type {Map<string, string[]>} */
+  const rgMap = new Map();
+  for (let recordIndex = 0; recordIndex < numRecords; recordIndex += 1) {
+    const recordStart = headerLength + recordIndex * recordLength;
+    if (recordStart + recordLength > dbfBuffer.length) {
+      break;
+    }
+    if (dbfBuffer[recordStart] === 0x2a) {
+      continue;
+    }
+
+    let fieldOffset = recordStart + 1;
+    /** @type {Record<string, string>} */
+    const record = {};
+    for (const field of fields) {
+      record[field.name] = dbfBuffer
+        .toString("utf8", fieldOffset, fieldOffset + field.len)
+        .trim();
+      fieldOffset += field.len;
+    }
+
+    const code = record.Cod_ibge ?? "";
+    const gidRg = record.GID_RG ?? "";
+    if (!MUNICIPALITY_CODE_PATTERN.test(code) || !WHOLE_NUMBER_PATTERN.test(gidRg)) {
+      continue;
+    }
+
+    const rgCode = `rg-${gidRg}`;
+    const list = rgMap.get(rgCode) ?? [];
+    list.push(code);
+    rgMap.set(rgCode, list);
+  }
+
+  return rgMap;
 }
 
 /**
@@ -248,8 +423,9 @@ function parseSidraRows(bytes) {
  * @returns {number}
  */
 function parseWholeNumber(text) {
-  if (!WHOLE_NUMBER_PATTERN.test(text))
+  if (!WHOLE_NUMBER_PATTERN.test(text)) {
     throw new ReferenceValuesError(`missing or invalid whole number: ${text}`);
+  }
   return Number(text);
 }
 
@@ -258,37 +434,52 @@ function parseWholeNumber(text) {
  * @returns {number} area in thousandths of km2
  */
 function parseAreaThousandths(text) {
-  if (!AREA_PATTERN.test(text)) throw new ReferenceValuesError(`missing or invalid area: ${text}`);
+  if (!AREA_PATTERN.test(text)) {
+    throw new ReferenceValuesError(`missing or invalid area: ${text}`);
+  }
   return Math.round(Number(text) * 1000);
 }
 
-/** @returns {FixtureRegion[]} */
-function readStoredRegions() {
-  if (!existsSync(FIXTURE_PATH))
+/** @returns {FixtureData} */
+function readStoredData() {
+  if (!existsSync(FIXTURE_PATH)) {
     throw new ReferenceValuesError(`fixture not found: ${FIXTURE_LABEL}`);
-  return JSON.parse(readFileSync(FIXTURE_PATH, "utf8")).regions ?? [];
+  }
+  const parsed = JSON.parse(readFileSync(FIXTURE_PATH, "utf8"));
+  return {
+    regions: parsed.regions ?? [],
+    governmentRegions: parsed.governmentRegions ?? [],
+  };
 }
 
 /**
  * @param {FixtureRegion[]} expectedRegions
  * @param {FixtureRegion[]} storedRegions
+ * @param {string} label
  * @returns {string | undefined} location of the first divergent field
  */
-function findDivergence(expectedRegions, storedRegions) {
-  if (expectedRegions.length !== storedRegions.length) return "regions.length";
+function findDivergence(expectedRegions, storedRegions, label) {
+  if (!Array.isArray(storedRegions)) {
+    return `${label} is missing or not an array`;
+  }
+  if (expectedRegions.length !== storedRegions.length) {
+    return `${label}.length`;
+  }
   for (const [index, expected] of expectedRegions.entries()) {
     const field = FIXTURE_FIELDS.find((name) => expected[name] !== storedRegions[index]?.[name]);
-    if (field !== undefined) return `regions[${index}] (code ${expected.code}).${field}`;
+    if (field !== undefined) {
+      return `${label}[${index}] (code ${expected.code}).${field}`;
+    }
   }
   return undefined;
 }
 
 /**
- * @param {FixtureRegion[]} regions
+ * @param {FixtureData} data
  */
-function writeFixture(regions) {
+function writeFixture(data) {
   mkdirSync(dirname(FIXTURE_PATH), { recursive: true });
-  writeFileSync(FIXTURE_PATH, `${JSON.stringify({ regions }, null, 2)}\n`, "utf8");
+  writeFileSync(FIXTURE_PATH, `${JSON.stringify(data, null, 2)}\n`, "utf8");
 }
 
 /**
@@ -313,10 +504,13 @@ function readChecksums() {
 function readVerifiedRaw(fileName, checksums) {
   const bytes = readRaw(fileName);
   const expected = checksums[fileName]?.sha256;
-  if (expected === undefined)
+  if (expected === undefined) {
     throw new ReferenceValuesError(`no checksum recorded for: ${fileName}`);
+  }
   const actual = createHash("sha256").update(bytes).digest("hex");
-  if (actual !== expected) throw new ReferenceValuesError(`checksum mismatch for: ${fileName}`);
+  if (actual !== expected) {
+    throw new ReferenceValuesError(`checksum mismatch for: ${fileName}`);
+  }
   return bytes;
 }
 
@@ -326,7 +520,9 @@ function readVerifiedRaw(fileName, checksums) {
  */
 function readRaw(fileName) {
   const filePath = join(RAW_DIR, fileName);
-  if (!existsSync(filePath)) throw new ReferenceValuesError(`raw file not found: ${fileName}`);
+  if (!existsSync(filePath)) {
+    throw new ReferenceValuesError(`raw file not found: ${fileName}`);
+  }
   return readFileSync(filePath);
 }
 
@@ -335,7 +531,9 @@ function readRaw(fileName) {
  * @returns {string}
  */
 function describeFailure(error) {
-  if (error instanceof ReferenceValuesError) return error.message;
+  if (error instanceof ReferenceValuesError) {
+    return error.message;
+  }
   return `unexpected failure: ${error?.code ?? error?.name}`;
 }
 

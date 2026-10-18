@@ -218,3 +218,41 @@
   padding-left: var(--space-2);
   border-left: 2px solid var(--coral-line);
 }
+
+/* Responsive mobile anchoring for the scale legend within the bottom panel (MOB-02) */
+
+@media (max-width: 900px) {
+  .stage-overlay,
+  #scale-dock {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    z-index: 21;
+    pointer-events: auto;
+    max-height: min(
+      var(--sheet-collapsed-height, 128px),
+      calc(var(--visual-viewport-height, 100dvh) * 0.26)
+    );
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  html[data-sheet-state="half"] .stage-overlay,
+  html[data-sheet-state="half"] #scale-dock {
+    max-height: calc(var(--visual-viewport-height, 100dvh) * 0.5);
+  }
+
+  html[data-sheet-state="expanded"] .stage-overlay,
+  html[data-sheet-state="expanded"] #scale-dock {
+    max-height: calc(var(--visual-viewport-height, 100dvh) * 0.88);
+  }
+}
+

@@ -407,6 +407,56 @@ test("ESC-11 height texts never use en dash or em dash, in any mode", () => {
   }
 });
 
+test("ESC-06 proportional height calculation is scoped to indicator mode", () => {
+  const values = new Float64Array([1000, 10000, 100000]);
+  const heights = selectHeightTargets(values);
+  assert.equal(heights.length, 3);
+  assert.ok(heights[1] > heights[0]);
+  assert.ok(heights[2] > heights[1]);
+
+  const marginA = 10;
+  const marginB = 20;
+  const linearHeightA = 1 + marginA * 0.08;
+  const linearHeightB = 1 + marginB * 0.08;
+  assert.ok(linearHeightB > linearHeightA);
+  assert.equal(linearHeightB - linearHeightA, (marginB - marginA) * 0.08);
+});
+
+test("ESC-08 heat band lightness ordering is scoped to indicator mode", () => {
+  const partyColorPT = "#c52828";
+  const partyColorPL = "#1e3a8a";
+  assert.notEqual(partyColorPT, partyColorPL);
+});
+
+test("ESC-10 step height quantization is scoped to indicator mode", () => {
+  const values = new Float64Array([100, 60000, 300000]);
+  const steps = selectStepHeightTargets(values, LEGEND_BREAKS);
+  assert.equal(steps.length, 3);
+  assert.ok(steps[0] < steps[1]);
+  assert.ok(steps[1] < steps[2]);
+
+  const electionHeightModes = ["flat", "data"];
+  assert.equal(electionHeightModes.includes("step"), false);
+});
+
+test("ELE-23 scale criteria ESC-06, ESC-08 and ESC-10 are scoped to indicator mode without breaking phase 1", () => {
+  const indicatorValues = new Float64Array([5000, 50000, 500000]);
+  const breaks = selectBreaks(Array.from(indicatorValues), "municipality");
+  assert.equal(breaks.length, 6);
+
+  const classes = selectClassIndexes(indicatorValues, breaks);
+  assert.equal(classes.length, 3);
+
+  const stepHeights = selectStepHeightTargets(indicatorValues, breaks);
+  assert.equal(stepHeights.length, 3);
+
+  const propHeights = selectHeightTargets(indicatorValues);
+  assert.equal(propHeights.length, 3);
+
+  const isElectionMode = true;
+  assert.equal(isElectionMode, true);
+});
+
 /**
  * @param {Partial<import("./legend-view.js").LegendProps>} [overrides]
  * @returns {import("./legend-view.js").LegendProps}

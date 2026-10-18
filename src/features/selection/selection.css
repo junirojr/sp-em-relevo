@@ -363,3 +363,200 @@
 .band-swatch[data-band="6"] {
   background: var(--heat-7);
 }
+
+/* Mode selector slot: always visible at the top of the sidebar even when collapsed (ELE-18) */
+
+#mode-selector-slot {
+  flex-shrink: 0;
+  width: 100%;
+}
+
+#mode-selector-slot[hidden] {
+  display: none !important;
+}
+
+.mode-selector-group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mode-selector-legend {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  padding: 0;
+  margin-bottom: 2px;
+}
+
+.mode-selector-options {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+}
+
+.mode-selector-option {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 2px 6px;
+  border: 1px solid var(--pill-line);
+  border-radius: var(--radius-md);
+  background: var(--pill-bg);
+  font-size: var(--font-size-xs);
+  color: var(--ink-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mode-selector-option:hover {
+  background: var(--pill-bg-hover);
+  color: var(--ink);
+}
+
+.mode-selector-option input[type="radio"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  #sidebar[data-sheet-state="collapsed"] #mode-selector-slot {
+    display: block !important;
+    visibility: visible !important;
+  }
+}
+
+/* Touch inspection card (E33, MOB-04) */
+
+.selection-inspected-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--row-bg);
+  border: 1px solid var(--coral-line);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 4px rgb(15 23 42 / 0.08);
+}
+
+.selection-inspected-card[hidden] {
+  display: none !important;
+}
+
+.inspected-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.inspected-card-title-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.inspected-card-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+.inspected-card-context {
+  margin: 0;
+  font-size: 10px;
+  color: var(--ink-muted);
+}
+
+.inspected-card-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.inspected-card-close:hover {
+  color: var(--coral-text);
+  background: var(--coral-soft);
+}
+
+.inspected-card-metrics {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.inspected-metric-label {
+  color: var(--ink-muted);
+}
+
+.inspected-metric-value {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.inspected-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 32px;
+  min-height: 28px;
+  padding: 0 var(--space-3);
+  border-radius: 9999px;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.inspected-action-add {
+  border: 1px solid var(--coral-600);
+  background: var(--coral-600);
+  color: var(--on-coral);
+}
+
+.inspected-action-add:hover {
+  border-color: var(--coral-700);
+  background: var(--coral-700);
+}
+
+.inspected-action-remove {
+  border: 1px solid var(--coral-line);
+  background: var(--coral-soft);
+  color: var(--coral-text);
+}
+
+.inspected-action-remove:hover {
+  border-color: var(--coral-line-hover, var(--coral-line));
+  background: var(--pill-bg-hover);
+}
+

@@ -92,6 +92,9 @@
   --topbar-height: 56px;
   --column-width: 336px;
   --legend-width: 344px;
+  --sheet-collapsed-height: 128px;
+  --sheet-half-height: 50dvh;
+  --sheet-expanded-height: 88dvh;
 }
 
 @media (min-width: 1600px) {
@@ -218,6 +221,108 @@
   --stage-glow: rgb(229 67 67 / 0.1);
 }
 
+/* Election mode neutral shell tokens (ELE-16, single hue, OKLab chroma <= 0.04) */
+:root[data-mode="election"] {
+  --primary: #27272a;
+  --primary-ink: #ffffff;
+  --primary-soft: #e4e4e7;
+  --accent: #27272a;
+  --accent-ink: #ffffff;
+  --accent-soft: #e4e4e7;
+  --coral-300: #d4d4d8;
+  --coral-400: #a1a1aa;
+  --coral-500: #71717a;
+  --coral-600: #52525b;
+  --coral-700: #3f3f46;
+  --coral-900: #18181b;
+  --coral-text: #27272a;
+  --coral-soft: rgb(24 24 27 / 0.06);
+  --coral-line: rgb(24 24 27 / 0.22);
+  --coral-fill: linear-gradient(135deg, rgb(39 39 42 / 0.12), rgb(39 39 42 / 0.04));
+  --on-coral: #ffffff;
+  --focus: #18181b;
+  --focus-outer: #ffffff;
+  --stage-glow: transparent;
+  --logo-from: #71717a;
+  --logo-to: #27272a;
+}
+
+:root[data-theme="dark"][data-mode="election"] {
+  --primary: #e4e4e7;
+  --primary-ink: #090c13;
+  --primary-soft: #27272a;
+  --accent: #e4e4e7;
+  --accent-ink: #090c13;
+  --accent-soft: #27272a;
+  --coral-300: #d4d4d8;
+  --coral-400: #a1a1aa;
+  --coral-500: #71717a;
+  --coral-600: #52525b;
+  --coral-700: #3f3f46;
+  --coral-900: #18181b;
+  --coral-text: #e4e4e7;
+  --coral-soft: rgb(255 255 255 / 0.07);
+  --coral-line: rgb(255 255 255 / 0.2);
+  --coral-fill: linear-gradient(135deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.04));
+  --on-coral: #090c13;
+  --focus: #f4f4f5;
+  --focus-outer: #090c13;
+  --stage-glow: transparent;
+  --logo-from: #a1a1aa;
+  --logo-to: #71717a;
+}
+
+[data-mode="election"] {
+  --primary: #27272a;
+  --primary-ink: #ffffff;
+  --primary-soft: #e4e4e7;
+  --accent: #27272a;
+  --accent-ink: #ffffff;
+  --accent-soft: #e4e4e7;
+  --coral-300: #d4d4d8;
+  --coral-400: #a1a1aa;
+  --coral-500: #71717a;
+  --coral-600: #52525b;
+  --coral-700: #3f3f46;
+  --coral-900: #18181b;
+  --coral-text: #27272a;
+  --coral-soft: rgb(24 24 27 / 0.06);
+  --coral-line: rgb(24 24 27 / 0.22);
+  --coral-fill: linear-gradient(135deg, rgb(39 39 42 / 0.12), rgb(39 39 42 / 0.04));
+  --on-coral: #ffffff;
+  --focus: #18181b;
+  --focus-outer: #ffffff;
+  --stage-glow: transparent;
+  --logo-from: #71717a;
+  --logo-to: #27272a;
+}
+
+[data-theme="dark"][data-mode="election"],
+[data-theme="dark"] [data-mode="election"] {
+  --primary: #e4e4e7;
+  --primary-ink: #090c13;
+  --primary-soft: #27272a;
+  --accent: #e4e4e7;
+  --accent-ink: #090c13;
+  --accent-soft: #27272a;
+  --coral-300: #d4d4d8;
+  --coral-400: #a1a1aa;
+  --coral-500: #71717a;
+  --coral-600: #52525b;
+  --coral-700: #3f3f46;
+  --coral-900: #18181b;
+  --coral-text: #e4e4e7;
+  --coral-soft: rgb(255 255 255 / 0.07);
+  --coral-line: rgb(255 255 255 / 0.2);
+  --coral-fill: linear-gradient(135deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.04));
+  --on-coral: #090c13;
+  --focus: #f4f4f5;
+  --focus-outer: #090c13;
+  --stage-glow: transparent;
+  --logo-from: #a1a1aa;
+  --logo-to: #71717a;
+}
+
 *,
 *::before,
 *::after {
@@ -261,6 +366,8 @@ body {
   display: flex;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
+  height: var(--visual-viewport-height, 100dvh);
   position: relative;
 }
 
@@ -307,6 +414,15 @@ body {
   display: none;
 }
 
+button,
+select,
+summary,
+input[type="range"],
+input[type="checkbox"] {
+  min-width: 24px;
+  min-height: 24px;
+}
+
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
@@ -314,6 +430,21 @@ select:focus-visible,
 summary:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+:root[data-mode="election"] button:focus-visible,
+:root[data-mode="election"] a:focus-visible,
+:root[data-mode="election"] input:focus-visible,
+:root[data-mode="election"] select:focus-visible,
+:root[data-mode="election"] summary:focus-visible,
+[data-mode="election"] button:focus-visible,
+[data-mode="election"] a:focus-visible,
+[data-mode="election"] input:focus-visible,
+[data-mode="election"] select:focus-visible,
+[data-mode="election"] summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--focus-outer, var(--surface));
 }
 
 @media (prefers-reduced-motion: reduce) {

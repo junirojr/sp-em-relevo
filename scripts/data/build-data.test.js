@@ -10,6 +10,7 @@ import {
   CENSUS_SOURCE,
   CHECKSUMS_FILE,
   GDP_SOURCE,
+  GEOSEADE_SOURCE,
   LICENSE_CONDITIONS,
   MESH_LICENSE_NOTICE,
   MESH_SOURCES,
@@ -17,7 +18,17 @@ import {
 } from "./sources.js";
 
 /**
- * @typedef {{ code: string, name: string, regionCode: string, population: number, areaKm2: number, gdpThousandBrl: number | null }} FixtureMunicipality
+ * @typedef {{
+ *   code: string,
+ *   name: string,
+ *   regionCode: string,
+ *   gidRg: number,
+ *   governmentRegionCode: string,
+ *   governmentRegionName: string,
+ *   population: number,
+ *   areaKm2: number,
+ *   gdpThousandBrl: number | null
+ * }} FixtureMunicipality
  * @typedef {{ municipalities: FixtureMunicipality[], secondaryNames: string[], statePopulation: number }} FixtureOptions
  * @typedef {Record<string, string | Uint8Array>} RawFiles
  */
@@ -28,6 +39,8 @@ const GRID_COLUMNS = 43;
 const GRID_ROWS = 15;
 const GRID_STEP = 10;
 const MUNICIPALITY_WITHOUT_GDP = 2;
+
+const REMAINING_RGS = Array.from({ length: 43 }, (_, i) => i + 1).filter((rg) => rg !== 40);
 
 const workDir = await mkdtemp(path.join(tmpdir(), "sp-data-build-"));
 after(() => rm(workDir, { recursive: true, force: true }));
@@ -63,6 +76,7 @@ test("DAD-01 swapping the names of two rows in Seade and SIDRA 5938 leaves the r
   const swapped = await readOutputs(swappedOut);
   assert.deepEqual(swapped.municipalities.municipalities, original.municipalities.municipalities);
   assert.deepEqual(swapped.regions.regions, original.regions.regions);
+  assert.deepEqual(swapped.regions.governmentRegions, original.regions.governmentRegions);
   assert.deepEqual(swapped.mesh.objects, original.mesh.objects);
   assert.match(summary.warnings.join("\n"), /3500101/);
   assert.match(summary.warnings.join("\n"), /3500102/);
@@ -86,6 +100,29 @@ test("DAD-02 regions.json lists the 16 Seade regions by code with the double spa
   );
 });
 
+test("RGV-01 regions.json lists the 43 Geoseade government regions by code", async () => {
+  const { regions } = await readOutputs(await buildFixture(createFixtureOptions()));
+
+  assert.equal(regions.governmentRegions.length, 43);
+  assert.deepEqual(regions.governmentRegions[0], { code: "rg-1", label: "RG 1" });
+  assert.deepEqual(
+    regions.governmentRegions.map((/** @type {{ code: string }} */ region) => region.code),
+    Array.from({ length: 43 }, (_, index) => `rg-${index + 1}`),
+  );
+});
+
+test("RGV-02 government regions strictly nest within administrative regions and RM SP coincides with RG SP", async () => {
+  const { municipalities } = await readOutputs(await buildFixture(createFixtureOptions()));
+  const records = municipalities.municipalities;
+
+  const spMunicipalities = records.filter((m) => m.regionCode === "1");
+  assert.equal(spMunicipalities.length, 39);
+  for (const m of spMunicipalities) {
+    assert.equal(m.governmentRegionCode, "rg-40");
+    assert.equal(m.governmentRegionName, "RG de São Paulo");
+  }
+});
+
 test("DAD-03 the build fails when the state population differs from the region sum and writes nothing", async () => {
   const options = createFixtureOptions();
   const rawDir = await writeRawDir(
@@ -107,13 +144,18 @@ test("DAD-05 meta records sources, years, download date, license condition and b
   const { meta } = outputs.municipalities;
   assert.deepEqual(
     Object.keys(meta.rawSha256),
-    [CENSUS_SOURCE.file, REGION_SOURCE.file, GDP_SOURCE.file].sort(),
+    [CENSUS_SOURCE.file, REGION_SOURCE.file, GDP_SOURCE.file, GEOSEADE_SOURCE.file].sort(),
   );
   assert.equal(meta.rawSha256[CENSUS_SOURCE.file], sha256(rawFiles[CENSUS_SOURCE.file]));
+  assert.equal(meta.rawSha256[GEOSEADE_SOURCE.file], sha256(rawFiles[GEOSEADE_SOURCE.file]));
   assert.equal(meta.retrievedAt, RETRIEVED_AT);
   assert.equal(
     meta.license.condition,
-    [LICENSE_CONDITIONS.ibgeSidra, LICENSE_CONDITIONS.seadeDerived].join("; "),
+    [
+      LICENSE_CONDITIONS.ibgeSidra,
+      LICENSE_CONDITIONS.seadeDerived,
+      LICENSE_CONDITIONS.geoseade,
+    ].join("; "),
   );
   assert.deepEqual(meta.year, [CENSUS_SOURCE.year, GDP_SOURCE.year, REGION_SOURCE.year]);
   for (const output of Object.values(outputs)) {
@@ -135,7 +177,7 @@ test("DAD-05 only the mesh carries the processing notice in its license", async 
   assert.equal("notice" in regions.meta.license, false);
 });
 
-test("DAD-07 municipalities.json stores only the six fields, ordered by code", async () => {
+test("DAD-07 municipalities.json stores only the expected fields, ordered by code", async () => {
   const { municipalities } = await readOutputs(await buildFixture(createFixtureOptions()));
   const records = municipalities.municipalities;
   const codes = records.map((/** @type {{ code: string }} */ record) => record.code);
@@ -145,6 +187,8 @@ test("DAD-07 municipalities.json stores only the six fields, ordered by code", a
     "code",
     "name",
     "regionCode",
+    "governmentRegionCode",
+    "governmentRegionName",
     "population",
     "areaKm2",
     "gdpThousandBrl",
@@ -153,6 +197,8 @@ test("DAD-07 municipalities.json stores only the six fields, ordered by code", a
     code: "3500101",
     name: "Município 0",
     regionCode: "1",
+    governmentRegionCode: "rg-40",
+    governmentRegionName: "RG de São Paulo",
     population: 1000,
     areaKm2: 10.5,
     gdpThousandBrl: 5000,
@@ -210,11 +256,36 @@ function createFixtureOptions() {
 function createFixtureMunicipality(index) {
   /** @type {number | null} */
   let gdpThousandBrl = 5000 + index;
-  if (index === MUNICIPALITY_WITHOUT_GDP) gdpThousandBrl = null;
+  if (index === MUNICIPALITY_WITHOUT_GDP) {
+    gdpThousandBrl = null;
+  }
+
+  if (index < 39) {
+    return {
+      code: String(3500101 + index),
+      name: `Município ${index}`,
+      regionCode: "1",
+      gidRg: 40,
+      governmentRegionCode: "rg-40",
+      governmentRegionName: "RG de São Paulo",
+      population: 1000 + index,
+      areaKm2: 10.5 + index,
+      gdpThousandBrl,
+    };
+  }
+
+  const remainingIndex = index - 39;
+  const k = remainingIndex % 42;
+  const gidRg = REMAINING_RGS[k];
+  const raCode = String(2 + (k % 15));
+
   return {
     code: String(3500101 + index),
     name: `Município ${index}`,
-    regionCode: String((index % 16) + 1),
+    regionCode: raCode,
+    gidRg,
+    governmentRegionCode: `rg-${gidRg}`,
+    governmentRegionName: `RG ${gidRg}`,
     population: 1000 + index,
     areaKm2: 10.5 + index,
     gdpThousandBrl,
@@ -242,9 +313,63 @@ function createRawFiles(options) {
     [CENSUS_SOURCE.file]: JSON.stringify(createCensusRows(options)),
     [GDP_SOURCE.file]: JSON.stringify(createGdpRows(options)),
     [REGION_SOURCE.file]: Buffer.from(createSeadeCsv(options), "latin1"),
+    [GEOSEADE_SOURCE.file]: createGeoseadeBuffer(options),
     [MESH_SOURCES.minima.file]: mesh,
     [MESH_SOURCES.intermediaria.file]: mesh,
   };
+}
+
+/**
+ * Creates a valid DBF buffer representing the Geoseade municipal limits data.
+ * @param {FixtureOptions} options
+ * @returns {Buffer}
+ */
+function createGeoseadeBuffer({ municipalities }) {
+  const headerLen = 32 + 6 * 32 + 1;
+  const recLen = 1 + 7 + 50 + 5 + 50 + 5 + 50;
+  const buf = Buffer.alloc(headerLen + municipalities.length * recLen);
+  buf.fill(0x20, headerLen);
+  buf[0] = 0x03;
+  buf.writeUInt32LE(municipalities.length, 4);
+  buf.writeUInt16LE(headerLen, 8);
+  buf.writeUInt16LE(recLen, 10);
+
+  const fields = [
+    { name: "Cod_ibge", len: 7 },
+    { name: "Municipio", len: 50 },
+    { name: "GID_RG", len: 5 },
+    { name: "RG", len: 50 },
+    { name: "GID_RA", len: 5 },
+    { name: "RA", len: 50 },
+  ];
+  let off = 32;
+  for (const f of fields) {
+    buf.write(f.name, off, 11, "ascii");
+    buf[off + 11] = 67;
+    buf[off + 16] = f.len;
+    off += 32;
+  }
+  buf[off] = 0x0d;
+
+  let rOff = headerLen;
+  for (const m of municipalities) {
+    buf[rOff] = 0x20;
+    rOff += 1;
+    buf.write(m.code, rOff, "utf8");
+    rOff += 7;
+    buf.write(m.name, rOff, "utf8");
+    rOff += 50;
+    buf.write(String(m.gidRg), rOff, "utf8");
+    rOff += 5;
+    buf.write(m.governmentRegionName, rOff, "utf8");
+    rOff += 50;
+    buf.write(m.regionCode, rOff, "utf8");
+    rOff += 5;
+    buf.write(`RA ${m.regionCode}`, rOff, "utf8");
+    rOff += 50;
+  }
+
+  return buf;
 }
 
 /**
@@ -362,7 +487,9 @@ function createGdpRows({ municipalities, secondaryNames }) {
  * @returns {string}
  */
 function formatSidraValue(value) {
-  if (value === null) return "...";
+  if (value === null) {
+    return "...";
+  }
   return String(value);
 }
 
@@ -412,7 +539,9 @@ function createSeadeCsv({ municipalities, secondaryNames }) {
  * @returns {string}
  */
 function createRegionLabel(regionCode) {
-  if (regionCode === "1") return "RM  Região 1";
+  if (regionCode === "1") {
+    return "RM  Região 1";
+  }
   return `RA Região ${regionCode}`;
 }
 

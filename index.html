@@ -3,6 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta property="og:title" content="São Paulo em relevo">
+    <meta property="og:description" content="Mapa 3D interativo dos 645 municípios de São Paulo com indicadores socioeconômicos e dados eleitorais.">
     <title>São Paulo em relevo</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="./src/app/theme.css">
@@ -40,10 +42,14 @@
           <span id="period-badge" class="period-badge"></span>
         </div>
         <div id="header-stats" class="header-stats"></div>
-        <div id="theme-toggle-container" class="topbar-actions"></div>
+        <div id="theme-toggle-container" class="topbar-actions">
+          <a id="open-table-link" class="skip-link table-link" href="#alt-table-slot">Abrir tabela de dados</a>
+        </div>
       </header>
       <aside id="sidebar">
-        <div id="search-container" class="sidebar-top"></div>
+        <div id="search-container" class="sidebar-top">
+          <div id="mode-selector-slot" hidden></div>
+        </div>
         <div class="sidebar-content">
           <div id="pointed-pill"></div>
           <div id="indicator-container"></div>
@@ -59,10 +65,15 @@
         </footer>
       </aside>
       <main id="map-stage">
-        <canvas id="map-canvas"></canvas>
+        <canvas id="map-canvas" aria-hidden="true"></canvas>
         <div id="stage-status" role="status" hidden></div>
+        <div id="election-banner-slot" role="status" aria-live="polite" hidden></div>
+        <div id="election-scoreboard-slot" hidden></div>
+        <div id="election-replay-slot" hidden></div>
+        <div id="election-source-slot" hidden></div>
         <div id="stage-overlay" class="stage-overlay"></div>
         <nav id="camera-controls" class="zoom" aria-label="Zoom do mapa"></nav>
+        <div id="alt-table-slot" hidden></div>
       </main>
     </div>
     <script type="module" src="./src/app/main.js"></script>

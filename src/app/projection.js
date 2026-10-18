@@ -5,10 +5,12 @@ import { createSelector } from "../domain/memo.js";
 import { generateSyntheticValues, SYNTHETIC_INDICATOR } from "../domain/synthetic.js";
 import { selectIndicatorDefinition } from "../features/indicator/indicator-slice.js";
 import { selectBreaks } from "../features/scale/scale-slice.js";
+import { readModeAttribute } from "./state.js";
 
 /**
  * @typedef {import("./state.js").RootState} RootState
  * @typedef {import("./state.js").Action} Action
+ * @typedef {import("./state.js").ModeAttribute} ModeAttribute
  * @typedef {Pick<import("./store.js").Store<RootState, Action>, "getState" | "subscribe">} ProjectedStore
  * @typedef {{ pointed: string | readonly string[] | null, selected: readonly string[] }} RaisedUnits
  *   Unit codes: the pointed one(s), or null, and the selected ones.
@@ -52,7 +54,10 @@ import { selectBreaks } from "../features/scale/scale-slice.js";
  * Map centers by municipality code, which the synthetic generator needs to cluster its values.
  *
  * @typedef {ReadonlyMap<string, { x: number, y: number }>} MapCenters
- * @typedef {import("../domain/territory.js").MunicipalityRecord & { value?: number }} IndicatorRecord
+ * @typedef {import("../domain/territory.js").MunicipalityRecord & {
+ *   governmentRegionCode?: string,
+ *   value?: number
+ * }} IndicatorRecord
  *   A municipality record; with the demo on it also carries the synthetic `value`.
  *
  * @typedef {Object} RootSelectors
@@ -67,7 +72,82 @@ import { selectBreaks } from "../features/scale/scale-slice.js";
  * @property {(state: RootState) => Uint8Array} selectColorPositions
  * @property {(state: RootState) => Float32Array} selectHeightTargets
  * @property {(state: RootState) => RaisedUnits} selectRaised
+ * @property {(state: RootState) => ModeAttribute} selectModeAttribute
  */
+
+/**
+ * Maps a municipality code or record to its group code at the requested territorial level
+ * (`"municipality"`, `"governmentRegion"` or `"region"`).
+ *
+ * @param {string} level
+ * @param {string | IndicatorRecord} codeOrRecord
+ * @param {readonly IndicatorRecord[]} [municipalities]
+ * @returns {string}
+ */
+export function groupOf(level, codeOrRecord, municipalities = []) {
+  const record = resolveMunicipalityRecord(codeOrRecord, municipalities);
+  const fallbackCode = readFallbackCode(codeOrRecord);
+  if (level === "municipality") {
+    return record?.code ?? fallbackCode;
+  }
+  if (level === "governmentRegion") {
+    return record?.governmentRegionCode ?? record?.regionCode ?? fallbackCode;
+  }
+  if (level === "region") {
+    return record?.regionCode ?? fallbackCode;
+  }
+  return fallbackCode;
+}
+
+/**
+ * Builds a fast lookup closure `(level, code) => groupCode` indexed by municipality code.
+ *
+ * @param {readonly IndicatorRecord[]} municipalities
+ * @returns {(level: string, code: string) => string}
+ */
+export function createGroupOf(municipalities = []) {
+  /** @type {Map<string, IndicatorRecord>} */
+  const byCode = new Map();
+  for (const municipality of municipalities) {
+    byCode.set(municipality.code, municipality);
+  }
+  return function resolveGroup(level, code) {
+    const record = byCode.get(code);
+    if (!record) {
+      return code;
+    }
+    return groupOf(level, record);
+  };
+}
+
+/**
+ * @param {string | IndicatorRecord} codeOrRecord
+ * @param {readonly IndicatorRecord[]} municipalities
+ * @returns {IndicatorRecord | null}
+ */
+function resolveMunicipalityRecord(codeOrRecord, municipalities) {
+  if (typeof codeOrRecord === "object" && codeOrRecord !== null) {
+    return codeOrRecord;
+  }
+  if (typeof codeOrRecord === "string" && municipalities.length > 0) {
+    return municipalities.find((m) => m.code === codeOrRecord) ?? null;
+  }
+  return null;
+}
+
+/**
+ * @param {string | IndicatorRecord} codeOrRecord
+ * @returns {string}
+ */
+function readFallbackCode(codeOrRecord) {
+  if (typeof codeOrRecord === "string") {
+    return codeOrRecord;
+  }
+  if (typeof codeOrRecord === "object" && codeOrRecord !== null) {
+    return String(codeOrRecord.code ?? "");
+  }
+  return "";
+}
 
 /**
  * Projects the current state now and after every store change.
@@ -129,21 +209,24 @@ export function bindToChange(select, apply) {
  * Computes values per municipality for the given level.
  *
  * @param {import("../domain/indicator.js").IndicatorDefinition} def
- * @param {import("../domain/territory.js").MunicipalityRecord[]} municipalities
+ * @param {IndicatorRecord[]} municipalities
  * @param {import("../domain/territory.js").RegionRecord[]} [regions]
- * @param {import("../features/level/level-slice.js").LevelId} [levelId]
+ * @param {string} [levelId]
  * @returns {Float64Array}
  */
 export function computeValuesForLevel(def, municipalities, regions = [], levelId = "municipality") {
   if (levelId === "region") {
     return computeRegionIndicatorValues(def, municipalities, regions);
   }
+  if (levelId === "governmentRegion") {
+    return computeGovernmentRegionIndicatorValues(def, municipalities);
+  }
   return computeIndicatorValues(def, municipalities);
 }
 
 /**
  * @param {import("../domain/indicator.js").IndicatorDefinition} def
- * @param {import("../domain/territory.js").MunicipalityRecord[]} municipalities
+ * @param {IndicatorRecord[]} municipalities
  * @param {import("../domain/territory.js").RegionRecord[]} regions
  * @returns {Float64Array}
  */
@@ -160,6 +243,41 @@ function computeRegionIndicatorValues(def, municipalities, regions) {
   const result = new Float64Array(municipalities.length);
   for (let i = 0; i < municipalities.length; i += 1) {
     const val = regionValues.get(municipalities[i].regionCode);
+    if (val === null || val === undefined || Number.isNaN(val)) {
+      result[i] = Number.NaN;
+      continue;
+    }
+    result[i] = val;
+  }
+  return result;
+}
+
+/**
+ * @param {import("../domain/indicator.js").IndicatorDefinition} def
+ * @param {IndicatorRecord[]} municipalities
+ * @returns {Float64Array}
+ */
+function computeGovernmentRegionIndicatorValues(def, municipalities) {
+  /** @type {Map<string, IndicatorRecord[]>} */
+  const groups = new Map();
+  for (const municipality of municipalities) {
+    const groupCode = groupOf("governmentRegion", municipality);
+    const bucket = groups.get(groupCode) ?? [];
+    bucket.push(municipality);
+    groups.set(groupCode, bucket);
+  }
+
+  /** @type {Map<string, number | null>} */
+  const groupValues = new Map();
+  for (const [groupCode, members] of groups.entries()) {
+    const agg = aggregateIndicator(def, members);
+    groupValues.set(groupCode, agg.value);
+  }
+
+  const result = new Float64Array(municipalities.length);
+  for (let i = 0; i < municipalities.length; i += 1) {
+    const groupCode = groupOf("governmentRegion", municipalities[i]);
+    const val = groupValues.get(groupCode);
     if (val === null || val === undefined || Number.isNaN(val)) {
       result[i] = Number.NaN;
       continue;
@@ -192,11 +310,13 @@ export function createRootSelectors(scale, centers = new Map()) {
     computeValuesForLevel,
   );
   const selectHeatBreaks = createSelector([selectIndicatorValues, readLevelId], computeLevelBreaks);
+  const selectModeAttribute = createSelector([readTab], (tab) => readModeAttribute({ tab }));
   return {
     selectActiveIndicator,
     selectActiveRecords,
     selectIndicatorValues,
     selectHeatBreaks,
+    selectModeAttribute,
     selectColorPositions: createSelector(
       [selectIndicatorValues, selectHeatBreaks, readColorMode],
       (values, breaks, colorMode) => toColorPositions(scale, { values, breaks, colorMode }),
@@ -207,18 +327,10 @@ export function createRootSelectors(scale, centers = new Map()) {
         scale.toHeightTargets(values, { heightMode, exaggeration, breaks }),
     ),
     selectRaised: createSelector(
-      [readPointedCode, readSelectedCodes, readRegions, readMunicipalities],
-      (pointed, selected, regions, municipalities) => {
-        /** @type {string | readonly string[] | null} */
-        let resolvedPointed = pointed;
-        if (typeof pointed === "string") {
-          const isRegion = regions.some((r) => r.code === pointed);
-          if (isRegion) {
-            resolvedPointed = municipalities
-              .filter((m) => m.regionCode === pointed)
-              .map((m) => m.code);
-          }
-        }
+      [readPointedCode, readInspectedCode, readSelectedCodes, readRegions, readMunicipalities],
+      (pointed, inspected, selected, regions, municipalities) => {
+        const activePointed = pointed ?? inspected ?? null;
+        const resolvedPointed = resolvePointedUnits(activePointed, regions, municipalities);
         return {
           pointed: resolvedPointed,
           selected,
@@ -226,6 +338,29 @@ export function createRootSelectors(scale, centers = new Map()) {
       },
     ),
   };
+}
+
+/**
+ * @param {string | null} activePointed
+ * @param {import("../domain/territory.js").RegionRecord[]} regions
+ * @param {IndicatorRecord[]} municipalities
+ * @returns {string | readonly string[] | null}
+ */
+function resolvePointedUnits(activePointed, regions, municipalities) {
+  if (typeof activePointed !== "string") {
+    return null;
+  }
+  const isRegion = regions.some((r) => r.code === activePointed);
+  if (isRegion) {
+    return municipalities.filter((m) => m.regionCode === activePointed).map((m) => m.code);
+  }
+  const inGovernmentRegion = municipalities.filter(
+    (m) => m.governmentRegionCode !== undefined && m.governmentRegionCode === activePointed,
+  );
+  if (inGovernmentRegion.length > 0) {
+    return inGovernmentRegion.map((m) => m.code);
+  }
+  return activePointed;
 }
 
 /**
@@ -252,7 +387,7 @@ function pickActiveIndicator(indicator, drawNumber) {
 
 /**
  * @param {number | null} drawNumber null while the demo is off.
- * @param {import("../domain/territory.js").MunicipalityRecord[]} municipalities
+ * @param {IndicatorRecord[]} municipalities
  * @param {MapCenters} centers
  * @returns {Float64Array | null}
  */
@@ -268,7 +403,7 @@ function generateDemoValues(drawNumber, municipalities, centers) {
 }
 
 /**
- * @param {import("../domain/territory.js").MunicipalityRecord[]} municipalities
+ * @param {IndicatorRecord[]} municipalities
  * @param {Float64Array | null} syntheticValues
  * @returns {IndicatorRecord[]}
  */
@@ -283,18 +418,18 @@ function withSyntheticValues(municipalities, syntheticValues) {
 }
 
 /**
- * The region level splits the distinct region values, so each of the 16 regions weighs once in
- * the quantiles instead of once per municipality it holds (P36).
+ * Aggregate levels (`region` and `governmentRegion`) split the distinct group values, so each
+ * group weighs once in the quantiles instead of once per municipality it holds (P36).
  *
- * @param {Float64Array} values one value per municipality; in the region level, its region's.
- * @param {import("../features/level/level-slice.js").LevelId} levelId
+ * @param {Float64Array} values one value per municipality; in aggregate levels, its group's.
+ * @param {string} levelId
  * @returns {number[]}
  */
 function computeLevelBreaks(values, levelId) {
-  if (levelId !== "region") {
-    return selectBreaks(values, levelId);
+  if (levelId === "region" || levelId === "governmentRegion") {
+    return selectBreaks(readDistinctRegionValues(values), /** @type {any} */ (levelId));
   }
-  return selectBreaks(readDistinctRegionValues(values), levelId);
+  return selectBreaks(values, /** @type {any} */ (levelId));
 }
 
 /**
@@ -334,6 +469,13 @@ function toColorPositions(scale, { values, breaks, colorMode }) {
     return positions;
   }
   return scale.toColorPositions(values, breaks);
+}
+
+/**
+ * @param {RootState} state
+ */
+function readTab(state) {
+  return state.tab ?? "indicators";
 }
 
 /**
@@ -400,7 +542,14 @@ function readLevelId(state) {
  * @param {RootState} state
  */
 function readPointedCode(state) {
-  return state.pointer.pointedCode;
+  return state.pointer?.pointedCode ?? null;
+}
+
+/**
+ * @param {RootState} state
+ */
+function readInspectedCode(state) {
+  return state.pointer?.inspectedCode ?? null;
 }
 
 /**

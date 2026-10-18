@@ -2,7 +2,11 @@ import zlib from "node:zlib";
 import { expect, test } from "@playwright/test";
 import { settle } from "../../tests/support/page.js";
 
-const PAGE_WEIGHT_CEILING_BYTES = 819200;
+export const PAGE_WEIGHT_CEILING_BYTES = 819200;
+export const ELECTION_CODE_CEILING_BYTES = 180000;
+export const FIRST_ROUND_OFFICE_CEILING_BYTES = 120000;
+export const REPLAY_CEILING_BYTES = 300000;
+
 const VIEWPORT = { width: 1280, height: 900 };
 
 /**
@@ -29,7 +33,12 @@ test("PUB-04 same-origin bytes until isSettled stay within the 800 KB ceiling", 
     await recordCompressedSize(testInfo, pageWeight);
 
     const weightLabel = `same-origin bytes until isSettled (gzip ${pageWeight.gzipBytes})`;
-    expect(pageWeight.downloads.map((download) => download.path)).toContain("/");
+    const downloadedPaths = pageWeight.downloads.map((download) => download.path);
+    expect(downloadedPaths).toContain("/");
+    expect(
+      downloadedPaths.some((p) => p.startsWith("/data/election/")),
+      "Default Indicators boot must not download election data (ELE-20)",
+    ).toBe(false);
     expect(pageWeight.rawBytes, weightLabel).toBeLessThanOrEqual(PAGE_WEIGHT_CEILING_BYTES);
   } finally {
     await context.close();
@@ -40,7 +49,7 @@ test("PUB-04 same-origin bytes until isSettled stay within the 800 KB ceiling", 
  * @param {string | undefined} baseURL
  * @returns {string}
  */
-function readOrigin(baseURL) {
+export function readOrigin(baseURL) {
   if (!baseURL) {
     throw new Error("PUB-04 needs use.baseURL from playwright.config.js");
   }
@@ -54,7 +63,7 @@ function readOrigin(baseURL) {
  * @param {Page} page
  * @param {string} origin
  */
-function recordSameOriginDownloads(page, origin) {
+export function recordSameOriginDownloads(page, origin) {
   /** @type {Promise<Download>[]} */
   const pendingDownloads = [];
   /** @param {Response} response */
@@ -71,6 +80,43 @@ function recordSameOriginDownloads(page, origin) {
       page.off("response", handleResponse);
       return sumDownloads(await Promise.all(pendingDownloads));
     },
+  };
+}
+
+/**
+ * Splits incremental downloads triggered after entering an election tab into code,
+ * first-round office data and replay payloads (PUB-09).
+ *
+ * @param {Download[]} downloads
+ * @returns {{
+ *   codeBytes: number,
+ *   firstRoundOfficeBytes: number,
+ *   replayBytes: number
+ * }}
+ */
+export function classifyIncrementalDownloads(downloads) {
+  let codeBytes = 0;
+  let firstRoundOfficeBytes = 0;
+  let replayBytes = 0;
+
+  for (const download of downloads) {
+    if (download.path.endsWith(".js") || download.path.endsWith(".css")) {
+      codeBytes += download.rawBytes;
+      continue;
+    }
+    if (download.path.includes("replay")) {
+      replayBytes += download.rawBytes;
+      continue;
+    }
+    if (download.path.startsWith("/data/election/")) {
+      firstRoundOfficeBytes += download.rawBytes;
+    }
+  }
+
+  return {
+    codeBytes,
+    firstRoundOfficeBytes,
+    replayBytes,
   };
 }
 
@@ -115,7 +161,7 @@ function sumDownloads(downloads) {
  * @param {TestInfo} testInfo
  * @param {PageWeight} pageWeight
  */
-async function recordCompressedSize(testInfo, pageWeight) {
+export async function recordCompressedSize(testInfo, pageWeight) {
   testInfo.annotations.push({ type: "gzip-bytes", description: String(pageWeight.gzipBytes) });
   await testInfo.attach("page-weight.json", {
     body: JSON.stringify(pageWeight, null, 2),

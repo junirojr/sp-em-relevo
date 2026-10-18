@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  checkGovernmentRegionLabels,
+  checkGovernmentRegionMembership,
+  checkGroupCodeCollision,
+  checkHierarchyStrictness,
   checkMeshTopology,
   checkMeta,
+  checkMetropolitanRegionCoincidence,
   checkRecordShape,
   checkRegionLabels,
   checkRegionMembership,
@@ -10,6 +15,8 @@ import {
   checkSourceCodes,
   checkStatePopulation,
   checkValues,
+  EXPECTED_GOVERNMENT_REGION_CODES,
+  EXPECTED_GOVERNMENT_REGION_COUNT,
   EXPECTED_MUNICIPALITY_COUNT,
   EXPECTED_REGION_CODES,
 } from "./data-checks.js";
@@ -210,7 +217,7 @@ test("DAD-06 fails when an absent value is not null", () => {
   assertRule(problems, "DAD-06", /null/);
 });
 
-test("DAD-07 accepts the six stored fields", () => {
+test("DAD-07 accepts the stored municipality fields including government region", () => {
   assert.deepEqual(checkRecordShape([createMunicipality({})]), []);
 });
 
@@ -218,6 +225,138 @@ test("DAD-07 fails when a record carries density", () => {
   const problems = checkRecordShape([createMunicipality({ density: 12.5 })]);
 
   assertRule(problems, "DAD-07", /density/);
+});
+
+test("RGV-01 accepts every municipality in exactly one government region with all 43 filled", () => {
+  const rows = createGovernmentRegionRows();
+
+  assert.deepEqual(checkGovernmentRegionMembership(rows), []);
+  assert.deepEqual(checkGovernmentRegionLabels(rows), []);
+});
+
+test("RGV-01 fails when a municipality has no government region", () => {
+  const rows = createGovernmentRegionRows();
+  rows[0] = { ...rows[0], governmentRegionCode: null, governmentRegionName: null };
+
+  assertRule(checkGovernmentRegionMembership(rows), "RGV-01", /no government region/);
+});
+
+test("RGV-01 fails when a municipality has more than one government region", () => {
+  const rows = [
+    ...createGovernmentRegionRows(),
+    {
+      code: "3500101",
+      governmentRegionCode: "rg-2",
+      governmentRegionName: "RG de Andradina",
+    },
+  ];
+
+  assertRule(checkGovernmentRegionMembership(rows), "RGV-01", /more than one government region/);
+});
+
+test("RGV-01 fails when one of the 43 government regions is empty", () => {
+  const rows = createGovernmentRegionRows().map((row) => {
+    if (row.governmentRegionCode !== "rg-43") return row;
+    return { ...row, governmentRegionCode: "rg-42", governmentRegionName: "RG de Tupã" };
+  });
+
+  assertRule(checkGovernmentRegionMembership(rows), "RGV-01", /government region rg-43 is empty/);
+});
+
+test("RGV-01 fails when a government region carries more than one label", () => {
+  const rows = createGovernmentRegionRows();
+  rows[0] = { ...rows[0], governmentRegionName: "Outro nome" };
+
+  assertRule(checkGovernmentRegionLabels(rows), "RGV-01", /more than one label/);
+});
+
+test("RGV-02 accepts strict hierarchy where each RG is inside exactly one RA", () => {
+  const geoseadeRows = [
+    { code: "3500101", governmentRegionCode: "rg-1" },
+    { code: "3500102", governmentRegionCode: "rg-1" },
+    { code: "3500103", governmentRegionCode: "rg-2" },
+  ];
+  const seadeRows = [
+    { code: "3500101", regionCode: "11" },
+    { code: "3500102", regionCode: "11" },
+    { code: "3500103", regionCode: "10" },
+  ];
+
+  assert.deepEqual(checkHierarchyStrictness(geoseadeRows, seadeRows), []);
+});
+
+test("RGV-02 fails when an RG is split across multiple RAs", () => {
+  const geoseadeRows = [
+    { code: "3500101", governmentRegionCode: "rg-1" },
+    { code: "3500102", governmentRegionCode: "rg-1" },
+  ];
+  const seadeRows = [
+    { code: "3500101", regionCode: "11" },
+    { code: "3500102", regionCode: "12" },
+  ];
+
+  const problems = checkHierarchyStrictness(geoseadeRows, seadeRows);
+  assertRule(problems, "RGV-02", /split across multiple administrative regions/);
+});
+
+test("RGV-02 accepts disjoint group codes across levels", () => {
+  const codesByLevel = {
+    municipality: ["3500105", "3500204"],
+    governmentRegion: ["rg-1", "rg-2"],
+    region: ["1", "2"],
+  };
+
+  assert.deepEqual(checkGroupCodeCollision(codesByLevel), []);
+});
+
+test("RGV-02 fails when group codes collide between levels", () => {
+  const codesByLevel = {
+    governmentRegion: ["1", "2"],
+    region: ["1", "16"],
+  };
+
+  const problems = checkGroupCodeCollision(codesByLevel);
+  assertRule(problems, "RGV-02", /code collision between levels/);
+});
+
+test("RGV-02 accepts territorial coincidence of RM São Paulo and RG de São Paulo", () => {
+  const geoseadeRows = [
+    { code: "3550308", governmentRegionCode: "rg-40", governmentRegionName: "RG de São Paulo" },
+    { code: "3500101", governmentRegionCode: "rg-1", governmentRegionName: "RG de Adamantina" },
+  ];
+  const seadeRows = [
+    { code: "3550308", regionCode: "1" },
+    { code: "3500101", regionCode: "11" },
+  ];
+
+  assert.deepEqual(checkMetropolitanRegionCoincidence(geoseadeRows, seadeRows), []);
+});
+
+test("RGV-02 fails when RM São Paulo and RG de São Paulo diverge", () => {
+  const geoseadeRows = [
+    { code: "3550308", governmentRegionCode: "rg-40", governmentRegionName: "RG de São Paulo" },
+  ];
+  const seadeRows = [
+    { code: "3550308", regionCode: "1" },
+    { code: "3500101", regionCode: "1" },
+  ];
+
+  const problems = checkMetropolitanRegionCoincidence(geoseadeRows, seadeRows);
+  assertRule(problems, "RGV-02", /do not coincide territorially/);
+});
+
+test("DAD-05 accepts CC-BY, CC-BY-4.0, and TSE-Dados-Abertos license conditions", () => {
+  const conditions = [
+    LICENSE_CONDITIONS.ccBy,
+    LICENSE_CONDITIONS.ccBy4,
+    LICENSE_CONDITIONS.tseOpenData,
+    LICENSE_CONDITIONS.geoseade,
+  ];
+
+  for (const condition of conditions) {
+    const meta = { ...createMeta(), license: { condition, credit: "Fonte oficial" } };
+    assert.deepEqual(checkMeta(meta), []);
+  }
 });
 
 /**
@@ -247,6 +386,21 @@ function createRegionRows() {
   return createCodes(EXPECTED_MUNICIPALITY_COUNT).map((code, index) => {
     const regionCode = EXPECTED_REGION_CODES[index % EXPECTED_REGION_CODES.length];
     return { code, regionCode, regionLabel: `RA ${regionCode}` };
+  });
+}
+
+/**
+ * @returns {{ code: string, governmentRegionCode: string, governmentRegionName: string }[]}
+ */
+function createGovernmentRegionRows() {
+  return createCodes(EXPECTED_MUNICIPALITY_COUNT).map((code, index) => {
+    const governmentRegionCode =
+      EXPECTED_GOVERNMENT_REGION_CODES[index % EXPECTED_GOVERNMENT_REGION_CODES.length];
+    return {
+      code,
+      governmentRegionCode,
+      governmentRegionName: `RG ${governmentRegionCode}`,
+    };
   });
 }
 
@@ -293,6 +447,8 @@ function createMunicipality(overrides) {
     code: "3500105",
     name: "Adamantina",
     regionCode: "11",
+    governmentRegionCode: "rg-1",
+    governmentRegionName: "RG de Adamantina",
     population: 34687,
     areaKm2: 411.987,
     gdpThousandBrl: 1705895,

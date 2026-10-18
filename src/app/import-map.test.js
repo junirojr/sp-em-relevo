@@ -6,10 +6,15 @@ test("BAS-08 exact three version in devDependencies matches both import map entr
   const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
   const devDeps = packageJson.devDependencies ?? {};
   const threeVersion = devDeps.three;
+  const axeVersion = devDeps["@axe-core/playwright"];
 
   assert.ok(threeVersion, "three version must be present in devDependencies");
   assert.equal(threeVersion.startsWith("^"), false, "version must be exact, without ^");
   assert.equal(threeVersion.startsWith("~"), false, "version must be exact, without ~");
+
+  assert.ok(axeVersion, "@axe-core/playwright version must be present in devDependencies");
+  assert.equal(axeVersion.startsWith("^"), false, "axe version must be exact, without ^");
+  assert.equal(axeVersion.startsWith("~"), false, "axe version must be exact, without ~");
 
   const indexHtml = fs.readFileSync("index.html", "utf8");
   const match = indexHtml.match(/<script\s+type="importmap">([\s\S]*?)<\/script>/);

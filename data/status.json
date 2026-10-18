@@ -1,0 +1,17 @@
+{
+  "mode": "live",
+  "Features": {
+    "election": true,
+    "electionSecondRound": true,
+    "indicatorIncome": true,
+    "indicatorVoterTurnout": true,
+    "levelGovernmentRegion": true,
+    "altTable": true,
+    "pngExport": true
+  },
+  "replay": {
+    "available": false,
+    "path": "data/election/replay-presidente-2t.json"
+  },
+  "updatedAt": "2026-10-17T18:00:00-03:00"
+}

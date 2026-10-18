@@ -93,6 +93,19 @@ export function installTestHooks({
       return JSON.parse(JSON.stringify(store.getState()));
     },
 
+    readStatus() {
+      const status = store.getState().status ?? null;
+      return JSON.parse(JSON.stringify(status));
+    },
+
+    readActiveTab() {
+      return store.getState().tab ?? "indicators";
+    },
+
+    readInspectedUnit() {
+      return store.getState().pointer?.inspectedCode ?? null;
+    },
+
     readSelection() {
       const state = store.getState();
       return state.selection?.selectedCodes || [];
@@ -154,43 +167,29 @@ export function installTestHooks({
       }
       const formatted = formatValue(value, indicatorId);
 
-      const pointedCode = state.pointer?.pointedCode;
+      const pointedCode = state.pointer?.pointedCode ?? state.pointer?.inspectedCode ?? null;
       const isPointed =
         pointedCode === code ||
         (pointedCode !== null &&
           pointedCode !== undefined &&
           territory.regionOf(code)?.code === pointedCode);
+      const isInspected = state.pointer?.inspectedCode === code;
       const isSelected = (state.selection?.selectedCodes || []).includes(code);
 
-      let classIndex = 0;
-      let color = palette?.colors?.[0] || "#fde0dc";
-      if (selectors && state.data?.municipalities) {
-        const colorPositions = selectors.selectColorPositions(state);
-        if (colorPositions && colorPositions[index] !== undefined) {
-          classIndex = colorPositions[index];
-          if (classIndex === 255 || classIndex < 0) {
-            color = palette?.neutral || "#bec2cc";
-          } else if (palette?.colors?.[classIndex]) {
-            color = palette.colors[classIndex];
-          }
-        }
-      }
-      if (!selectors && scaleRules && state.data?.municipalities) {
-        const values = computeIndicatorValues(indicatorDef, state.data.municipalities);
-        const colorPositions = scaleRules.toColorPositions(values);
-        if (colorPositions && colorPositions[index] !== undefined) {
-          classIndex = colorPositions[index];
-          if (classIndex === 255 || classIndex < 0) {
-            color = palette?.neutral || "#bec2cc";
-          } else if (palette?.colors?.[classIndex]) {
-            color = palette.colors[classIndex];
-          }
-        }
-      }
+      const activePalette = engine.readPalette() || palette;
+      const { classIndex, baseColor } = resolveUnitClassAndColor(
+        state,
+        index,
+        indicatorDef,
+        activePalette,
+      );
+      let color = baseColor;
 
-      // The theme switch (LAY-08) can change the selection blue after boot, so read it live
-      const selectionColor = engine.readPalette().selection;
-      if (isSelected && selectionColor) {
+      // The theme switch (LAY-08) can change the selection blue after boot, so read it live.
+      // In election mode (ELE-15), selected units keep their candidate/party color.
+      const isElectionMode = state.tab === "first-round" || state.tab === "second-round";
+      const selectionColor = activePalette?.selection;
+      if (isSelected && !isElectionMode && selectionColor) {
         color = selectionColor;
       }
 
@@ -206,6 +205,7 @@ export function installTestHooks({
         liftCurrent: engineData?.liftCurrent ?? 0,
         liftTarget: engineData?.liftTarget ?? 0,
         isPointed,
+        isInspected,
         isSelected,
         source: readDataSourceLabel(state),
       };
@@ -269,6 +269,59 @@ export function installTestHooks({
       return engine.projectGroundPoint(point);
     },
   };
+
+  /**
+   * @param {any} state
+   * @param {number} index
+   * @param {import("../domain/indicator.js").IndicatorDefinition} indicatorDef
+   * @param {any} activePalette
+   * @returns {{ classIndex: number, baseColor: string }}
+   */
+  function resolveUnitClassAndColor(state, index, indicatorDef, activePalette) {
+    const colorPositions = readColorPositions(state, indicatorDef);
+    if (!colorPositions || colorPositions[index] === undefined) {
+      return {
+        classIndex: 0,
+        baseColor: activePalette?.colors?.[0] || "#fde0dc",
+      };
+    }
+    const classIndex = colorPositions[index];
+    return {
+      classIndex,
+      baseColor: pickColorForClassIndex(classIndex, activePalette),
+    };
+  }
+
+  /**
+   * @param {any} state
+   * @param {import("../domain/indicator.js").IndicatorDefinition} indicatorDef
+   * @returns {Uint8Array | null}
+   */
+  function readColorPositions(state, indicatorDef) {
+    if (selectors && state.data?.municipalities) {
+      return selectors.selectColorPositions(state);
+    }
+    if (!selectors && scaleRules && state.data?.municipalities) {
+      const values = computeIndicatorValues(indicatorDef, state.data.municipalities);
+      return scaleRules.toColorPositions(values);
+    }
+    return null;
+  }
+
+  /**
+   * @param {number} classIndex
+   * @param {any} activePalette
+   * @returns {string}
+   */
+  function pickColorForClassIndex(classIndex, activePalette) {
+    if (classIndex === 255 || classIndex < 0) {
+      return activePalette?.neutral || "#bec2cc";
+    }
+    if (activePalette?.colors?.[classIndex]) {
+      return activePalette.colors[classIndex];
+    }
+    return activePalette?.colors?.[0] || "#fde0dc";
+  }
 
   /**
    * @param {any} state

@@ -22,6 +22,8 @@
   place-items: center;
   width: 32px;
   height: 32px;
+  min-width: 32px;
+  min-height: 32px;
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
@@ -40,4 +42,12 @@
 .zoom button:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+@media (max-width: 900px) {
+  .zoom {
+    top: calc(var(--topbar-height) + var(--space-2));
+    right: var(--space-3);
+    bottom: auto;
+  }
 }

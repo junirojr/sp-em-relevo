@@ -3,9 +3,11 @@
 .level-fieldset {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   gap: var(--space-1);
   min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   margin: 0;
   padding: var(--space-1);
   border: 1px solid var(--pill-line);
@@ -29,6 +31,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   min-height: 32px;
   padding: 0 var(--space-2);
   border: 1px solid transparent;
@@ -38,6 +43,9 @@
   text-align: center;
   color: var(--ink-muted);
   cursor: pointer;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
   transition:
     background 0.15s ease,
     color 0.15s ease,
@@ -68,4 +76,17 @@
 .level-choice:has(input:focus-visible) {
   outline: 2px solid var(--focus);
   outline-offset: 1px;
+}
+
+@media (max-width: 360px) {
+  .level-fieldset {
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .level-choice {
+    padding: 0 4px;
+    font-size: 10px;
+    line-height: 1.2;
+  }
 }

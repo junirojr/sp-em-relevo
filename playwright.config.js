@@ -13,6 +13,24 @@ export default defineConfig({
       args: ["--enable-gpu", "--ignore-gpu-blocklist", "--use-angle=d3d11"],
     },
   },
+  projects: [
+    {
+      name: "desktop",
+      testIgnore: ["**/mobile.e2e.js", "**/*.mobile.e2e.js"],
+      use: {
+        viewport: { width: 1280, height: 900 },
+      },
+    },
+    {
+      name: "@mobile",
+      testMatch: ["**/mobile.e2e.js", "**/*.mobile.e2e.js"],
+      use: {
+        viewport: { width: 390, height: 844 },
+        hasTouch: true,
+        isMobile: true,
+      },
+    },
+  ],
   webServer: {
     command: "node scripts/dev/serve.mjs --port 4173",
     url: baseURL,

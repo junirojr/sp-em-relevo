@@ -396,4 +396,195 @@ test.describe("SEL selection slice (SEL-01 to SEL-03, SEL-06, SEL-08, SEL-10)", 
       await context.close();
     }
   });
+
+  test("MOB-02 in 390x844 with collapsed sheet the map keeps at least 40% of viewport height and legend docks in panel", async ({
+    browser,
+  }) => {
+    const { context, page } = await openPage(browser, { viewport: { width: 390, height: 844 } });
+    try {
+      const sidebar = page.locator("#sidebar");
+      await expect(sidebar).toBeVisible();
+
+      const sheetState = await sidebar.getAttribute("data-sheet-state");
+      expect(sheetState).toBe("collapsed");
+
+      const topbar = page.locator("#topbar");
+      const topbarBox = await topbar.boundingBox();
+      const sidebarBox = await sidebar.boundingBox();
+      expect(topbarBox).not.toBeNull();
+      expect(sidebarBox).not.toBeNull();
+
+      if (topbarBox && sidebarBox) {
+        const freeHeight = sidebarBox.y - (topbarBox.y + topbarBox.height);
+        const freeShare = freeHeight / 844;
+        expect(freeShare).toBeGreaterThanOrEqual(0.4);
+      }
+
+      const legend = page.locator(".stage-overlay");
+      await expect(legend).toBeVisible();
+      const legendBox = await legend.boundingBox();
+      expect(legendBox).not.toBeNull();
+      if (legendBox) {
+        expect(legendBox.y + legendBox.height).toBeGreaterThanOrEqual(844 - 15);
+      }
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("MOB-04 and SEL-01 touch tap inspects without altering selection and clicking add to selection selects unit while mouse click selects directly", async ({
+    browser,
+  }) => {
+    const { context, page } = await openPage(browser, { viewport: { width: 390, height: 844 } });
+    try {
+      const spCode = "3550308";
+
+      await page.evaluate((code) => {
+        const store = /** @type {any} */ (window).__appStore;
+        store.dispatch({ type: "pointer/inspectedUnitChanged", code });
+      }, spCode);
+      await settle(page);
+
+      let selected = await readSelection(page);
+      expect(selected).not.toContain(spCode);
+
+      const card = page.locator(".selection-inspected-card");
+      await expect(card).toBeVisible();
+      await expect(card.locator(".inspected-card-title")).toContainText("São Paulo");
+
+      const actionBtn = card.locator(".inspected-action-button");
+      await expect(actionBtn).toBeVisible();
+      await expect(actionBtn).toContainText("Adicionar à seleção");
+
+      await actionBtn.click();
+      await settle(page);
+
+      selected = await readSelection(page);
+      expect(selected).toContain(spCode);
+      await expect(actionBtn).toContainText("Remover da seleção");
+
+      await actionBtn.click();
+      await settle(page);
+
+      selected = await readSelection(page);
+      expect(selected).not.toContain(spCode);
+
+      await clickUnit(page, spCode);
+      selected = await readSelection(page);
+      expect(selected).toContain(spCode);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("ELE-18 mode selector remains visible inside collapsed sheet without expanding panel", async ({
+    browser,
+  }) => {
+    const { context, page } = await openPage(browser, { viewport: { width: 390, height: 844 } });
+    try {
+      await page.evaluate(() => {
+        const slot = document.getElementById("mode-selector-slot");
+        if (slot) {
+          slot.hidden = false;
+          slot.innerHTML = `
+            <fieldset class="mode-selector-group">
+              <legend class="mode-selector-legend">Modo</legend>
+              <div class="mode-selector-options">
+                <label class="mode-selector-option">
+                  <input type="radio" name="mode-test" value="indicators" checked> Indicadores
+                </label>
+                <label class="mode-selector-option">
+                  <input type="radio" name="mode-test" value="second-round"> 2º turno
+                </label>
+              </div>
+            </fieldset>
+          `;
+        }
+      });
+      await settle(page);
+
+      const sidebar = page.locator("#sidebar");
+      const sheetState = await sidebar.getAttribute("data-sheet-state");
+      expect(sheetState).toBe("collapsed");
+
+      const modeSlot = page.locator("#mode-selector-slot");
+      await expect(modeSlot).toBeVisible();
+
+      const slotBox = await modeSlot.boundingBox();
+      const sidebarBox = await sidebar.boundingBox();
+      expect(slotBox).not.toBeNull();
+      expect(sidebarBox).not.toBeNull();
+
+      if (slotBox && sidebarBox) {
+        expect(slotBox.y).toBeGreaterThanOrEqual(sidebarBox.y);
+        expect(slotBox.y + slotBox.height).toBeLessThanOrEqual(
+          sidebarBox.y + sidebarBox.height + 4,
+        );
+      }
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("APU-07 election scoreboard, banner and source slots stay outside the bottom panel on stage without scrolling", async ({
+    browser,
+  }) => {
+    const { context, page } = await openPage(browser, { viewport: { width: 390, height: 844 } });
+    try {
+      const banner = page.locator("#map-stage > #election-banner-slot");
+      const scoreboard = page.locator("#map-stage > #election-scoreboard-slot");
+      const source = page.locator("#map-stage > #election-source-slot");
+
+      await expect(banner).toBeAttached();
+      await expect(scoreboard).toBeAttached();
+      await expect(source).toBeAttached();
+
+      const inSidebar = await page.evaluate(() => {
+        const sidebar = document.getElementById("sidebar");
+        return {
+          banner: Boolean(sidebar?.querySelector("#election-banner-slot")),
+          scoreboard: Boolean(sidebar?.querySelector("#election-scoreboard-slot")),
+          source: Boolean(sidebar?.querySelector("#election-source-slot")),
+        };
+      });
+      expect(inSidebar.banner).toBe(false);
+      expect(inSidebar.scoreboard).toBe(false);
+      expect(inSidebar.source).toBe(false);
+
+      await page.evaluate(() => {
+        const b = document.getElementById("election-banner-slot");
+        const s = document.getElementById("election-scoreboard-slot");
+        const src = document.getElementById("election-source-slot");
+        if (b) {
+          b.hidden = false;
+          b.textContent = "Apuração ao vivo (Brasília)";
+        }
+        if (s) {
+          s.hidden = false;
+          s.textContent = "Placar São Paulo";
+        }
+        if (src) {
+          src.hidden = false;
+          src.textContent = "Fonte: TSE";
+        }
+      });
+      await settle(page);
+
+      await expect(banner).toBeVisible();
+      await expect(scoreboard).toBeVisible();
+      await expect(source).toBeVisible();
+
+      const isScrollable = await page.evaluate(() => {
+        const scroller = document.scrollingElement;
+        if (!scroller) {
+          return false;
+        }
+        return scroller.scrollHeight > scroller.clientHeight;
+      });
+      expect(isScrollable).toBe(false);
+    } finally {
+      await context.close();
+    }
+  });
 });
+

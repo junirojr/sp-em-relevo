@@ -2,10 +2,11 @@
 /**
  * Traceability check. Every criterion line "- **XXX-NN.** text" in a spec.md needs
  * a test named test("XXX-NN ...") in a *.test.js or *.e2e.js file, unless the
- * criterion ends with "(manual)".
+ * criterion ends with "(manual)". Every criterion id in a spec.md must match
+ * the pattern ^[A-Z]{3}-\d{2}$ (VER-01).
  *
  * Usage: node scripts/dev/check-traceability.mjs [--report] [--require BAS,ERR] [--root <dir>]
- *   --report   lists the criteria per spec file and exits 0.
+ *   --report   lists the criteria per spec file and exits 0 (unless an id is malformed).
  *   --require  fails when a non-manual criterion of those slices has no test.
  *   (neither)  requires every slice found.
  */
@@ -16,14 +17,17 @@ import { fileURLToPath } from "node:url";
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const scannedFolders = ["src", "scripts", "tests"];
 const ignoredPaths = ["node_modules", "scripts/dev/fixtures"];
-const criterionLine = /^- \*\*([A-Z]+-\d+)\.\*\*\s*(.*)$/gm;
+const criterionCandidateLine = /^- \*\*([^*]+)\*\*\s*(.*)$/gm;
+const validCriterionToken = /^([A-Z]{3}-\d{2})\.$/;
+export const VALID_CRITERION_ID = /^[A-Z]{3}-\d{2}$/;
 const testName = /\btest\(\s*(["'`])([A-Z]+-\d+)\b/g;
 const testFileName = /\.(?:test|e2e)(?:\.fixture)?\.js$/;
 
 /**
  * @typedef {{ id: string, file: string, manual: boolean }} Criterion
+ * @typedef {{ id: string, file: string }} InvalidCriterion
  * @typedef {{ id: string, file: string }} TestId
- * @typedef {{ criteria: Criterion[], tests: TestId[] }} Trace
+ * @typedef {{ criteria: Criterion[], invalidCriteria: InvalidCriterion[], tests: TestId[] }} Trace
  */
 
 /**
@@ -39,13 +43,31 @@ export async function collectTrace(rootDir = defaultRoot) {
   }
   /** @type {Criterion[]} */
   const criteria = [];
+  /** @type {InvalidCriterion[]} */
+  const invalidCriteria = [];
   /** @type {TestId[]} */
   const tests = [];
   for (const file of files) {
-    criteria.push(...(await criteriaOf(rootDir, file)));
+    const parsedSpec = await criteriaOf(rootDir, file);
+    criteria.push(...parsedSpec.criteria);
+    invalidCriteria.push(...parsedSpec.invalidCriteria);
     tests.push(...(await testsOf(rootDir, file)));
   }
-  return { criteria, tests };
+  return { criteria, invalidCriteria, tests };
+}
+
+/**
+ * Lists malformed criterion identifiers found in any spec.md (VER-01).
+ *
+ * @param {Trace} trace
+ * @returns {InvalidCriterion[]}
+ */
+export function findInvalidCriteria(trace) {
+  const explicitInvalid = trace.invalidCriteria ?? [];
+  const fromCriteria = trace.criteria
+    .filter((criterion) => !VALID_CRITERION_ID.test(criterion.id))
+    .map((criterion) => ({ id: criterion.id, file: criterion.file }));
+  return [...explicitInvalid, ...fromCriteria];
 }
 
 /**
@@ -131,18 +153,34 @@ function isMissingPathError(error) {
 /**
  * @param {string} rootDir
  * @param {string} file
- * @returns {Promise<Criterion[]>}
+ * @returns {Promise<{ criteria: Criterion[], invalidCriteria: InvalidCriterion[] }>}
  */
 async function criteriaOf(rootDir, file) {
   if (path.posix.basename(file) !== "spec.md") {
-    return [];
+    return { criteria: [], invalidCriteria: [] };
   }
   const text = await readFile(path.join(rootDir, file), "utf8");
-  return [...text.matchAll(criterionLine)].map((match) => ({
-    id: match[1],
-    file,
-    manual: match[2].trimEnd().endsWith("(manual)"),
-  }));
+  /** @type {Criterion[]} */
+  const criteria = [];
+  /** @type {InvalidCriterion[]} */
+  const invalidCriteria = [];
+  for (const match of text.matchAll(criterionCandidateLine)) {
+    const rawToken = match[1].trim();
+    const tokenMatch = rawToken.match(validCriterionToken);
+    if (!tokenMatch) {
+      invalidCriteria.push({
+        id: rawToken.replace(/\.$/, ""),
+        file,
+      });
+      continue;
+    }
+    criteria.push({
+      id: tokenMatch[1],
+      file,
+      manual: match[2].trimEnd().endsWith("(manual)"),
+    });
+  }
+  return { criteria, invalidCriteria };
 }
 
 /**
@@ -221,6 +259,14 @@ function flagValueOf(argv, flag) {
 async function runCommandLine(argv) {
   const options = parseArguments(argv);
   const trace = await collectTrace(options.rootDir);
+  const invalid = findInvalidCriteria(trace);
+  if (invalid.length > 0) {
+    for (const entry of invalid) {
+      console.error(`Invalid criterion id "${entry.id}" in ${entry.file} (expected XXX-NN, VER-01)`);
+    }
+    process.exitCode = 1;
+    return;
+  }
   if (options.report) {
     console.log(formatReport(trace));
     return;

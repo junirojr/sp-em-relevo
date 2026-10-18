@@ -17,6 +17,7 @@
     "data": "npm run data:fetch && npm run data:build"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@biomejs/biome": "2.5.15",
     "@playwright/test": "1.63.0",
     "@types/node": "22.20.4",

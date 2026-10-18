@@ -1,24 +1,52 @@
 import { DEFAULT_INDICATOR_ID, isValidIndicator } from "../features/indicator/indicator-slice.js";
 import { LEVEL_MUNICIPALITY, LEVEL_REGION } from "../features/level/level-slice.js";
+import { resolveAllowedTab } from "./state.js";
 
 /**
  * URL state synchronization.
- * Follows IND-07 and R9.
+ * Follows IND-07, ELE-20, E19 and R9.
  *
- * @typedef {{ indicatorId: string, levelId: string }} UrlState
+ * @typedef {import("./state.js").TabId} TabId
+ * @typedef {{ indicatorId: string, levelId: string, tab: TabId }} UrlState
+ * @typedef {{
+ *   now?: Date | string | number,
+ *   status?: import("./data-loader.js").OperationalStatus
+ * }} ParseUrlOptions
  */
 
 const INDICATOR_PARAM = "indicador";
 const LEVEL_PARAM = "ver";
+const TAB_PARAM = "aba";
+
+export const ELECTION_DAY_BRT = "2026-10-25";
+
+const TAB_FROM_PARAM = Object.freeze({
+  "1turno": "first-round",
+  "2turno": "second-round",
+  indicadores: "indicators",
+});
+
+const PARAM_FROM_TAB = Object.freeze({
+  "first-round": "1turno",
+  "second-round": "2turno",
+});
+
+const BRT_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 
 /**
- * Parses indicator and territorial level from query parameters.
+ * Parses indicator, territorial level and active tab from query parameters (IND-07, ELE-20, E19).
  * Falls back safely to defaults for missing or invalid parameters.
  *
  * @param {string | URL | Location} [locationOrSearch]
+ * @param {ParseUrlOptions} [options]
  * @returns {UrlState}
  */
-export function parseUrlState(locationOrSearch = "") {
+export function parseUrlState(locationOrSearch = "", options = {}) {
   const searchParams = extractSearchParams(locationOrSearch);
 
   const rawIndicator = searchParams.get(INDICATOR_PARAM);
@@ -33,7 +61,77 @@ export function parseUrlState(locationOrSearch = "") {
     levelId = rawLevel;
   }
 
-  return { indicatorId, levelId };
+  const rawTab = searchParams.get(TAB_PARAM);
+  const resolvedTab = parseTabParam(rawTab, options.now);
+  const tab = applyStatusToTab(resolvedTab, options.status);
+
+  return { indicatorId, levelId, tab };
+}
+
+/**
+ * Resolves the default tab for a given timestamp in `America/Sao_Paulo` timezone (E19, ELE-20).
+ * On election day (`2026-10-25` in Brasilia time), defaults to `"second-round"`;
+ * on every other date, defaults to `"indicators"`.
+ *
+ * @param {Date | string | number} [now]
+ * @returns {TabId}
+ */
+export function resolveDefaultTabForDate(now = new Date()) {
+  const dateObj = toDate(now);
+  if (dateObj === null) {
+    return "indicators";
+  }
+  const formatted = BRT_DATE_FORMATTER.format(dateObj);
+  if (formatted === ELECTION_DAY_BRT) {
+    return "second-round";
+  }
+  return "indicators";
+}
+
+/**
+ * @param {string | null} rawTab
+ * @param {Date | string | number | undefined} now
+ * @returns {TabId}
+ */
+function parseTabParam(rawTab, now) {
+  if (rawTab === null) {
+    return resolveDefaultTabForDate(now);
+  }
+  const mapped = /** @type {Record<string, TabId | undefined>} */ (TAB_FROM_PARAM)[rawTab];
+  if (mapped) {
+    return mapped;
+  }
+  return "indicators";
+}
+
+/**
+ * @param {TabId} tab
+ * @param {import("./data-loader.js").OperationalStatus | undefined} status
+ * @returns {TabId}
+ */
+function applyStatusToTab(tab, status) {
+  if (!status) {
+    return tab;
+  }
+  return resolveAllowedTab(tab, status);
+}
+
+/**
+ * @param {Date | string | number} input
+ * @returns {Date | null}
+ */
+function toDate(input) {
+  if (input instanceof Date) {
+    if (Number.isNaN(input.getTime())) {
+      return null;
+    }
+    return input;
+  }
+  const parsed = new Date(input);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed;
 }
 
 /**
@@ -41,7 +139,7 @@ export function parseUrlState(locationOrSearch = "") {
  * Does not write demo parameters when demo mode is active.
  *
  * @param {Window} windowRef
- * @param {{ indicatorId: string, levelId: string, isDemoActive?: boolean }} state
+ * @param {{ indicatorId: string, levelId: string, tab?: TabId, isDemoActive?: boolean }} state
  */
 export function syncUrlState(windowRef, state) {
   if (!windowRef?.history?.replaceState) {
@@ -64,11 +162,26 @@ export function syncUrlState(windowRef, state) {
     url.searchParams.delete(LEVEL_PARAM);
   }
 
+  syncTabSearchParam(url.searchParams, state.tab);
+
   // Never write demo parameters to URL (IND-07)
   url.searchParams.delete("demo");
 
   const nextPath = `${url.pathname}${url.search}${url.hash}`;
   windowRef.history.replaceState(null, "", nextPath);
+}
+
+/**
+ * @param {URLSearchParams} searchParams
+ * @param {TabId | undefined} tab
+ */
+function syncTabSearchParam(searchParams, tab) {
+  const paramValue = /** @type {Record<string, string | undefined>} */ (PARAM_FROM_TAB)[tab ?? ""];
+  if (paramValue) {
+    searchParams.set(TAB_PARAM, paramValue);
+    return;
+  }
+  searchParams.delete(TAB_PARAM);
 }
 
 /**
@@ -97,5 +210,5 @@ function extractSearchParams(input) {
  * @returns {boolean}
  */
 function isValidLevel(id) {
-  return id === LEVEL_MUNICIPALITY || id === LEVEL_REGION;
+  return id === LEVEL_MUNICIPALITY || id === LEVEL_REGION || id === "governmentRegion";
 }

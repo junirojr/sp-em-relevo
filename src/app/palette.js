@@ -78,6 +78,65 @@ export function readPalette(documentRef) {
 }
 
 /**
+ * Returns a copy of `palette` with its `colors` array replaced by `customColors`
+ * while preserving `background`, `border`, `regionBorder`, `selection` and `neutral` (ELE-15, REG-01).
+ *
+ * @param {EnginePalette} palette
+ * @param {readonly string[] | null | undefined} customColors
+ * @param {Partial<EnginePalette>} [options]
+ * @returns {EnginePalette}
+ */
+export function withColors(palette, customColors, options = {}) {
+  if (!Array.isArray(customColors) || customColors.length === 0) {
+    return {
+      ...palette,
+      ...options,
+    };
+  }
+  return {
+    ...palette,
+    ...options,
+    colors: [...customColors],
+  };
+}
+
+/**
+ * Re-projects a base theme palette according to the active mode or custom color list (ELE-15).
+ *
+ * @param {EnginePalette} basePalette
+ * @param {any} [state]
+ * @param {readonly string[] | null} [customColors]
+ * @returns {EnginePalette}
+ */
+export function projectPaletteForMode(basePalette, state, customColors = null) {
+  if (Array.isArray(customColors) && customColors.length > 0) {
+    return withColors(basePalette, customColors);
+  }
+  const stateColors = readModeColorsFromState(state);
+  if (stateColors !== null) {
+    return withColors(basePalette, stateColors);
+  }
+  return basePalette;
+}
+
+/**
+ * @param {any} state
+ * @returns {readonly string[] | null}
+ */
+function readModeColorsFromState(state) {
+  if (!state || typeof state !== "object") {
+    return null;
+  }
+  if (state.tab !== "indicators" && Array.isArray(state.election?.paletteColors)) {
+    return state.election.paletteColors;
+  }
+  if (Array.isArray(state.modePaletteColors) && state.modePaletteColors.length > 0) {
+    return state.modePaletteColors;
+  }
+  return null;
+}
+
+/**
  * @param {string[]} colors
  * @returns {string[]}
  */

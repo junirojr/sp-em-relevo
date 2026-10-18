@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { clickUnit, readCamera, readSelection } from "../../../tests/support/inspector.js";
+import {
+  clickUnit,
+  readCamera,
+  readSelection,
+  readState,
+} from "../../../tests/support/inspector.js";
 import { openPage, settle } from "../../../tests/support/page.js";
 
 const VIEWPORT_1280_900 = { width: 1280, height: 900 };
@@ -306,6 +311,17 @@ test.describe("CAM camera slice (CAM-01 to CAM-07)", () => {
         await page.mouse.up();
         await settle(page);
         expect(await readSelection(page)).toEqual([]);
+
+        // Auxiliary button (right button) drag pans the map and does not modify readSelection
+        const cameraBeforeRightDrag = await readCamera(page);
+        await page.mouse.move(cx, cy);
+        await page.mouse.down({ button: "right" });
+        await page.mouse.move(cx - 50, cy - 30, { steps: 5 });
+        await page.mouse.up({ button: "right" });
+        await settle(page);
+        const cameraAfterRightDrag = await readCamera(page);
+        expect(cameraAfterRightDrag.panX).not.toBe(cameraBeforeRightDrag.panX);
+        expect(await readSelection(page)).toEqual([]);
       }
 
       // Reset view button
@@ -362,6 +378,130 @@ test.describe("CAM camera slice (CAM-01 to CAM-07)", () => {
 
         await expect(zoomIn).toBeEnabled();
         await expect(zoomOut).toBeDisabled();
+      }
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("MOB-05 canvas has touch-action none, two-finger CDP pinch zooms with visualViewport.scale 1, single-finger drags, and touch pointerleave preserves pointed unit", async ({
+    browser,
+  }) => {
+    const { context, page } = await openPage(browser, {
+      viewport: VIEWPORT_1280_900,
+      hasTouch: true,
+    });
+    try {
+      const canvas = page.locator("#map-canvas");
+      const touchAction = await canvas.evaluate((el) => getComputedStyle(el).touchAction);
+      expect(touchAction).toBe("none");
+
+      const canvasBox = await canvas.boundingBox();
+      expect(canvasBox).not.toBeNull();
+      if (canvasBox) {
+        const cx = Math.round(canvasBox.x + canvasBox.width / 2);
+        const cy = Math.round(canvasBox.y + canvasBox.height / 2);
+        const cdp = await context.newCDPSession(page);
+
+        // Two-finger pinch out via CDP zooms the map while keeping visualViewport.scale at 1
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchStart",
+          touchPoints: [
+            { x: cx - 40, y: cy, id: 1 },
+            { x: cx + 40, y: cy, id: 2 },
+          ],
+        });
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: [
+            { x: cx - 110, y: cy, id: 1 },
+            { x: cx + 110, y: cy, id: 2 },
+          ],
+        });
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchEnd",
+          touchPoints: [],
+        });
+        await settle(page);
+
+        const cameraAfterPinch = await readCamera(page);
+        expect(cameraAfterPinch.zoomTarget).toBeGreaterThan(1);
+
+        const viewportScale = await page.evaluate(() => window.visualViewport?.scale ?? 1);
+        expect(viewportScale).toBe(1);
+        expect(await readSelection(page)).toEqual([]);
+
+        // Single-finger touch drag pans the zoomed-in map
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchStart",
+          touchPoints: [{ x: cx, y: cy, id: 1 }],
+        });
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: [{ x: cx + 30, y: cy + 20, id: 1 }],
+        });
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: [{ x: cx + 70, y: cy + 50, id: 1 }],
+        });
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchEnd",
+          touchPoints: [],
+        });
+        await settle(page);
+
+        const cameraAfterPan = await readCamera(page);
+        expect(cameraAfterPan.panX).not.toBe(cameraAfterPinch.panX);
+        expect(await readSelection(page)).toEqual([]);
+
+        // Short touch tap + pointerleave with touch preserves pointedCode and does not select
+        const spPoint = await page.evaluate(() => {
+          const inspector = /** @type {any} */ (window).mapInspector;
+          return inspector.findScreenPoint("3550308");
+        });
+        expect(spPoint).not.toBeNull();
+        if (spPoint) {
+          await page.evaluate(
+            ({ x, y }) => {
+              const target = document.getElementById("map-canvas");
+              if (!target) {
+                return;
+              }
+              target.dispatchEvent(
+                new PointerEvent("pointerdown", {
+                  pointerId: 10,
+                  pointerType: "touch",
+                  clientX: x,
+                  clientY: y,
+                  bubbles: true,
+                }),
+              );
+              target.dispatchEvent(
+                new PointerEvent("pointerup", {
+                  pointerId: 10,
+                  pointerType: "touch",
+                  clientX: x,
+                  clientY: y,
+                  bubbles: true,
+                }),
+              );
+              target.dispatchEvent(
+                new PointerEvent("pointerleave", {
+                  pointerId: 10,
+                  pointerType: "touch",
+                  clientX: x,
+                  clientY: y,
+                }),
+              );
+            },
+            { x: spPoint.x, y: spPoint.y },
+          );
+          await settle(page);
+
+          const stateAfterTap = await readState(page);
+          expect(stateAfterTap.pointer.pointedCode).toBe("3550308");
+          expect(await readSelection(page)).toEqual([]);
+        }
       }
     } finally {
       await context.close();

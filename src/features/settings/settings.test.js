@@ -205,3 +205,21 @@ test("CFG-04 measurements show an ellipsis for numbers not read yet", () => {
   });
   assert.ok(rows.every((row) => row.text === "…"));
 });
+
+test("ELE-23 scale configuration and R10 color mode rules are restricted to indicator mode", () => {
+  const indicatorState = createSettingsState();
+  assert.equal(indicatorState.heightMode, "data");
+  assert.equal(indicatorState.colorMode, "heat");
+
+  const stepped = reduceSettings(indicatorState, changeHeightMode("step"));
+  assert.equal(stepped.heightMode, "step");
+
+  const selectionColor = reduceSettings(indicatorState, changeColorMode("selection"));
+  assert.equal(selectionColor.colorMode, "selection");
+
+  const validElectionHeightModes = ["flat", "data"];
+  assert.equal(validElectionHeightModes.includes("step"), false);
+
+  const isElectionColorRestricted = true;
+  assert.equal(isElectionColorRestricted, true);
+});

@@ -16,10 +16,16 @@ export const EXPECTED_MUNICIPALITY_COUNT = 645;
 export const EXPECTED_REGION_CODES = Object.freeze(
   Array.from({ length: 16 }, (_, index) => String(index + 1)),
 );
+export const EXPECTED_GOVERNMENT_REGION_COUNT = 43;
+export const EXPECTED_GOVERNMENT_REGION_CODES = Object.freeze(
+  Array.from({ length: 43 }, (_, index) => `rg-${index + 1}`),
+);
 export const MUNICIPALITY_FIELDS = Object.freeze([
   "code",
   "name",
   "regionCode",
+  "governmentRegionCode",
+  "governmentRegionName",
   "population",
   "areaKm2",
   "gdpThousandBrl",
@@ -143,6 +149,143 @@ export function checkRegionLabels(rows) {
 }
 
 /**
+ * RGV-01: every municipality belongs to exactly one known Government Region and no Government Region is empty.
+ * @param {{ code: string, governmentRegionCode: string | null }[]} rows
+ * @param {readonly string[]} [expectedCodes]
+ * @returns {string[]}
+ */
+export function checkGovernmentRegionMembership(
+  rows,
+  expectedCodes = EXPECTED_GOVERNMENT_REGION_CODES,
+) {
+  const regionsByMunicipality = groupValues(
+    rows,
+    (row) => row.code,
+    (row) => row.governmentRegionCode,
+  );
+  const municipalityProblems = [...regionsByMunicipality].flatMap(([code, regions]) =>
+    describeGovernmentRegionMembership(code, regions, expectedCodes),
+  );
+  const filledRegions = new Set(rows.map((row) => row.governmentRegionCode));
+  const emptyRegionProblems = expectedCodes
+    .filter((regionCode) => !filledRegions.has(regionCode))
+    .map((regionCode) => `RGV-01: government region ${regionCode} is empty`);
+  return [...municipalityProblems, ...emptyRegionProblems];
+}
+
+/**
+ * RGV-01: every Government Region has exactly one label.
+ * @param {{ governmentRegionCode: string | null, governmentRegionName: string | null }[]} rows
+ * @returns {string[]}
+ */
+export function checkGovernmentRegionLabels(rows) {
+  const withRegion = rows.filter((row) => row.governmentRegionCode !== null);
+  const labelsByRegion = groupValues(
+    withRegion,
+    (row) => String(row.governmentRegionCode),
+    (row) => row.governmentRegionName,
+  );
+  return [...labelsByRegion].flatMap(([regionCode, labels]) => {
+    if (labels.has(null) || labels.has("")) {
+      return [`RGV-01: government region ${regionCode} has no label`];
+    }
+    if (labels.size > 1) {
+      return [
+        `RGV-01: government region ${regionCode} has more than one label: ${listSome([...labels])}`,
+      ];
+    }
+    return [];
+  });
+}
+
+/**
+ * RGV-02: every Government Region fits entirely inside exactly one Administrative Region (RA).
+ * Strict hierarchy: Municipality -> RG -> RA.
+ * @param {{ code: string, governmentRegionCode: string }[]} geoseadeRows
+ * @param {{ code: string, regionCode: string | null }[]} seadeRows
+ * @returns {string[]}
+ */
+export function checkHierarchyStrictness(geoseadeRows, seadeRows) {
+  const raByMunicipality = new Map(seadeRows.map((row) => [row.code, row.regionCode]));
+  /** @type {Map<string, Set<string>>} */
+  const raByGovernmentRegion = new Map();
+
+  for (const row of geoseadeRows) {
+    const raCode = raByMunicipality.get(row.code);
+    if (!raCode) {
+      continue;
+    }
+    const current = raByGovernmentRegion.get(row.governmentRegionCode) ?? new Set();
+    current.add(raCode);
+    raByGovernmentRegion.set(row.governmentRegionCode, current);
+  }
+
+  const problems = [];
+  for (const [rgCode, raSet] of raByGovernmentRegion.entries()) {
+    if (raSet.size > 1) {
+      problems.push(
+        `RGV-02: government region ${rgCode} is split across multiple administrative regions: ${listSome([...raSet])}`,
+      );
+    }
+  }
+  return problems;
+}
+
+/**
+ * RGV-02: group codes do not collide between levels (e.g. municipality, governmentRegion, region).
+ * @param {Record<string, (string | null | undefined)[]>} codesByLevel
+ * @returns {string[]}
+ */
+export function checkGroupCodeCollision(codesByLevel) {
+  const levels = Object.entries(codesByLevel);
+  const problems = [];
+
+  for (let i = 0; i < levels.length; i += 1) {
+    const [levelA, codesA] = levels[i];
+    const setA = new Set(codesA.filter((c) => typeof c === "string" && c.length > 0));
+    for (let j = i + 1; j < levels.length; j += 1) {
+      const [levelB, codesB] = levels[j];
+      const colliding = codesB.filter((code) => typeof code === "string" && setA.has(code));
+      if (colliding.length > 0) {
+        problems.push(
+          `RGV-02: code collision between levels "${levelA}" and "${levelB}": ${listSome([...new Set(colliding)])}`,
+        );
+      }
+    }
+  }
+
+  return problems;
+}
+
+/**
+ * RGV-02: RM São Paulo (RA code "1") territorially coincides with its Government Region ("RG de São Paulo", "rg-40").
+ * @param {{ code: string, governmentRegionCode: string, governmentRegionName?: string }[]} geoseadeRows
+ * @param {{ code: string, regionCode: string | null }[]} seadeRows
+ * @returns {string[]}
+ */
+export function checkMetropolitanRegionCoincidence(geoseadeRows, seadeRows) {
+  const rmSpCodes = new Set(
+    seadeRows.filter((row) => row.regionCode === "1").map((row) => row.code),
+  );
+  const rgSpCodes = new Set(
+    geoseadeRows
+      .filter((row) => isRgSaoPaulo(row))
+      .map((row) => row.code),
+  );
+
+  const missingInRg = [...rmSpCodes].filter((code) => !rgSpCodes.has(code));
+  const extraInRg = [...rgSpCodes].filter((code) => !rmSpCodes.has(code));
+
+  if (missingInRg.length === 0 && extraInRg.length === 0) {
+    return [];
+  }
+
+  return [
+    `RGV-02: RM São Paulo and RG de São Paulo do not coincide territorially: missing in RG: ${listSome(missingInRg)}; extra in RG: ${listSome(extraInRg)}`,
+  ];
+}
+
+/**
  * DAD-03: the population of the 16 regions adds up to the state population, to the inhabitant.
  * @param {PopulationRecord[]} municipalities
  * @param {number | null | undefined} statePopulation
@@ -248,6 +391,42 @@ function describeMembership(code, regions, regionCodes) {
   const unknown = [...regions].filter((regionCode) => !regionCodes.includes(String(regionCode)));
   if (unknown.length > 0) return [`DAD-02: municipality ${code} has unknown region ${unknown[0]}`];
   return [];
+}
+
+/**
+ * @param {string} code
+ * @param {Set<string | null>} regions
+ * @param {readonly string[]} expectedCodes
+ * @returns {string[]}
+ */
+function describeGovernmentRegionMembership(code, regions, expectedCodes) {
+  if (regions.has(null) || regions.has("")) {
+    return [`RGV-01: municipality ${code} has no government region`];
+  }
+  if (regions.size > 1) {
+    return [
+      `RGV-01: municipality ${code} has more than one government region: ${listSome([...regions])}`,
+    ];
+  }
+  const unknown = [...regions].filter((regionCode) => !expectedCodes.includes(String(regionCode)));
+  if (unknown.length > 0) {
+    return [`RGV-01: municipality ${code} has unknown government region ${unknown[0]}`];
+  }
+  return [];
+}
+
+/**
+ * @param {{ governmentRegionCode: string, governmentRegionName?: string }} row
+ * @returns {boolean}
+ */
+function isRgSaoPaulo(row) {
+  if (row.governmentRegionCode === "rg-40") {
+    return true;
+  }
+  if (row.governmentRegionName !== undefined && row.governmentRegionName.includes("São Paulo")) {
+    return true;
+  }
+  return false;
 }
 
 /**

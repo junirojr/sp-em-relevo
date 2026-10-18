@@ -118,8 +118,9 @@ function compareRankingUnits(a, b) {
 }
 
 /**
- * Mounts the selection panel table with active selection or ranking fallback.
- * Follows SEL-06, SEL-07, SEL-08, SEL-09.
+ * Mounts the selection panel table with active selection, ranking fallback,
+ * and touch inspection card.
+ * Follows SEL-06, SEL-07, SEL-08, SEL-09, E33, and MOB-04.
  *
  * @param {Document} documentRef
  * @param {(action: Action) => void} dispatch
@@ -134,10 +135,139 @@ export function mountPanelView(documentRef, dispatch, options = {}) {
   noticeArea.setAttribute("aria-live", "polite");
   noticeArea.setAttribute("aria-atomic", "true");
 
+  const inspectedCard = documentRef.createElement("div");
+  inspectedCard.className = "selection-inspected-card";
+  inspectedCard.hidden = true;
+
   const tableContainer = documentRef.createElement("div");
   tableContainer.className = "selection-table-container";
 
-  container.append(noticeArea, tableContainer);
+  container.append(noticeArea, inspectedCard, tableContainer);
+
+  let cachedSelectedCodes = /** @type {readonly string[]} */ ([]);
+  let cachedRetentionNotice = /** @type {string | null} */ (null);
+  let cachedTerritory = /** @type {TerritoryIndex | null} */ (null);
+  let cachedIndicator = /** @type {IndicatorDefinition | null} */ (null);
+  let cachedLevel = /** @type {"municipality" | "region"} */ ("municipality");
+  let cachedMunicipalities = /** @type {MunicipalityRecord[]} */ ([]);
+  let cachedInspectedCode = /** @type {string | null} */ (null);
+
+  /**
+   * @param {string | null} inspectedCode
+   */
+  function renderInspectedCard(inspectedCode) {
+    cachedInspectedCode = inspectedCode;
+    if (!inspectedCode) {
+      inspectedCard.hidden = true;
+      inspectedCard.replaceChildren();
+      return;
+    }
+
+    const mun = cachedMunicipalities.find((m) => m.code === inspectedCode);
+    if (!mun) {
+      inspectedCard.hidden = true;
+      inspectedCard.replaceChildren();
+      return;
+    }
+
+    elevateSheetIfCollapsed(documentRef);
+
+    inspectedCard.replaceChildren();
+
+    const header = documentRef.createElement("div");
+    header.className = "inspected-card-header";
+
+    const titleGroup = documentRef.createElement("div");
+    titleGroup.className = "inspected-card-title-group";
+
+    const title = documentRef.createElement("h3");
+    title.className = "inspected-card-title";
+    title.textContent = mun.name;
+
+    const contextText = resolveMunicipalityContext(mun, cachedTerritory);
+    const contextElem = documentRef.createElement("p");
+    contextElem.className = "inspected-card-context";
+    contextElem.textContent = contextText;
+
+    titleGroup.append(title, contextElem);
+
+    const closeBtn = documentRef.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "inspected-card-close";
+    closeBtn.setAttribute("aria-label", "Fechar inspeção");
+    closeBtn.textContent = "×";
+    closeBtn.addEventListener("click", () => {
+      renderInspectedCard(null);
+      dispatch({ type: "pointer/inspectedUnitChanged", code: null });
+    });
+
+    header.append(titleGroup, closeBtn);
+
+    const metrics = documentRef.createElement("div");
+    metrics.className = "inspected-card-metrics";
+
+    const metricLabel = documentRef.createElement("span");
+    metricLabel.className = "inspected-metric-label";
+    if (cachedIndicator) {
+      metricLabel.textContent = cachedIndicator.label;
+    }
+
+    const metricValue = documentRef.createElement("span");
+    metricValue.className = "inspected-metric-value";
+    if (cachedIndicator) {
+      const val = cachedIndicator.computeValue(mun);
+      if (val !== null && Number.isFinite(val)) {
+        metricValue.textContent = cachedIndicator.format(val);
+      }
+      if (val === null || !Number.isFinite(val)) {
+        metricValue.textContent = "sem dado";
+      }
+    }
+
+    metrics.append(metricLabel, metricValue);
+
+    const isSelected = cachedSelectedCodes.includes(inspectedCode);
+    const actionBtn = documentRef.createElement("button");
+    actionBtn.type = "button";
+    actionBtn.className = "inspected-action-button";
+
+    if (isSelected) {
+      actionBtn.classList.add("inspected-action-remove");
+      actionBtn.textContent = "Remover da seleção";
+      actionBtn.setAttribute("aria-label", `Remover ${mun.name} da seleção`);
+      actionBtn.addEventListener("click", () => {
+        dispatch(toggleMunicipalityAction(inspectedCode));
+      });
+    }
+    if (!isSelected) {
+      actionBtn.classList.add("inspected-action-add");
+      actionBtn.textContent = "Adicionar à seleção";
+      actionBtn.setAttribute("aria-label", `Adicionar ${mun.name} à seleção`);
+      actionBtn.addEventListener("click", () => {
+        dispatch(toggleMunicipalityAction(inspectedCode));
+      });
+    }
+
+    inspectedCard.append(header, metrics, actionBtn);
+    inspectedCard.hidden = false;
+  }
+
+  function subscribeToStore() {
+    const win = resolveWindow(documentRef);
+    const store = /** @type {any} */ (win)?.__appStore;
+    if (!store || typeof store.subscribe !== "function") {
+      return;
+    }
+    store.subscribe(() => {
+      const state = store.getState();
+      const nextInspected = state.pointer?.inspectedCode ?? null;
+      if (nextInspected !== cachedInspectedCode) {
+        renderInspectedCard(nextInspected);
+      }
+    });
+  }
+
+  subscribeToStore();
 
   return {
     element: container,
@@ -148,8 +278,31 @@ export function mountPanelView(documentRef, dispatch, options = {}) {
       /** @type {IndicatorDefinition} */ indicator,
       /** @type {"municipality" | "region"} */ level,
       /** @type {MunicipalityRecord[]} */ municipalities,
+      /** @type {string | null | undefined} */ [inspectedCode],
     ) => {
+      cachedSelectedCodes = selectedCodes;
+      cachedRetentionNotice = retentionNotice;
+      cachedTerritory = territory;
+      cachedIndicator = indicator;
+      cachedLevel = level;
+      cachedMunicipalities = municipalities;
+
+      subscribeToStore();
+
+      let targetInspected = cachedInspectedCode;
+      if (inspectedCode !== undefined) {
+        targetInspected = inspectedCode;
+      }
+      if (inspectedCode === undefined) {
+        const win = resolveWindow(documentRef);
+        const store = /** @type {any} */ (win)?.__appStore;
+        if (store?.getState) {
+          targetInspected = store.getState().pointer?.inspectedCode ?? null;
+        }
+      }
+
       syncNotice(noticeArea, retentionNotice);
+      renderInspectedCard(targetInspected);
       renderTable(
         tableContainer,
         documentRef,
@@ -164,6 +317,57 @@ export function mountPanelView(documentRef, dispatch, options = {}) {
     },
   };
 }
+
+/**
+ * Elevates the mobile bottom sheet to half height if it is currently collapsed (MOB-04).
+ *
+ * @param {Document} doc
+ */
+function elevateSheetIfCollapsed(doc) {
+  const sidebar = doc.getElementById("sidebar");
+  if (!sidebar) {
+    return;
+  }
+  if (sidebar.getAttribute("data-sheet-state") === "collapsed") {
+    const sheetToggle = doc.getElementById("sheet-toggle");
+    if (sheetToggle) {
+      sheetToggle.click();
+    }
+  }
+}
+
+/**
+ * @param {MunicipalityRecord} mun
+ * @param {TerritoryIndex | null} territory
+ * @returns {string}
+ */
+function resolveMunicipalityContext(mun, territory) {
+  if (territory) {
+    const reg = territory.regionOf(mun.code);
+    if (reg) {
+      return reg.label;
+    }
+  }
+  if (mun.regionName) {
+    return mun.regionName;
+  }
+  return "São Paulo";
+}
+
+/**
+ * @param {Document} documentRef
+ * @returns {Window | null}
+ */
+function resolveWindow(documentRef) {
+  if (documentRef && documentRef.defaultView) {
+    return documentRef.defaultView;
+  }
+  if (typeof window !== "undefined") {
+    return window;
+  }
+  return null;
+}
+
 
 /**
  * @param {HTMLDivElement} noticeArea

@@ -21,5 +21,308 @@
       "density": 743.4032585660777,
       "gdpPerCapita": 54635.24303930534
     }
+  ],
+  "governmentRegions": [
+    {
+      "code": "rg-1",
+      "population": 139415,
+      "areaKm2": 2935.106,
+      "density": 47.49913631739364,
+      "gdpPerCapita": 37834.19287738048
+    },
+    {
+      "code": "rg-2",
+      "population": 197605,
+      "areaKm2": 7423.884,
+      "density": 26.61746869967257,
+      "gdpPerCapita": 61702.41137623036
+    },
+    {
+      "code": "rg-3",
+      "population": 607723,
+      "areaKm2": 7235.231,
+      "density": 83.99496850895294,
+      "gdpPerCapita": 60751.52824559873
+    },
+    {
+      "code": "rg-4",
+      "population": 577362,
+      "areaKm2": 11135.029,
+      "density": 51.85096509402894,
+      "gdpPerCapita": 47793.08302243653
+    },
+    {
+      "code": "rg-5",
+      "population": 244849,
+      "areaKm2": 5485.39,
+      "density": 44.63657096396063,
+      "gdpPerCapita": 63222.19817111771
+    },
+    {
+      "code": "rg-6",
+      "population": 139332,
+      "areaKm2": 2759.566,
+      "density": 50.49054815141222,
+      "gdpPerCapita": 49319.91932937157
+    },
+    {
+      "code": "rg-7",
+      "population": 439068,
+      "areaKm2": 8343.273,
+      "density": 52.62539053918049,
+      "gdpPerCapita": 61107.19296327676
+    },
+    {
+      "code": "rg-8",
+      "population": 649863,
+      "areaKm2": 8585.5,
+      "density": 75.69308718187642,
+      "gdpPerCapita": 60623.4714085892
+    },
+    {
+      "code": "rg-9",
+      "population": 302784,
+      "areaKm2": 6384.759,
+      "density": 47.42293326968176,
+      "gdpPerCapita": 49878.02525893046
+    },
+    {
+      "code": "rg-10",
+      "population": 625191,
+      "areaKm2": 4085.304,
+      "density": 153.03414384829134,
+      "gdpPerCapita": 55882.605475766606
+    },
+    {
+      "code": "rg-11",
+      "population": 3372824,
+      "areaKm2": 5225.129,
+      "density": 645.5006182622477,
+      "gdpPerCapita": 101880.54550133657
+    },
+    {
+      "code": "rg-12",
+      "population": 344383,
+      "areaKm2": 1941.836,
+      "density": 177.34916851886564,
+      "gdpPerCapita": 120682.69339659624
+    },
+    {
+      "code": "rg-13",
+      "population": 279231,
+      "areaKm2": 4316.721,
+      "density": 64.68590395348693,
+      "gdpPerCapita": 57282.647700291156
+    },
+    {
+      "code": "rg-14",
+      "population": 117206,
+      "areaKm2": 2786.191,
+      "density": 42.066749910540956,
+      "gdpPerCapita": 47274.95179427674
+    },
+    {
+      "code": "rg-15",
+      "population": 124050,
+      "areaKm2": 2864.065,
+      "density": 43.31256448439543,
+      "gdpPerCapita": 36594.17170495768
+    },
+    {
+      "code": "rg-16",
+      "population": 119724,
+      "areaKm2": 3125.921,
+      "density": 38.300392108437805,
+      "gdpPerCapita": 50773.445591527176
+    },
+    {
+      "code": "rg-17",
+      "population": 594182,
+      "areaKm2": 7117.809,
+      "density": 83.47821640058056,
+      "gdpPerCapita": 49172.3142067582
+    },
+    {
+      "code": "rg-18",
+      "population": 337787,
+      "areaKm2": 3386.673,
+      "density": 99.74006938372852,
+      "gdpPerCapita": 49366.99162489972
+    },
+    {
+      "code": "rg-19",
+      "population": 496389,
+      "areaKm2": 5266.225,
+      "density": 94.25898057906754,
+      "gdpPerCapita": 52476.96665316919
+    },
+    {
+      "code": "rg-20",
+      "population": 525340,
+      "areaKm2": 19339.807,
+      "density": 27.16366300863292,
+      "gdpPerCapita": 42877.40701260136
+    },
+    {
+      "code": "rg-21",
+      "population": 155135,
+      "areaKm2": 3613.289,
+      "density": 42.93456737061442,
+      "gdpPerCapita": 47786.92751474522
+    },
+    {
+      "code": "rg-22",
+      "population": 291535,
+      "areaKm2": 3082.004,
+      "density": 94.59267411723022,
+      "gdpPerCapita": 51857.12178640644
+    },
+    {
+      "code": "rg-23",
+      "population": 978943,
+      "areaKm2": 1739.145,
+      "density": 562.8875108170969,
+      "gdpPerCapita": 128662.01607243731
+    },
+    {
+      "code": "rg-24",
+      "population": 673300,
+      "areaKm2": 2941.151,
+      "density": 228.9239824816883,
+      "gdpPerCapita": 71303.40858458339
+    },
+    {
+      "code": "rg-25",
+      "population": 169868,
+      "areaKm2": 4538.589,
+      "density": 37.42749123130559,
+      "gdpPerCapita": 86858.87865872325
+    },
+    {
+      "code": "rg-26",
+      "population": 353164,
+      "areaKm2": 4994.117,
+      "density": 70.71600445083685,
+      "gdpPerCapita": 52540.89884586198
+    },
+    {
+      "code": "rg-27",
+      "population": 224302,
+      "areaKm2": 3822.727,
+      "density": 58.67591381754439,
+      "gdpPerCapita": 56721.54951806047
+    },
+    {
+      "code": "rg-28",
+      "population": 605080,
+      "areaKm2": 3528.402,
+      "density": 171.4883961634757,
+      "gdpPerCapita": 92608.39393138097
+    },
+    {
+      "code": "rg-29",
+      "population": 596246,
+      "areaKm2": 17980.971,
+      "density": 33.159833248159956,
+      "gdpPerCapita": 47902.136031101254
+    },
+    {
+      "code": "rg-30",
+      "population": 273806,
+      "areaKm2": 12135.985,
+      "density": 22.56149789242488,
+      "gdpPerCapita": 51309.25180602324
+    },
+    {
+      "code": "rg-31",
+      "population": 1384158,
+      "areaKm2": 9301.219,
+      "density": 148.81468762320296,
+      "gdpPerCapita": 66303.21755175348
+    },
+    {
+      "code": "rg-32",
+      "population": 290025,
+      "areaKm2": 3372.541,
+      "density": 85.99598937418403,
+      "gdpPerCapita": 83366.51667959659
+    },
+    {
+      "code": "rg-33",
+      "population": 1805531,
+      "areaKm2": 2428.737,
+      "density": 743.4032585660777,
+      "gdpPerCapita": 54635.24303930534
+    },
+    {
+      "code": "rg-34",
+      "population": 1696554,
+      "areaKm2": 7118.805,
+      "density": 238.32005512161098,
+      "gdpPerCapita": 74170.93178289638
+    },
+    {
+      "code": "rg-35",
+      "population": 415358,
+      "areaKm2": 3858.065,
+      "density": 107.65966877178067,
+      "gdpPerCapita": 67946.13080764064
+    },
+    {
+      "code": "rg-36",
+      "population": 148066,
+      "areaKm2": 3211.257,
+      "density": 46.10842420896241,
+      "gdpPerCapita": 69674.60456823309
+    },
+    {
+      "code": "rg-37",
+      "population": 866918,
+      "areaKm2": 9708.95,
+      "density": 89.29060300032444,
+      "gdpPerCapita": 53959.48290380405
+    },
+    {
+      "code": "rg-38",
+      "population": 1086313,
+      "areaKm2": 3824.593,
+      "density": 284.0336213552658,
+      "gdpPerCapita": 82203.39073545102
+    },
+    {
+      "code": "rg-39",
+      "population": 474893,
+      "areaKm2": 6201.435,
+      "density": 76.57792107794405,
+      "gdpPerCapita": 50061.53386131192
+    },
+    {
+      "code": "rg-40",
+      "population": 20731920,
+      "areaKm2": 7946.956,
+      "density": 2608.787565956072,
+      "gdpPerCapita": 85501.01712721253
+    },
+    {
+      "code": "rg-41",
+      "population": 620034,
+      "areaKm2": 4238.62,
+      "density": 146.2820446277326,
+      "gdpPerCapita": 65323.899979678536
+    },
+    {
+      "code": "rg-42",
+      "population": 151314,
+      "areaKm2": 4214.742,
+      "density": 35.901129891224656,
+      "gdpPerCapita": 68037.94757920616
+    },
+    {
+      "code": "rg-43",
+      "population": 184467,
+      "areaKm2": 4673.762,
+      "density": 39.468633618913415,
+      "gdpPerCapita": 48866.52897266178
+    }
   ]
 }

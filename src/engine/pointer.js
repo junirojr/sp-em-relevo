@@ -2,6 +2,8 @@ import * as THREE from "three";
 import { DRAG_THRESHOLD_PX, MAX_TILT_RADIANS } from "./constants.js";
 
 const PRIMARY_BUTTON = 0;
+const TOUCH_POINTER_TYPE = "touch";
+const TOUCH_TAP_THRESHOLD_PX = 10;
 const VERTICAL_TILT_SHARE = 0.6;
 const WHEEL_LINE_PX = 40;
 const WHEEL_DELTA_LINE = 1;
@@ -18,6 +20,7 @@ const WHEEL_DELTA_PAGE = 2;
  *   onPointerMove: (ndc: THREE.Vector2) => void;
  *   onPointerLeave: () => void;
  *   onClick: (ndc: THREE.Vector2) => void;
+ *   onInspect?: (ndc: THREE.Vector2) => void;
  *   onPanStart: () => void;
  *   onPan: (delta: THREE.Vector3) => void;
  *   onWheel: (wheel: WheelInput) => void;
@@ -33,16 +36,20 @@ const WHEEL_DELTA_PAGE = 2;
  * @typedef {PointerHandlerOptions & { pointerNdc: THREE.Vector2 }} PointerInput
  */
 
+/** @typedef {{ pointerId: number; x: number; y: number }} TouchPoint */
+
 /**
  * A press on the map. Only the pointer that started it can end it. It is dragged once it travels the
  * threshold, and from then on its release is no click. A press of an auxiliary button (middle,
  * secondary, back, forward) never clicks, so it cannot select or deselect.
  * @typedef {{
  *   pointerId: number;
+ *   isTouch: boolean;
  *   isAuxiliaryButton: boolean;
  *   startX: number;
  *   startY: number;
  *   isDragged: boolean;
+ *   hasPanStarted: boolean;
  *   grabPoint: THREE.Vector3 | undefined;
  * }} DragGesture
  */
@@ -60,44 +67,115 @@ export function setupPointerHandlers(options) {
   const { canvas } = input;
   /** @type {DragGesture | undefined} */
   let drag;
+  /** @type {Map<number, TouchPoint>} */
+  const touches = new Map();
+  let pinchDistance = 0;
+  let wasPinch = false;
 
-  /**
-   * @param {PointerEvent} event
-   */
+  if (canvas.style) {
+    canvas.style.touchAction = "none";
+  }
+
+  /** @param {PointerEvent} event */
   function handlePointerDown(event) {
-    canvas.setPointerCapture(event.pointerId);
+    capturePointer(canvas, event.pointerId);
+    const isTouch = event.pointerType === TOUCH_POINTER_TYPE;
+    if (isTouch) {
+      touches.set(event.pointerId, {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+      });
+      if (touches.size === 2) {
+        wasPinch = true;
+        pinchDistance = readPinchMetrics(touches).distance;
+        return;
+      }
+      if (touches.size > 1) {
+        return;
+      }
+      wasPinch = false;
+    }
+    if (drag) {
+      return;
+    }
     drag = {
       pointerId: event.pointerId,
+      isTouch,
       isAuxiliaryButton: event.button !== PRIMARY_BUTTON,
       startX: event.clientX,
       startY: event.clientY,
       isDragged: false,
+      hasPanStarted: false,
       grabPoint: undefined,
     };
   }
 
-  /**
-   * @param {PointerEvent} event
-   */
+  /** @param {PointerEvent} event */
   function handlePointerMove(event) {
+    const isTouch = event.pointerType === TOUCH_POINTER_TYPE;
+    if (isTouch) {
+      const tracked = touches.get(event.pointerId);
+      if (tracked) {
+        tracked.x = event.clientX;
+        tracked.y = event.clientY;
+      }
+      if (touches.size === 2) {
+        pinchDistance = followPinch(input, touches, pinchDistance, drag);
+        return;
+      }
+      if (touches.size > 2) {
+        return;
+      }
+    }
+    if (drag && event.pointerId !== drag.pointerId) {
+      return;
+    }
+
     writePointerNdc(input, event);
     if (drag && followDrag(input, drag, event)) {
       return;
     }
 
-    followTilt(input);
+    if (!isTouch) {
+      followTilt(input);
+    }
     input.onPointerMove(input.pointerNdc);
   }
 
-  /**
-   * @param {PointerEvent} event
-   */
+  /** @param {PointerEvent} event */
   function handlePointerUp(event) {
-    const releasedDrag = drag;
-    if (!releasedDrag) {
+    if (event.pointerType === TOUCH_POINTER_TYPE) {
+      touches.delete(event.pointerId);
+      releaseCapture(canvas, event.pointerId);
+      if (touches.size === 2) {
+        pinchDistance = readPinchMetrics(touches).distance;
+        return;
+      }
+      if (touches.size === 1) {
+        pinchDistance = 0;
+        drag = reanchorRemainingTouch(touches, drag);
+        return;
+      }
+      if (touches.size > 2) {
+        return;
+      }
+      pinchDistance = 0;
+      const releasedTouchDrag = drag;
+      const endedPinch = wasPinch;
+      drag = undefined;
+      wasPinch = false;
+      if (!releasedTouchDrag || releasedTouchDrag.isDragged || endedPinch) {
+        return;
+      }
+      writePointerNdc(input, event);
+      input.onPointerMove(input.pointerNdc);
+      input.onInspect?.(input.pointerNdc);
       return;
     }
-    if (event.pointerId !== releasedDrag.pointerId) {
+
+    const releasedDrag = drag;
+    if (!releasedDrag || event.pointerId !== releasedDrag.pointerId) {
       return;
     }
 
@@ -111,14 +189,30 @@ export function setupPointerHandlers(options) {
     input.onClick(input.pointerNdc);
   }
 
-  function handlePointerLeave() {
+  /** @param {PointerEvent} event */
+  function handlePointerCancel(event) {
+    touches.clear();
+    pinchDistance = 0;
+    wasPinch = false;
+    drag = undefined;
+    releaseCapture(canvas, event.pointerId);
+  }
+
+  /** @param {PointerEvent} [event] */
+  function handlePointerLeave(event) {
+    if (event?.pointerType === TOUCH_POINTER_TYPE) {
+      return;
+    }
     input.setTiltTarget(0, 0);
     input.onPointerLeave();
   }
 
-  /**
-   * @param {WheelEvent} event
-   */
+  /** @param {Event} event */
+  function handleContextMenu(event) {
+    event.preventDefault();
+  }
+
+  /** @param {WheelEvent} event */
   function handleWheel(event) {
     event.preventDefault();
     input.onWheel({
@@ -131,14 +225,18 @@ export function setupPointerHandlers(options) {
   canvas.addEventListener("pointerdown", handlePointerDown);
   canvas.addEventListener("pointermove", handlePointerMove);
   canvas.addEventListener("pointerup", handlePointerUp);
+  canvas.addEventListener("pointercancel", handlePointerCancel);
   canvas.addEventListener("pointerleave", handlePointerLeave);
+  canvas.addEventListener("contextmenu", handleContextMenu);
   canvas.addEventListener("wheel", handleWheel, { passive: false });
 
   return function cleanup() {
     canvas.removeEventListener("pointerdown", handlePointerDown);
     canvas.removeEventListener("pointermove", handlePointerMove);
     canvas.removeEventListener("pointerup", handlePointerUp);
+    canvas.removeEventListener("pointercancel", handlePointerCancel);
     canvas.removeEventListener("pointerleave", handlePointerLeave);
+    canvas.removeEventListener("contextmenu", handleContextMenu);
     canvas.removeEventListener("wheel", handleWheel);
   };
 }
@@ -150,9 +248,7 @@ export function setupPointerHandlers(options) {
  * @returns {() => void} cleanup function
  */
 export function setupContextHandlers({ canvas, onLost, onRestored }) {
-  /**
-   * @param {Event} event
-   */
+  /** @param {Event} event */
   function handleContextLost(event) {
     event.preventDefault();
     onLost();
@@ -171,12 +267,84 @@ export function setupContextHandlers({ canvas, onLost, onRestored }) {
  * @param {HTMLElement} canvas
  * @param {number} pointerId
  */
+function capturePointer(canvas, pointerId) {
+  try {
+    canvas.setPointerCapture(pointerId);
+  } catch {}
+}
+
+/**
+ * @param {HTMLElement} canvas
+ * @param {number} pointerId
+ */
 function releaseCapture(canvas, pointerId) {
   if (!canvas.hasPointerCapture(pointerId)) {
     return;
   }
+  try {
+    canvas.releasePointerCapture(pointerId);
+  } catch {}
+}
 
-  canvas.releasePointerCapture(pointerId);
+/**
+ * @param {Map<number, TouchPoint>} touches
+ * @returns {{ distance: number; x: number; y: number }}
+ */
+function readPinchMetrics(touches) {
+  const [first, second] = touches.values();
+  return {
+    distance: Math.hypot(second.x - first.x, second.y - first.y),
+    x: (first.x + second.x) / 2,
+    y: (first.y + second.y) / 2,
+  };
+}
+
+/**
+ * @param {PointerInput} input
+ * @param {Map<number, TouchPoint>} touches
+ * @param {number} previousDistance
+ * @param {DragGesture | undefined} drag
+ * @returns {number}
+ */
+function followPinch(input, touches, previousDistance, drag) {
+  const metrics = readPinchMetrics(touches);
+  if (drag) {
+    drag.isDragged = true;
+    drag.grabPoint = undefined;
+  }
+  if (previousDistance > 0 && previousDistance !== metrics.distance) {
+    input.onWheel({
+      deltaPixels: previousDistance - metrics.distance,
+      x: metrics.x,
+      y: metrics.y,
+    });
+  }
+  return metrics.distance;
+}
+
+/**
+ * @param {Map<number, TouchPoint>} touches
+ * @param {DragGesture | undefined} drag
+ * @returns {DragGesture | undefined}
+ */
+function reanchorRemainingTouch(touches, drag) {
+  const [remaining] = touches.values();
+  if (!remaining) {
+    return undefined;
+  }
+  if (drag && drag.pointerId === remaining.pointerId && drag.grabPoint) {
+    return drag;
+  }
+  return {
+    pointerId: remaining.pointerId,
+    isTouch: true,
+    isAuxiliaryButton: false,
+    startX: remaining.x,
+    startY: remaining.y,
+    isDragged: true,
+    hasPanStarted: Boolean(drag?.hasPanStarted),
+    grabPoint: undefined,
+  };
 }
 
 /**
@@ -184,10 +352,9 @@ function releaseCapture(canvas, pointerId) {
  * @returns {boolean}
  */
 function isClickRelease(gesture) {
-  if (gesture.isDragged) {
+  if (gesture.isDragged || gesture.isTouch) {
     return false;
   }
-
   return !gesture.isAuxiliaryButton;
 }
 
@@ -197,10 +364,7 @@ function isClickRelease(gesture) {
  */
 function writePointerNdc({ canvas, pointerNdc }, event) {
   const rect = canvas.getBoundingClientRect();
-  if (rect.width <= 0) {
-    return;
-  }
-  if (rect.height <= 0) {
+  if (rect.width <= 0 || rect.height <= 0) {
     return;
   }
   pointerNdc.set(
@@ -210,8 +374,18 @@ function writePointerNdc({ canvas, pointerNdc }, event) {
 }
 
 /**
- * Marks the press as dragged once it travels the threshold, and pans it while the map is zoomed in.
- * Returns true while the gesture is a pan, so the pointing and the tilt stay still under the hand.
+ * @param {DragGesture} drag
+ * @param {number} movedDistance
+ * @returns {boolean}
+ */
+function hasPassedDragThreshold(drag, movedDistance) {
+  if (drag.isTouch) {
+    return movedDistance > TOUCH_TAP_THRESHOLD_PX;
+  }
+  return movedDistance >= DRAG_THRESHOLD_PX;
+}
+
+/**
  * @param {PointerInput} input
  * @param {DragGesture} drag
  * @param {PointerEvent} event
@@ -219,16 +393,12 @@ function writePointerNdc({ canvas, pointerNdc }, event) {
  */
 function followDrag(input, drag, event) {
   const movedDistance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
-  if (movedDistance >= DRAG_THRESHOLD_PX) {
+  if (hasPassedDragThreshold(drag, movedDistance)) {
     drag.isDragged = true;
   }
-  if (!drag.isDragged) {
+  if (!drag.isDragged || !input.isPannable()) {
     return false;
   }
-  if (!input.isPannable()) {
-    return false;
-  }
-
   return dragPan(input, drag);
 }
 
@@ -245,7 +415,10 @@ function dragPan(input, drag) {
 
   if (!drag.grabPoint) {
     drag.grabPoint = pointUnderCursor;
-    input.onPanStart();
+    if (!drag.hasPanStarted) {
+      drag.hasPanStarted = true;
+      input.onPanStart();
+    }
     return true;
   }
 

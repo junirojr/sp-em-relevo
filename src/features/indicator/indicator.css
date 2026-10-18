@@ -3,9 +3,11 @@
 .indicator-fieldset {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
   min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
   border: 0;
@@ -28,6 +30,8 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   min-height: 40px;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--row-line);
@@ -37,6 +41,7 @@
   font-weight: 500;
   color: var(--ink-2);
   cursor: pointer;
+  overflow-wrap: break-word;
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
@@ -56,6 +61,8 @@
 .indicator-option > span:first-of-type {
   min-width: 0;
   line-height: 1.25;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .indicator-option:hover {
@@ -170,6 +177,8 @@
 
 #pointed-pill {
   min-height: 68px;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 6px var(--space-4);
   display: flex;
   flex-direction: column;
@@ -180,6 +189,7 @@
   background: var(--pill-bg);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
+  overflow: hidden;
 }
 
 .pill-empty {
@@ -191,18 +201,24 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .pill-title {
   font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--ink);
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .pill-value {
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   color: var(--coral-text);
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .pill-year {
@@ -212,4 +228,27 @@
 
 .pill-year:empty {
   display: none;
+}
+
+@media (max-width: 360px) {
+  .indicator-fieldset {
+    gap: 6px;
+  }
+
+  .indicator-option {
+    padding: var(--space-2) var(--space-2);
+    font-size: var(--font-size-xs);
+    gap: 6px;
+  }
+
+  #pointed-pill {
+    padding: 6px var(--space-3);
+  }
+}
+
+@media (min-width: 600px) and (max-height: 500px) {
+  .indicator-fieldset {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--space-2);
+  }
 }

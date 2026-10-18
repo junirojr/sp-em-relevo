@@ -32,7 +32,6 @@ import {
 } from "../features/scale/scale-slice.js";
 import { mountClassFilterView } from "../features/selection/class-filter-view.js";
 import { mountClearView } from "../features/selection/clear-view.js";
-import { mountCompareView } from "../features/selection/compare-view.js";
 import { mountPanelView } from "../features/selection/panel-view.js";
 import { mountSearchView } from "../features/selection/search-view.js";
 import {
@@ -50,9 +49,9 @@ import {
   selectLightSettings,
 } from "../features/settings/settings-slice.js";
 import { createSettingsView } from "../features/settings/settings-view.js";
-import { loadData } from "./data-loader.js";
+import { loadData, loadStatus } from "./data-loader.js";
 import { buildHeaderStats, buildMapMetrics, mountHeaderStats } from "./header-stats.js";
-import { readPalette } from "./palette.js";
+import { projectPaletteForMode, readPalette } from "./palette.js";
 import {
   attachProjection,
   bindToChange,
@@ -60,7 +59,13 @@ import {
   createRootSelectors,
 } from "./projection.js";
 import { mountStageView } from "./stage-view.js";
-import { changePointedUnit, createInitialState, reduceRootState } from "./state.js";
+import {
+  changeInspectedUnit,
+  changePointedUnit,
+  createInitialState,
+  readModeAttribute,
+  reduceRootState,
+} from "./state.js";
 import { createStore } from "./store.js";
 import { installTestHooks } from "./test-hooks.js";
 import { parseUrlState, syncUrlState } from "./url-state.js";
@@ -106,6 +111,8 @@ export async function bootApplication(documentRef = document, windowRef = window
     return { store: null, engine: null, territory: null };
   }
 
+  const status = await loadStatus(fetch);
+
   const territory = createTerritory({
     municipalities: data.municipalities,
     regions: data.regions,
@@ -118,12 +125,21 @@ export async function bootApplication(documentRef = document, windowRef = window
   const selectors = createRootSelectors(SCALE_RULES, readMapCenters(geo.municipalities));
   const municipalityIndexByCode = indexByCode(data.municipalities);
 
-  const urlState = parseUrlState(windowRef?.location?.search || "");
+  const injectedNow = /** @type {any} */ (windowRef)?.__mapNow;
+  const urlState = parseUrlState(windowRef?.location?.search || "", {
+    status,
+    now: injectedNow,
+  });
   const initialState = createInitialState(data, {
     indicatorId: urlState.indicatorId,
     levelId: urlState.levelId,
+    tab: urlState.tab,
+    status,
   });
   const store = createStore(reduceRootState, initialState);
+  if (documentRef?.documentElement) {
+    documentRef.documentElement.dataset.mode = readModeAttribute(store.getState());
+  }
   if (windowRef) {
     /** @type {any} */ (windowRef).__appStore = store;
   }
@@ -261,6 +277,9 @@ export async function bootApplication(documentRef = document, windowRef = window
       onPoint: (code) => {
         store.dispatch(changePointedUnit(code));
       },
+      onInspect: (code) => {
+        store.dispatch(changeInspectedUnit(code));
+      },
       onPick: (code) => {
         if (!code) {
           return;
@@ -385,7 +404,7 @@ export async function bootApplication(documentRef = document, windowRef = window
   }
 
   const geometryIndexByCode = indexByCode(geo.municipalities);
-  const compareView = mountCompareView(documentRef, store.dispatch, {
+  const compareController = createLazyCompareController(documentRef, stageElement, store.dispatch, {
     onFocusUnits: (codes) => {
       const indexes = readGeometryIndexes(codes, geometryIndexByCode);
       if (indexes.length === 0) {
@@ -395,7 +414,6 @@ export async function bootApplication(documentRef = document, windowRef = window
       updateZoomButtons();
     },
   });
-  stageElement.append(compareView.element);
 
   const settingsContainer = documentRef.getElementById("settings-container");
   /** @type {ReturnType<typeof mountSettingsPanel> | null} */
@@ -413,8 +431,8 @@ export async function bootApplication(documentRef = document, windowRef = window
 
   stageView.clearStatus();
   applyMotionPreferences(engine, store, windowRef);
-  const themeToggle = mountThemeSwitch(engine, documentRef, windowRef);
-  applyColorSchemePreferences(engine, documentRef, windowRef, () => {
+  const themeToggle = mountThemeSwitch(engine, store, documentRef, windowRef);
+  applyColorSchemePreferences(engine, store, documentRef, windowRef, () => {
     if (themeToggle) {
       themeToggle.refresh();
     }
@@ -429,7 +447,7 @@ export async function bootApplication(documentRef = document, windowRef = window
 
   const selectPillInputs = createSelector(
     [
-      (state) => state.pointer?.pointedCode ?? null,
+      (state) => state.pointer?.pointedCode ?? state.pointer?.inspectedCode ?? null,
       selectors.selectActiveIndicator,
       selectors.selectActiveRecords,
       (state) => state.demo.isActive,
@@ -529,9 +547,27 @@ export async function bootApplication(documentRef = document, windowRef = window
         hasMissing: hasMissingValues(values),
       });
       engine.setLimits({ level: currentLevel });
-      syncUrlState(windowRef, { indicatorId, levelId, isDemoActive });
+      syncUrlState(windowRef, {
+        indicatorId,
+        levelId,
+        tab: store.getState().tab,
+        isDemoActive,
+      });
     },
   );
+
+  const modeBinding = bindToChange(selectors.selectModeAttribute, (mode) => {
+    if (documentRef?.documentElement) {
+      documentRef.documentElement.dataset.mode = mode;
+    }
+    const currentState = store.getState();
+    syncUrlState(windowRef, {
+      indicatorId: currentState.indicator.id,
+      levelId: currentState.level.id,
+      tab: currentState.tab,
+      isDemoActive: currentState.demo.isActive,
+    });
+  });
 
   // The legend card figures follow the indicator, the demo and the selection (LAY-09)
   const selectMetricsInputs = createSelector(
@@ -592,7 +628,7 @@ export async function bootApplication(documentRef = document, windowRef = window
   );
 
   const compareBinding = bindToChange(selectComparison, (comparison) => {
-    compareView.update(comparison);
+    compareController.update(comparison);
   });
 
   const searchBinding = bindToChange(selectSearchContext, (context) => {
@@ -710,6 +746,7 @@ export async function bootApplication(documentRef = document, windowRef = window
     views: [
       pillBinding,
       indicatorBinding,
+      modeBinding,
       metricsBinding,
       selectionBinding,
       compareBinding,
@@ -940,12 +977,72 @@ function applyMotionPreferences(engine, store, windowRef) {
 }
 
 /**
+ * Loads `compare-view.js` via dynamic `import()` only when 2 or more units are selected (`comparison !== null`),
+ * keeping a hidden `#compare-dock` placeholder in `#map-stage` until then (PUB-08).
+ *
+ * @param {Document} documentRef
+ * @param {HTMLElement} stageElement
+ * @param {(action: any) => void} dispatch
+ * @param {{ onFocusUnits?: (codes: readonly string[]) => void }} options
+ * @returns {{ update: (comparison: any) => void }}
+ */
+function createLazyCompareController(documentRef, stageElement, dispatch, options) {
+  let placeholder = documentRef.getElementById("compare-dock");
+  if (!placeholder) {
+    placeholder = documentRef.createElement("div");
+    placeholder.id = "compare-dock";
+    placeholder.className = "compare-dock";
+    placeholder.hidden = true;
+    stageElement.append(placeholder);
+  }
+
+  /** @type {{ element: HTMLElement, update: (comparison: any) => void } | null} */
+  let mountedView = null;
+  /** @type {Promise<any> | null} */
+  let loadingPromise = null;
+  /** @type {any} */
+  let latestComparison = null;
+
+  return {
+    update(comparison) {
+      latestComparison = comparison;
+      if (mountedView) {
+        mountedView.update(comparison);
+        return;
+      }
+      if (!comparison) {
+        if (placeholder) {
+          placeholder.hidden = true;
+        }
+        return;
+      }
+      if (loadingPromise) {
+        return;
+      }
+      loadingPromise = import("../features/selection/compare-view.js").then(
+        ({ mountCompareView }) => {
+          mountedView = mountCompareView(documentRef, dispatch, options);
+          if (placeholder && placeholder.parentNode) {
+            placeholder.replaceWith(mountedView.element);
+          }
+          if (!mountedView.element.parentNode) {
+            stageElement.append(mountedView.element);
+          }
+          mountedView.update(latestComparison);
+        },
+      );
+    },
+  };
+}
+
+/**
  * @param {import("../engine/engine.js").Engine} engine
+ * @param {import("./store.js").Store<import("./state.js").RootState, import("./state.js").Action>} store
  * @param {Document} documentRef
  * @param {Window} windowRef
  * @param {() => void} onSchemeChange runs after the map palette follows a system theme change.
  */
-function applyColorSchemePreferences(engine, documentRef, windowRef, onSchemeChange) {
+function applyColorSchemePreferences(engine, store, documentRef, windowRef, onSchemeChange) {
   if (typeof windowRef.matchMedia !== "function") {
     return;
   }
@@ -955,7 +1052,7 @@ function applyColorSchemePreferences(engine, documentRef, windowRef, onSchemeCha
   }
   if (typeof mediaQuery.addEventListener === "function") {
     mediaQuery.addEventListener("change", () => {
-      const nextPalette = readPalette(documentRef);
+      const nextPalette = projectPaletteForMode(readPalette(documentRef), store.getState());
       engine.setPalette(nextPalette);
       onSchemeChange();
     });
@@ -963,14 +1060,15 @@ function applyColorSchemePreferences(engine, documentRef, windowRef, onSchemeCha
 }
 
 /**
- * Mounts the Claro and Escuro switch in the top bar and repaints the map on every pick (LAY-08).
+ * Mounts the Claro and Escuro switch in the top bar and repaints the map on every pick (LAY-08, ELE-15).
  *
  * @param {import("../engine/engine.js").Engine} engine
+ * @param {import("./store.js").Store<import("./state.js").RootState, import("./state.js").Action>} store
  * @param {Document} documentRef
  * @param {Window} windowRef
  * @returns {{ refresh: () => void } | null}
  */
-function mountThemeSwitch(engine, documentRef, windowRef) {
+function mountThemeSwitch(engine, store, documentRef, windowRef) {
   const container = documentRef.getElementById("theme-toggle-container");
   if (!container) {
     return null;
@@ -978,7 +1076,8 @@ function mountThemeSwitch(engine, documentRef, windowRef) {
   const themeToggle = mountThemeToggle(documentRef, {
     prefersDark: () => readPrefersDark(windowRef),
     onChange: () => {
-      engine.setPalette(readPalette(documentRef));
+      const nextPalette = projectPaletteForMode(readPalette(documentRef), store.getState());
+      engine.setPalette(nextPalette);
     },
   });
   container.append(themeToggle.element);

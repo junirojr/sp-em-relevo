@@ -9,18 +9,19 @@
  * @typedef {import("../../src/domain/topology.js").Topology} Topology
  * @typedef {import("./read-sidra.js").SidraValue} SidraValue
  * @typedef {import("./read-seade.js").SeadeRow} SeadeRow
+ * @typedef {import("./read-geoseade.js").GeoseadeRow} GeoseadeRow
  * @typedef {import("./sources.js").RawSource} RawSource
  * @typedef {{ sha256: string, retrievedAt: string }} RawChecksum
  * @typedef {{ bytes: Map<string, Uint8Array>, checksums: Record<string, RawChecksum> }} RawFiles
  * @typedef {{ type: string, id?: string, arcs: number[][] | number[][][], properties?: Record<string, unknown> }} SourceGeometry
  * @typedef {{ type: "Topology", transform?: Topology["transform"], objects: Record<string, { type: string, geometries: SourceGeometry[] }>, arcs: Topology["arcs"] }} SourceTopology
- * @typedef {{ population: SidraValue[], area: SidraValue[], gdp: SidraValue[], statePopulation: number | null | undefined, seadeRows: SeadeRow[], meshes: Record<string, SourceTopology> }} Inputs
- * @typedef {{ code: string, name: string, regionCode: string | null, population: number | null, areaKm2: number | null, gdpThousandBrl: number | null }} MunicipalityRecord
+ * @typedef {{ population: SidraValue[], area: SidraValue[], gdp: SidraValue[], statePopulation: number | null | undefined, seadeRows: SeadeRow[], geoseadeRows: GeoseadeRow[], meshes: Record<string, SourceTopology> }} Inputs
+ * @typedef {{ code: string, name: string, regionCode: string | null, governmentRegionCode: string | null, governmentRegionName: string | null, population: number | null, areaKm2: number | null, gdpThousandBrl: number | null }} MunicipalityRecord
  * @typedef {{ code: string, label: string }} RegionRecord
  * @typedef {{ condition: string, credit: string, notice?: string }} DataLicense
  * @typedef {{ source: string, sourceUrl: string[], year: number[], retrievedAt: string, license: DataLicense, rawSha256: Record<string, string> }} DataMeta
  * @typedef {{ type: "Topology", meta: DataMeta, transform?: Topology["transform"], objects: Topology["objects"], arcs: Topology["arcs"] }} MeshDocument
- * @typedef {{ "mesh.topo.json": MeshDocument, "municipalities.json": { meta: DataMeta, municipalities: MunicipalityRecord[] }, "regions.json": { meta: DataMeta, regions: RegionRecord[] } }} Documents
+ * @typedef {{ "mesh.topo.json": MeshDocument, "municipalities.json": { schemaVersion: number, columns: string[], rows: unknown[][], meta: DataMeta, municipalities?: MunicipalityRecord[] }, "regions.json": { meta: DataMeta, regions: RegionRecord[], governmentRegions: RegionRecord[] } }} Documents
  * @typedef {{ quality: string, warnings: string[], meshBytes: Record<string, number>, statePopulation: number | null | undefined, files: string[] }} BuildSummary
  */
 
@@ -31,8 +32,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import {
+  checkGovernmentRegionLabels,
+  checkGovernmentRegionMembership,
+  checkGroupCodeCollision,
+  checkHierarchyStrictness,
   checkMeshTopology,
   checkMeta,
+  checkMetropolitanRegionCoincidence,
   checkRecordShape,
   checkRegionLabels,
   checkRegionMembership,
@@ -42,6 +48,7 @@ import {
   checkValues,
 } from "./data-checks.js";
 import { projectTopology } from "./project.js";
+import { readGeoseadeRows } from "./read-geoseade.js";
 import { readSeadeRows } from "./read-seade.js";
 import { readSidraRows, selectValue, selectValues } from "./read-sidra.js";
 import {
@@ -49,6 +56,7 @@ import {
   CHECKSUMS_FILE,
   DEFAULT_MESH_QUALITY,
   GDP_SOURCE,
+  GEOSEADE_SOURCE,
   MESH_QUALITIES,
   MESH_SOURCES,
   MUNICIPALITY_LEVEL,
@@ -196,6 +204,7 @@ function parseInputs(raw) {
       code: STATE_CODE,
     }),
     seadeRows: readSeadeRows(readBytes(raw, REGION_SOURCE)),
+    geoseadeRows: readGeoseadeRows(readBytes(raw, GEOSEADE_SOURCE)),
     meshes: Object.fromEntries(
       MESH_QUALITIES.map((quality) => [quality, JSON.parse(readText(raw, MESH_SOURCES[quality]))]),
     ),
@@ -232,15 +241,42 @@ function serializeMeshes(meshDocuments) {
  * @returns {Documents}
  */
 function createDocuments(inputs, raw, mesh) {
+  const municipalities = joinMunicipalities(inputs);
+  const columns = [
+    "code",
+    "name",
+    "regionCode",
+    "governmentRegionCode",
+    "governmentRegionName",
+    "population",
+    "areaKm2",
+    "gdpThousandBrl",
+  ];
+  const rows = municipalities.map((m) => [
+    m.code,
+    m.name,
+    m.regionCode,
+    m.governmentRegionCode,
+    m.governmentRegionName,
+    m.population,
+    m.areaKm2,
+    m.gdpThousandBrl,
+  ]);
+  const municipalityDocument = {
+    schemaVersion: 1,
+    columns,
+    rows,
+    municipalities,
+    meta: createMeta([CENSUS_SOURCE, GDP_SOURCE, REGION_SOURCE, GEOSEADE_SOURCE], raw),
+  };
+
   return {
     [MESH_FILE]: mesh,
-    [MUNICIPALITIES_FILE]: {
-      meta: createMeta([CENSUS_SOURCE, GDP_SOURCE, REGION_SOURCE], raw),
-      municipalities: joinMunicipalities(inputs),
-    },
+    [MUNICIPALITIES_FILE]: municipalityDocument,
     [REGIONS_FILE]: {
-      meta: createMeta([REGION_SOURCE], raw),
+      meta: createMeta([REGION_SOURCE, GEOSEADE_SOURCE], raw),
       regions: collectRegions(inputs.seadeRows),
+      governmentRegions: collectGovernmentRegions(inputs.geoseadeRows),
     },
   };
 }
@@ -253,12 +289,13 @@ function createDocuments(inputs, raw, mesh) {
  */
 function collectProblems(inputs, documents, quality) {
   const mesh = documents[MESH_FILE];
-  const { municipalities } = documents[MUNICIPALITIES_FILE];
+  const municipalities = /** @type {any} */ (documents[MUNICIPALITIES_FILE]).municipalities;
   const codesBySource = {
     "SIDRA 4714 population": inputs.population.map((value) => value.code),
     "SIDRA 4714 area": inputs.area.map((value) => value.code),
     "SIDRA 5938": inputs.gdp.map((value) => value.code),
     Seade: inputs.seadeRows.map((row) => row.code),
+    Geoseade: inputs.geoseadeRows.map((row) => row.code),
     [`mesh ${quality}`]: readMeshCodes(mesh),
   };
   return [
@@ -266,6 +303,15 @@ function collectProblems(inputs, documents, quality) {
     ...checkSameCodeSets(codesBySource),
     ...checkRegionMembership(inputs.seadeRows),
     ...checkRegionLabels(inputs.seadeRows),
+    ...checkGovernmentRegionMembership(inputs.geoseadeRows),
+    ...checkGovernmentRegionLabels(inputs.geoseadeRows),
+    ...checkHierarchyStrictness(inputs.geoseadeRows, inputs.seadeRows),
+    ...checkGroupCodeCollision({
+      municipality: inputs.population.map((value) => value.code),
+      governmentRegion: inputs.geoseadeRows.map((row) => row.governmentRegionCode),
+      region: inputs.seadeRows.map((row) => row.regionCode),
+    }),
+    ...checkMetropolitanRegionCoincidence(inputs.geoseadeRows, inputs.seadeRows),
     ...checkStatePopulation(municipalities, inputs.statePopulation),
     ...checkMeshTopology(mesh),
     ...Object.values(documents).flatMap((document) => checkMeta(document.meta)),
@@ -349,18 +395,24 @@ function createMeshDocument(source, quality, raw) {
  */
 function joinMunicipalities(inputs) {
   const regionByCode = new Map(inputs.seadeRows.map((row) => [row.code, row.regionCode]));
+  const geoseadeByCode = new Map(inputs.geoseadeRows.map((row) => [row.code, row]));
   const areaByCode = indexValues(inputs.area);
   const gdpByCode = indexValues(inputs.gdp);
   return [...inputs.population]
     .sort((left, right) => compareText(left.code, right.code))
-    .map((census) => ({
-      code: census.code,
-      name: census.name,
-      regionCode: regionByCode.get(census.code) ?? null,
-      population: census.value,
-      areaKm2: areaByCode.get(census.code) ?? null,
-      gdpThousandBrl: gdpByCode.get(census.code) ?? null,
-    }));
+    .map((census) => {
+      const geo = geoseadeByCode.get(census.code);
+      return {
+        code: census.code,
+        name: census.name,
+        regionCode: regionByCode.get(census.code) ?? null,
+        governmentRegionCode: geo?.governmentRegionCode ?? null,
+        governmentRegionName: geo?.governmentRegionName ?? null,
+        population: census.value,
+        areaKm2: areaByCode.get(census.code) ?? null,
+        gdpThousandBrl: gdpByCode.get(census.code) ?? null,
+      };
+    });
 }
 
 /**
@@ -379,6 +431,39 @@ function collectRegions(rows) {
   return [...labels]
     .map(([code, label]) => ({ code, label }))
     .sort((left, right) => Number(left.code) - Number(right.code));
+}
+
+/**
+ * The 43 Government Regions present in the Geoseade file, ordered by numeric suffix (1..43).
+ * @param {GeoseadeRow[]} rows
+ * @returns {RegionRecord[]}
+ */
+function collectGovernmentRegions(rows) {
+  /** @type {Map<string, string>} */
+  const labels = new Map();
+  for (const row of rows) {
+    if (!row.governmentRegionCode || !row.governmentRegionName) {
+      continue;
+    }
+    if (labels.has(row.governmentRegionCode)) {
+      continue;
+    }
+    labels.set(row.governmentRegionCode, row.governmentRegionName);
+  }
+  return [...labels]
+    .map(([code, label]) => ({ code, label }))
+    .sort((left, right) => compareNumericSuffix(left.code, right.code));
+}
+
+/**
+ * @param {string} left
+ * @param {string} right
+ * @returns {number}
+ */
+function compareNumericSuffix(left, right) {
+  const leftNum = Number(left.replace(/\D+/g, ""));
+  const rightNum = Number(right.replace(/\D+/g, ""));
+  return leftNum - rightNum;
 }
 
 /**

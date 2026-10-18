@@ -38,6 +38,11 @@ export const LICENSE_CONDITIONS = Object.freeze({
   ibgeSidra: "Dado aberto do IBGE no SIDRA, com crédito obrigatório",
   seadeDerived:
     "Dado derivado da Fundação Seade, redistribuído com citação da fonte e sem o arquivo bruto",
+  geoseade:
+    "Dado público da Fundação Seade (Geoseade), com limites municipais IGC-SP",
+  ccBy4: "CC-BY-4.0",
+  ccBy: "CC-BY",
+  tseOpenData: "TSE-Dados-Abertos",
 });
 
 /** The IBGE mesh license obliges the project to tell the end user about the processing. */
@@ -89,6 +94,19 @@ export const REGION_SOURCE = Object.freeze({
   licenseCondition: LICENSE_CONDITIONS.seadeDerived,
 });
 
+/**
+ * Geoseade municipal limits layer, providing government region (43 RGs) mappings.
+ * @type {Readonly<RawSource>}
+ */
+export const GEOSEADE_SOURCE = Object.freeze({
+  file: "limite_municipal.zip",
+  url: "https://repositorio.seade.gov.br/dataset/1866da41-fab1-42f1-a5eb-a435a41255ce/resource/1b9212ca-4786-4541-8a38-f66db106d3bf/download/limite_municipal.zip",
+  source: "Fundação Seade, Geoseade, Limites e Regiões, camada Limite Municipal",
+  year: 2022,
+  credit: "Fundação Seade, Geoseade; limites municipais IGC-SP",
+  licenseCondition: LICENSE_CONDITIONS.geoseade,
+});
+
 /** @type {Readonly<Record<string, Readonly<RawSource>>>} */
 export const MESH_SOURCES = Object.freeze({
   minima: createMeshSource("minima"),
@@ -100,6 +118,7 @@ export const RAW_SOURCES = Object.freeze([
   CENSUS_SOURCE,
   GDP_SOURCE,
   REGION_SOURCE,
+  GEOSEADE_SOURCE,
   MESH_SOURCES.minima,
   MESH_SOURCES.intermediaria,
 ]);
