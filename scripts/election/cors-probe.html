@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sonda de CORS - TSE Eleições 2026 (G02)</title>
+    <style>
+      :root {
+        --bg: #121417;
+        --text: #e1e4e8;
+        --card-bg: #1b1f24;
+        --border: #30363d;
+        --success: #238636;
+        --fail: #da3633;
+        --running: #1f6feb;
+        --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        background-color: var(--bg);
+        color: var(--text);
+        font-family: var(--font);
+        line-height: 1.5;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 1.4rem;
+        margin-top: 0;
+        margin-bottom: 8px;
+      }
+      p {
+        margin-top: 0;
+        margin-bottom: 16px;
+        color: #8b949e;
+      }
+      .actions {
+        margin-bottom: 24px;
+      }
+      button {
+        background-color: var(--running);
+        color: #ffffff;
+        border: none;
+        border-radius: 6px;
+        padding: 10px 20px;
+        font-size: 1rem;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      button:hover {
+        opacity: 0.9;
+      }
+      .test-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      .test-title {
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      .test-url {
+        font-family: monospace;
+        font-size: 0.85rem;
+        word-break: break-all;
+        color: #58a6ff;
+        margin-bottom: 12px;
+      }
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+      .badge-waiting {
+        background: #30363d;
+        color: #8b949e;
+      }
+      .badge-running {
+        background: var(--running);
+        color: #ffffff;
+      }
+      .badge-success {
+        background: var(--success);
+        color: #ffffff;
+      }
+      .badge-fail {
+        background: var(--fail);
+        color: #ffffff;
+      }
+      .output {
+        margin-top: 12px;
+        font-family: monospace;
+        font-size: 0.85rem;
+        background: #0d1117;
+        padding: 12px;
+        border-radius: 6px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Sonda Isolada de CORS (Portao G02)</h1>
+      <p>
+        Comprova a leitura direta dos endpoints do TSE via fetch no navegador
+        para validar o compartilhamento de recursos entre origens (CORS) antes do pleito.
+      </p>
+
+      <div class="actions">
+        <button id="run-btn" type="button">Executar testes de CORS</button>
+      </div>
+
+      <div class="test-card" id="card-1">
+        <div class="test-title">
+          1. Configuracao Geral de Eleicoes (ele-c.json)
+          <span class="badge badge-waiting" id="badge-1">Pendente</span>
+        </div>
+        <div class="test-url" id="url-1">https://resultados.tse.jus.br/oficial/comum/config/ele-c.json</div>
+        <div class="output" id="out-1">Clique no botao para testar a conexao.</div>
+      </div>
+
+      <div class="test-card" id="card-2">
+        <div class="test-title">
+          2. Totalizacao Estadual de Sao Paulo (sp-c0001-e006258-u.json)
+          <span class="badge badge-waiting" id="badge-2">Pendente</span>
+        </div>
+        <div class="test-url" id="url-2">https://resultados.tse.jus.br/oficial/ele2026/6258/dados/sp/sp-c0001-e006258-u.json</div>
+        <div class="output" id="out-2">Clique no botao para testar a conexao.</div>
+      </div>
+    </div>
+
+    <script>
+      const runBtn = document.getElementById("run-btn");
+
+      async function testEndpoint(url, badgeId, outId) {
+        const badge = document.getElementById(badgeId);
+        const out = document.getElementById(outId);
+
+        badge.className = "badge badge-running";
+        badge.textContent = "Testando...";
+        out.textContent = "Iniciando requisicao HTTP fetch para: " + url + "\n";
+
+        const startTime = performance.now();
+        try {
+          const response = await fetch(url, {
+            method: "GET",
+            mode: "cors",
+            cache: "no-store",
+            headers: {
+              "Accept": "application/json"
+            }
+          });
+
+          const elapsedMs = Math.round(performance.now() - startTime);
+          let responseText = "";
+          try {
+            responseText = await response.text();
+          } catch (_readErr) {
+            responseText = "(Falha ao ler corpo da resposta)";
+          }
+
+          if (response.ok) {
+            badge.className = "badge badge-success";
+            badge.textContent = "Sucesso (HTTP " + response.status + ")";
+            out.textContent = "Conexao CORS estabelecida com sucesso!\n" +
+              "Status HTTP: " + response.status + " " + response.statusText + "\n" +
+              "Tempo decorrido: " + elapsedMs + " ms\n" +
+              "Tamanho da resposta: " + responseText.length + " caracteres\n" +
+              "Amostra dos dados:\n" + responseText.slice(0, 300) + "...";
+            return;
+          }
+
+          badge.className = "badge badge-fail";
+          badge.textContent = "Erro HTTP " + response.status;
+          out.textContent = "Requisicao respondida com codigo de erro:\n" +
+            "Status HTTP: " + response.status + " " + response.statusText + "\n" +
+            "Tempo decorrido: " + elapsedMs + " ms\n" +
+            "Resposta:\n" + responseText.slice(0, 300);
+        } catch (fetchError) {
+          const elapsedMs = Math.round(performance.now() - startTime);
+          badge.className = "badge badge-fail";
+          badge.textContent = "Falha de CORS / Conexao";
+          out.textContent = "Falha ao executar requisicao CORS:\n" +
+            "Mensagem de erro: " + fetchError.message + "\n" +
+            "Tempo decorrido: " + elapsedMs + " ms\n" +
+            "Possiveis causas: Bloqueio de CORS pelo servidor, origem nao permitida, ou servidor inacessivel.";
+        }
+      }
+
+      runBtn.addEventListener("click", function() {
+        const url1 = document.getElementById("url-1").textContent.trim();
+        const url2 = document.getElementById("url-2").textContent.trim();
+
+        testEndpoint(url1, "badge-1", "out-1");
+        testEndpoint(url2, "badge-2", "out-2");
+      });
+    </script>
+  </body>
+</html>
