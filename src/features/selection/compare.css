@@ -169,9 +169,32 @@
 /* The two heads: A in coral, B in the row tone */
 
 .compare-sides {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
+}
+
+.compare-vs-badge {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--surface, #1e2230);
+  border: 2px solid var(--glass-bg, #0f131c);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  color: var(--ink-muted, #94a3b8);
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .compare-side {
@@ -347,7 +370,7 @@
 }
 
 .compare-split-b {
-  background: var(--coral-300);
+  background: #f472b6;
 }
 
 /* Bar card: the label and the difference on top, the values and the split bar below */
@@ -359,8 +382,12 @@
   grid-template-areas:
     "label difference"
     "values values";
-  align-items: baseline;
+  align-items: center;
   gap: 6px var(--space-2);
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .compare-metric-bar .compare-metric-label {
@@ -370,6 +397,13 @@
 .compare-metric-bar .compare-metric-diff {
   grid-area: difference;
   text-align: right;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(255, 75, 110, 0.12);
+  color: var(--coral-text, #ff5c77);
+  white-space: nowrap;
 }
 
 .compare-metric-bar .compare-metric-values {

@@ -271,9 +271,15 @@ function renderCompare(documentRef, parts, local) {
 function renderModel(documentRef, parts, model) {
   parts.title.textContent = model.title;
   parts.count.textContent = model.countLabel;
-  parts.sides.replaceChildren(
-    ...model.sides.map((side, index) => buildSideCard(documentRef, side, SIDE_LETTERS[index])),
-  );
+  const sideCards = model.sides.map((side, index) => buildSideCard(documentRef, side, SIDE_LETTERS[index]));
+  const vsBadge = createElement(documentRef, "div", "compare-vs-badge", "VS");
+  vsBadge.setAttribute("aria-hidden", "true");
+  if (sideCards.length === 2) {
+    parts.sides.replaceChildren(sideCards[0], vsBadge, sideCards[1]);
+  }
+  if (sideCards.length !== 2) {
+    parts.sides.replaceChildren(...sideCards);
+  }
   parts.metrics.replaceChildren(...model.metrics.map((metric) => buildMetric(documentRef, metric)));
 }
 
@@ -358,9 +364,6 @@ function buildMetric(documentRef, metric) {
  * @returns {string}
  */
 function readMetricLayoutClass(metricId) {
-  if (COMPACT_METRIC_IDS.has(metricId)) {
-    return "compare-metric-compact";
-  }
   return "compare-metric-bar";
 }
 
@@ -387,10 +390,6 @@ function buildMetricValues(documentRef, metric) {
   const values = createElement(documentRef, "dd", "compare-metric-values");
   const valueOfA = buildMetricValue(documentRef, metric, 0);
   const valueOfB = buildMetricValue(documentRef, metric, SIDE_B_INDEX);
-  if (COMPACT_METRIC_IDS.has(metric.id)) {
-    values.append(valueOfA, valueOfB);
-    return values;
-  }
   values.append(valueOfA, buildSplitBar(documentRef, metric.shareOfFirst), valueOfB);
   return values;
 }
