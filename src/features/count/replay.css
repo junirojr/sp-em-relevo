@@ -1,0 +1,293 @@
+/**
+ * Electoral replay view styles (N17, RPL-01, RPL-03, RPL-04, RPL-05, ACE-04, ELE-16).
+ *
+ * Requirements:
+ * - Desktop (1366x768) and mobile (390x844) responsive layout.
+ * - OKLab chroma <= 0.04 under [data-mode="election"] (ELE-16).
+ * - Minimum interactive target size >= 24x24 px CSS (ACE-04).
+ * - High contrast double neutral focus ring for accessibility.
+ * - Gap indicator markings on timeline track (RPL-05).
+ */
+
+/* Main Replay slot in map stage */
+#election-replay-slot,
+.count-replay-slot {
+  position: absolute;
+  bottom: var(--space-md, 20px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  width: min(640px, calc(100vw - 32px));
+  max-width: 640px;
+  pointer-events: auto;
+}
+
+.replay-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs, 8px);
+  padding: 12px 16px;
+  border-radius: var(--radius-md, 8px);
+  background-color: var(--card-bg, rgba(25, 26, 31, 0.92));
+  border: 1px solid var(--border-color, #70737f);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--text-primary, #eceef4);
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+/* Header section */
+.replay-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.replay-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.replay-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #eceef4;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.replay-title {
+  font-size: var(--font-size-sm, 13px);
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary, #eceef4);
+}
+
+.replay-banner-notice {
+  font-size: var(--font-size-xs, 12px);
+  font-weight: 500;
+  color: var(--text-primary, #eceef4);
+  background-color: rgba(255, 255, 255, 0.06);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border-left: 3px solid #70737f;
+}
+
+/* Slider section */
+.replay-slider-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.replay-slider-track-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 28px;
+}
+
+.replay-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+  outline: none;
+  margin: 0;
+  cursor: pointer;
+  z-index: 2;
+  position: relative;
+}
+
+.replay-slider:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px #000000;
+}
+
+.replay-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #eceef4;
+  border: 2px solid #191a1f;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.replay-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.replay-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #eceef4;
+  border: 2px solid #191a1f;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+.replay-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+}
+
+/* Gap indicator markings (RPL-05) */
+.replay-gap-indicators {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.replay-gap-indicator {
+  position: absolute;
+  top: 0;
+  width: 4px;
+  height: 100%;
+  background-color: #d4a340;
+  border-radius: 2px;
+  transform: translateX(-50%);
+  box-shadow: 0 0 4px rgba(212, 163, 64, 0.6);
+}
+
+/* Slider labels */
+.replay-slider-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--font-size-xs, 11px);
+  color: var(--text-muted, #858a96);
+  padding: 0 2px;
+}
+
+.replay-current-indicator {
+  font-weight: 600;
+  color: var(--text-primary, #eceef4);
+}
+
+/* Navigation buttons (ACE-04 target >= 24x24 px CSS) */
+.replay-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.replay-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color, #70737f);
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #eceef4);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.replay-btn:hover {
+  background-color: rgba(255, 255, 255, 0.16);
+  border-color: #eceef4;
+}
+
+.replay-btn:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px #000000;
+}
+
+.replay-frame-counter {
+  font-size: var(--font-size-xs, 12px);
+  font-weight: 500;
+  color: var(--text-muted, #858a96);
+  min-width: 120px;
+  text-align: center;
+}
+
+/* Gap notice notification banner */
+.replay-gap-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs, 11px);
+  color: #f0c05a;
+  background-color: rgba(212, 163, 64, 0.12);
+  border: 1px solid rgba(212, 163, 64, 0.3);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.replay-gap-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: #d4a340;
+  color: #191a1f;
+  font-weight: 700;
+  font-size: 10px;
+}
+
+/* Mobile responsive layout (390x844 and 320x568, MOB-01, MOB-02) */
+@media (max-width: 600px) {
+  #election-replay-slot,
+  .count-replay-slot {
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    transform: none;
+    width: auto;
+    max-width: calc(100vw - 16px);
+  }
+
+  .replay-view {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  .replay-btn {
+    min-width: 28px;
+    min-height: 28px;
+    font-size: 13px;
+    padding: 2px 6px;
+  }
+
+  .replay-frame-counter {
+    min-width: 90px;
+    font-size: 11px;
+  }
+
+  .replay-banner-notice {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
+}
