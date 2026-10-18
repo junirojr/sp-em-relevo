@@ -20,6 +20,18 @@ import { ELECTION_NEUTRALS, PARTY_COLOR_TABLE } from "../domain/election-colors.
 import { LIGHT_PALETTE, DARK_PALETTE } from "../app/palette.js";
 import { createEngine } from "./engine.js";
 
+if (typeof globalThis.requestAnimationFrame === "undefined") {
+  globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 16);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
+}
+if (typeof globalThis.window === "undefined") {
+  globalThis.window = /** @type {any} */ ({
+    devicePixelRatio: 1,
+    addEventListener() {},
+    removeEventListener() {},
+  });
+}
+
 /**
  * 2x2 grid topology fixture with 4 adjacent square municipalities:
  * A (35001): [0, 0] to [10, 10]
@@ -85,10 +97,10 @@ function createGridTopologyFixture() {
       municipalities: {
         type: "GeometryCollection",
         geometries: [
-          { type: "Polygon", arcs: [[0, -3, 4]], id: "35001" },
-          { type: "Polygon", arcs: [[-1, 5, -4]], id: "35002" },
-          { type: "Polygon", arcs: [[1, 6, -2]], id: "35003" },
-          { type: "Polygon", arcs: [[-2, 3, -7]], id: "35004" },
+          { type: "Polygon", arcs: [[0, 2, 4]], id: "35001" },
+          { type: "Polygon", arcs: [[-1, 3, 5]], id: "35002" },
+          { type: "Polygon", arcs: [[-3, 1, 6]], id: "35003" },
+          { type: "Polygon", arcs: [[-4, -2, 7]], id: "35004" },
         ],
       },
     },
@@ -112,36 +124,52 @@ function createMockGeometry(codes) {
   const colors = new Map();
   const matrices = new Map();
 
-  const plate = {
-    instanceCount: codes.length,
-    setColorAt(id, color) {
-      colors.set(id, color.clone());
-    },
-    getColorAt(id, target) {
-      const c = colors.get(id);
-      if (c) {
-        target.copy(c);
-        return;
-      }
-      target.setHex(0xffffff);
-    },
-    setMatrixAt(id, matrix) {
-      matrices.set(id, matrix.clone());
-    },
-    getMatrixAt(id, target) {
-      const m = matrices.get(id);
-      if (m) {
-        target.copy(m);
-        return;
-      }
-      target.identity();
-    },
+  const plate = new THREE.Object3D();
+  plate.instanceCount = codes.length;
+  plate.setColorAt = (id, color) => {
+    colors.set(id, color.clone());
+  };
+  plate.getColorAt = (id, target) => {
+    const c = colors.get(id);
+    if (c) {
+      target.copy(c);
+      return;
+    }
+    target.setHex(0xffffff);
+  };
+  plate.setMatrixAt = (id, matrix) => {
+    matrices.set(id, matrix.clone());
+  };
+  plate.getMatrixAt = (id, target) => {
+    const m = matrices.get(id);
+    if (m) {
+      target.copy(m);
+      return;
+    }
+    target.identity();
   };
 
   return {
     municipalities,
     plate,
     mapCenter: new THREE.Vector2(5, 5),
+  };
+}
+
+/**
+ * Creates minimal renderer mock for headless node tests.
+ *
+ * @returns {any}
+ */
+function createMockRenderer() {
+  return {
+    render() {},
+    setSize() {},
+    setPixelRatio() {},
+    setClearColor() {},
+    dispose() {},
+    shadowMap: { enabled: false, type: 0 },
+    info: { render: { calls: 0 } },
   };
 }
 
@@ -322,6 +350,7 @@ test("ELE-12 hover and selection give 0 elevation in election mode and use disti
     geometry,
     palette,
     mode: "election",
+    renderer: createMockRenderer(),
   });
 
   // Verify mode is election
@@ -373,6 +402,7 @@ test("ELE-15 inspect preserves party color and selection outline adds 2 draw cal
     geometry,
     palette,
     mode: "election",
+    renderer: createMockRenderer(),
   });
 
   // Set colors: index 1 gets color position 1 (#33ff33)

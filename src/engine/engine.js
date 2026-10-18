@@ -298,7 +298,17 @@ export function createEngine(options) {
  * @param {EngineOptions} options
  * @returns {EngineContext}
  */
-function createContext({ canvas, geometry, palette, mode, onPick, onPoint, onInspect, onZoomChange }) {
+function createContext({
+  canvas,
+  geometry,
+  palette,
+  mode,
+  onPick,
+  onPoint,
+  onInspect,
+  onZoomChange,
+  renderer,
+}) {
   const { municipalities, plate } = geometry;
   const view = createScene({ plate, municipalities });
   const motion = createMapMotion(plate, municipalities);
@@ -315,7 +325,7 @@ function createContext({ canvas, geometry, palette, mode, onPick, onPoint, onIns
   /** @type {EngineContext} */
   const ctx = {
     canvas,
-    renderer: createRenderer(canvas),
+    renderer: renderer || createRenderer(canvas),
     view,
     limitLines,
     selectionOutline,
@@ -1363,10 +1373,18 @@ function projectGroundPoint(ctx, point) {
 function disposeEngine(ctx) {
   const { plate, borders, raisedOutline, ground } = ctx.view;
   ctx.renderer.dispose();
-  plate.geometry.dispose();
-  borders.geometry.dispose();
-  raisedOutline.geometry.dispose();
-  ground.geometry.dispose();
+  if (plate?.geometry) {
+    plate.geometry.dispose();
+  }
+  if (borders?.geometry) {
+    borders.geometry.dispose();
+  }
+  if (raisedOutline?.geometry) {
+    raisedOutline.geometry.dispose();
+  }
+  if (ground?.geometry) {
+    ground.geometry.dispose();
+  }
   for (const geometry of ctx.limitGeometriesByLevel.values()) {
     geometry.dispose();
   }
