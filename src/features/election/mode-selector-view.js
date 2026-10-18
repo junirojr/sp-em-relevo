@@ -214,23 +214,23 @@ export function applyControlsVisibility(documentRef, tab) {
   if (appearanceContainer) {
     // Hide color mode group ("Cor do mapa")
     const colorGroup = appearanceContainer.querySelector(".appearance-group-color");
-    if (colorGroup instanceof HTMLElement) {
+    if (colorGroup) {
       colorGroup.hidden = isElection;
     }
     // Hide step option (Degrau)
     const stepOption = appearanceContainer.querySelector(".height-mode-option-step");
-    if (stepOption instanceof HTMLElement) {
+    if (stepOption) {
       stepOption.hidden = isElection;
     }
   }
 
   const stageBanner = documentRef.querySelector(".stage-banner");
-  if (stageBanner instanceof HTMLElement) {
+  if (stageBanner) {
     stageBanner.hidden = isElection;
   }
 
   const demoNotice = documentRef.querySelector(".indicator-notice");
-  if (demoNotice instanceof HTMLElement) {
+  if (demoNotice) {
     demoNotice.hidden = isElection;
   }
 

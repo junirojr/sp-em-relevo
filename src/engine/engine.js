@@ -275,6 +275,10 @@ export function createEngine(options) {
     }),
     frame: (indexes) => frameSelection(ctx, indexes),
     frameNow: (indexes) => frameIndexes(ctx, indexes),
+    setTiltTarget: (x, y) => {
+      ctx.tiltTarget.set(x, y);
+      requestFrame(ctx);
+    },
     zoomStep: (direction, screenPoint) => zoomStep(ctx, direction, screenPoint),
     resetView: () => resetView(ctx),
     readCamera: () => readCamera(ctx),
@@ -1041,10 +1045,12 @@ function frameIndexes(ctx, indexes) {
   const framing = readSelectionFraming(boundsList, ctx.view.mapSize);
   ctx.panTarget.copy(framing.pan);
   setZoomTarget(ctx, framing.zoom);
+  ctx.tiltTarget.set(0.12, -0.22);
   if (ctx.motion.isMotionReduced) {
     ctx.orbit.pan.copy(ctx.panTarget);
     positionCamera(ctx.view.camera, ctx.orbit);
   }
+  requestFrame(ctx);
 }
 
 /**

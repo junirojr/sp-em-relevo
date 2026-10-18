@@ -18,6 +18,7 @@ import {
   retargetLifts,
 } from "../../engine/frame-loop.js";
 import { buildMunicipalities } from "../../engine/geometry.js";
+import { parseMunicipalities } from "../../app/data-loader.js";
 import { buildClearViewModel } from "./clear-view.js";
 import { buildRankingUnits } from "./panel-view.js";
 import {
@@ -42,7 +43,7 @@ function loadRealTerritory() {
   const munJson = JSON.parse(fs.readFileSync("data/municipalities.json", "utf8"));
   const regJson = JSON.parse(fs.readFileSync("data/regions.json", "utf8"));
   return createTerritory({
-    municipalities: munJson.municipalities,
+    municipalities: parseMunicipalities(munJson),
     regions: regJson.regions,
   });
 }
@@ -268,9 +269,10 @@ test("SEL-06 removeCodesAction removes specific codes from selection", () => {
 test("SEL-07 panel summary line matches domain aggregation and reference values", () => {
   const munJson = JSON.parse(fs.readFileSync("data/municipalities.json", "utf8"));
   const refJson = JSON.parse(fs.readFileSync("src/domain/fixtures/region-reference.json", "utf8"));
+  const municipalities = parseMunicipalities(munJson);
 
   const rmSpRef = refJson.regions.find((/** @type {any} */ r) => r.code === "1");
-  const rmSpMunicipalities = munJson.municipalities.filter(
+  const rmSpMunicipalities = municipalities.filter(
     (/** @type {any} */ m) => String(m.regionCode) === "1",
   );
 
@@ -287,8 +289,9 @@ test("SEL-07 panel summary line matches domain aggregation and reference values"
 test("SEL-08 ranking lists the top 12 units in descending value order when empty", () => {
   const munJson = JSON.parse(fs.readFileSync("data/municipalities.json", "utf8"));
   const regJson = JSON.parse(fs.readFileSync("data/regions.json", "utf8"));
+  const municipalities = parseMunicipalities(munJson);
   const territory = createTerritory({
-    municipalities: munJson.municipalities,
+    municipalities,
     regions: regJson.regions,
   });
 
@@ -296,7 +299,7 @@ test("SEL-08 ranking lists the top 12 units in descending value order when empty
     INDICATORS.population,
     "municipality",
     territory,
-    munJson.municipalities,
+    municipalities,
   );
   assert.equal(top12Mun.length, 12);
   assert.equal(top12Mun[0].name, "São Paulo");
@@ -308,7 +311,7 @@ test("SEL-08 ranking lists the top 12 units in descending value order when empty
     INDICATORS.population,
     "region",
     territory,
-    munJson.municipalities,
+    municipalities,
   );
   assert.equal(top12Reg.length, 12);
   assert.equal(top12Reg[0].name, "RM São Paulo");

@@ -78,6 +78,7 @@ const DEFAULT_LOCAL_STATE = Object.freeze({ model: null, isInverted: false, isMi
 const BARS_ICON = ["M3 3v18h18", "M18 17V9", "M13 17V5", "M8 17v-3"];
 const SWAP_ICON = ["M8 3 4 7l4 4", "M4 7h16", "m16 21 4-4-4-4", "M20 17H4"];
 const MINIMIZE_ICON = ["m6 9 6 6 6-6"];
+const EXPAND_ICON = ["m18 15-6-6-6 6"];
 const FOCUS_ICON = [
   "M12 2v4",
   "M12 18v4",
@@ -106,9 +107,15 @@ export function mountCompareView(documentRef, dispatch, options) {
 
   wireCompareActions(parts, {
     invert: () => show({ ...local, isInverted: !local.isInverted }),
-    minimize: () => show({ ...local, isMinimized: true }),
+    minimize: () => show({ ...local, isMinimized: !local.isMinimized }),
     reopen: () => show({ ...local, isMinimized: false }),
-    focusUnits: () => options.onFocusUnits(readShownCodes(local)),
+    focusUnits: () => {
+      let codes = readShownCodes(local);
+      if (codes.length === 0 && local.model) {
+        codes = local.model.sides.flatMap((side) => side.unit.codes);
+      }
+      options.onFocusUnits(codes);
+    },
     replaceSideB: () => {
       dispatch(removeCodesAction(readShownSideBCodes(local)));
       focusSearchInput(documentRef);
@@ -122,17 +129,24 @@ export function mountCompareView(documentRef, dispatch, options) {
 }
 
 /**
- * Minimizing hands the focus to the reopen button and reopening hands it back, so the keyboard
- * never lands on a hidden control.
+ * Minimizing collapses the panel in place or hands focus, allowing smooth expansion.
  *
  * @param {CompareParts} parts
  * @param {CompareActions} actions
  */
 function wireCompareActions(parts, actions) {
   parts.invertButton.addEventListener("click", actions.invert);
-  parts.minimizeButton.addEventListener("click", () => {
+  parts.minimizeButton.addEventListener("click", (e) => {
+    e.stopPropagation();
     actions.minimize();
-    parts.reopenButton.focus();
+  });
+  parts.panel.addEventListener("click", (e) => {
+    const target = /** @type {HTMLElement} */ (e.target);
+    if (parts.panel.classList.contains("compare-panel-collapsed")) {
+      if (!target.closest(".compare-icon-button")) {
+        actions.reopen();
+      }
+    }
   });
   parts.reopenButton.addEventListener("click", () => {
     actions.reopen();
@@ -207,7 +221,15 @@ function focusSearchInput(documentRef) {
   if (!searchInput) {
     return;
   }
+  const sidebar = documentRef.getElementById("sidebar");
+  if (sidebar) {
+    documentRef.documentElement.dataset.sheetState = "half";
+    sidebar.dataset.sheetState = "half";
+  }
   searchInput.focus();
+  if (typeof searchInput.scrollIntoView === "function") {
+    searchInput.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 }
 
 /**
@@ -222,8 +244,22 @@ function renderCompare(documentRef, parts, local) {
     return;
   }
   parts.dock.hidden = false;
-  parts.panel.hidden = local.isMinimized;
-  parts.reopenButton.hidden = !local.isMinimized;
+  if (local.isMinimized) {
+    parts.panel.classList.add("compare-panel-collapsed");
+    parts.minimizeButton.setAttribute("aria-expanded", "false");
+    parts.minimizeButton.setAttribute("aria-label", "Expandir comparativo");
+    parts.minimizeButton.title = "Expandir comparativo";
+    parts.minimizeButton.replaceChildren(buildIcon(documentRef, EXPAND_ICON));
+  }
+  if (!local.isMinimized) {
+    parts.panel.classList.remove("compare-panel-collapsed");
+    parts.minimizeButton.setAttribute("aria-expanded", "true");
+    parts.minimizeButton.setAttribute("aria-label", "Minimizar comparativo");
+    parts.minimizeButton.title = "Minimizar comparativo";
+    parts.minimizeButton.replaceChildren(buildIcon(documentRef, MINIMIZE_ICON));
+  }
+  parts.panel.hidden = false;
+  parts.reopenButton.hidden = true;
   renderModel(documentRef, parts, shown);
 }
 

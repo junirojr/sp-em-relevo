@@ -304,16 +304,25 @@ export function mountRegionLabelsView(documentRef, container, options = {}) {
    *
    * @param {number} width
    * @param {number} height
-   * @param {{ occlusionBoxes?: BoundingBox[], useShortLabel?: boolean }} [updateOptions]
+   * @param {{ occlusionBoxes?: BoundingBox[], useShortLabel?: boolean, hoverOnly?: boolean }} [updateOptions]
    * @returns {LabelPlacement[]}
    */
   function update(width, height, updateOptions = {}) {
     currentPlacements = computeLabelCollisions(definitions, width, height, updateOptions);
+    const hoverOnly = Boolean(updateOptions.hoverOnly);
 
     for (let i = 0; i < currentPlacements.length; i += 1) {
       const placement = currentPlacements[i];
       const el = elementByCode.get(placement.code);
       if (!el) {
+        continue;
+      }
+
+      if (hoverOnly) {
+        el.style.left = `${Math.round(placement.box.x + placement.box.width / 2)}px`;
+        el.style.top = `${Math.round(placement.box.y + placement.box.height / 2)}px`;
+        el.hidden = true;
+        el.className = "region-label region-label-hidden";
         continue;
       }
 
@@ -323,9 +332,23 @@ export function mountRegionLabelsView(documentRef, container, options = {}) {
     return currentPlacements;
   }
 
+  function setPointedRegion(regionCode) {
+    for (let i = 0; i < elements.length; i += 1) {
+      const el = elements[i];
+      const isMatch = Boolean(regionCode && el.dataset.regionCode === String(regionCode));
+      el.hidden = !isMatch;
+      let nextClass = "region-label region-label-hidden";
+      if (isMatch) {
+        nextClass = "region-label region-label-visible";
+      }
+      el.className = nextClass;
+    }
+  }
+
   return {
     element: layer,
     update,
+    setPointedRegion,
     getPlacements: () => currentPlacements,
     getLabels: () => elements,
     destroy() {

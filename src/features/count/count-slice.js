@@ -188,6 +188,7 @@ export function reduceCount(state, action) {
     let hour = state.lastUpdateHour;
     if (act.tracking.hg) {
       hour = String(act.tracking.hg).trim();
+    }
     let tfFlag = "n";
     if (state.isConcluded) {
       tfFlag = "s";

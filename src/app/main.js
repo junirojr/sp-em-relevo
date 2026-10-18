@@ -299,7 +299,7 @@ export async function bootApplication(documentRef = document, windowRef = window
         height: overlayRect.height,
       });
     }
-    regionLabelsView.update(width, height, { occlusionBoxes });
+    regionLabelsView.update(width, height, { occlusionBoxes, hoverOnly: true });
   };
   updateRegionLabels();
   if (windowRef) {
@@ -516,13 +516,26 @@ export async function bootApplication(documentRef = document, windowRef = window
       }
       if (!pointedCode) {
         pillView.update({ code: null });
+        if (regionLabelsView) {
+          regionLabelsView.setPointedRegion(null);
+        }
         return;
       }
       const mun = records[municipalityIndexByCode.get(pointedCode) ?? -1];
       let name = "";
       let value = null;
+      let regionCode = null;
       if (mun) {
         name = mun.name;
+        regionCode = mun.regionCode;
+        const currentLevel = store.getState().level?.id;
+        const currentColorMode = store.getState().settings?.colorMode;
+        if (currentLevel === "region" || currentColorMode === "region") {
+          name = mun.regionName || name;
+        }
+        if (currentLevel === "governmentRegion") {
+          name = mun.governmentRegionName || mun.regionName || name;
+        }
         value = def.computeValue(mun);
       }
       pillView.update({
@@ -531,6 +544,16 @@ export async function bootApplication(documentRef = document, windowRef = window
         value,
         indicatorId: def.id,
       });
+      if (regionLabelsView) {
+        const state = store.getState();
+        const isRegionActive = state.level?.id === "region" || state.settings?.colorMode === "region";
+        if (isRegionActive && regionCode) {
+          regionLabelsView.setPointedRegion(regionCode);
+        }
+        if (!isRegionActive || !regionCode) {
+          regionLabelsView.setPointedRegion(null);
+        }
+      }
     },
   );
 

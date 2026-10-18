@@ -79,6 +79,7 @@ import { syncUrlState } from "./url-state.js";
  */
 export function initElectionWiring(options) {
   const store = options.store;
+  const engine = options.engine ?? null;
   let defaultDoc = null;
   if (typeof document !== "undefined") {
     defaultDoc = document;

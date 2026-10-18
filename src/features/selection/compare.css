@@ -44,6 +44,28 @@
   pointer-events: auto;
 }
 
+.compare-panel.compare-panel-collapsed {
+  min-height: 44px;
+  max-height: 44px;
+  padding: 8px 14px;
+  overflow: hidden;
+  cursor: pointer;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+}
+
+.compare-panel.compare-panel-collapsed .compare-sides,
+.compare-panel.compare-panel-collapsed .compare-metrics,
+.compare-panel.compare-panel-collapsed .compare-actions,
+.compare-panel.compare-panel-collapsed .compare-subtitle {
+  display: none !important;
+}
+
+.compare-panel.compare-panel-collapsed .compare-header {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .compare-panel {
     animation: compare-enter 0.18s ease-out;
@@ -467,7 +489,7 @@
     width: 100%;
     max-width: 100%;
     align-items: stretch;
-    z-index: 22;
+    z-index: 35;
     pointer-events: auto;
     max-height: min(
       var(--sheet-collapsed-height, 128px),
