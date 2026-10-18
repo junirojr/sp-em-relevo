@@ -132,12 +132,35 @@ test("NIV-04 zero denominator or all missing yields 'sem dado' and value null, n
   assert.equal(formatAggregatedValue(missingResult, INDICATORS.population), "sem dado");
 });
 
+/**
+ * @param {any} doc
+ * @returns {any[]}
+ */
+function parseMunicipalities(doc) {
+  if (Array.isArray(doc.municipalities)) {
+    return doc.municipalities;
+  }
+  const columns = doc.columns;
+  const rows = doc.rows;
+  const result = [];
+  for (const row of rows) {
+    /** @type {Record<string, any>} */
+    const record = {};
+    for (let i = 0; i < columns.length; i += 1) {
+      record[columns[i]] = row[i];
+    }
+    result.push(record);
+  }
+  return result;
+}
+
 test("NIV-05 aggregates match region-reference.json exactly or within 1e-9 relative error on real data", () => {
   const rawMunicipalities = JSON.parse(fs.readFileSync(DATA_MUNICIPALITIES_PATH, "utf8"));
+  const municipalities = parseMunicipalities(rawMunicipalities);
   const rawReference = JSON.parse(fs.readFileSync(FIXTURE_PATH, "utf8"));
 
   for (const ref of rawReference.regions) {
-    const regionMunicipalities = rawMunicipalities.municipalities.filter(
+    const regionMunicipalities = municipalities.filter(
       (/** @type {any} */ m) => String(m.regionCode) === String(ref.code),
     );
     assert.ok(regionMunicipalities.length > 0);

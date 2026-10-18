@@ -77,10 +77,32 @@ test("ESC-03 classify is pure and monotonic in 10000 random pairs with a < b", (
   }
 });
 
+/**
+ * @param {any} doc
+ * @returns {any[]}
+ */
+function parseMunicipalities(doc) {
+  if (Array.isArray(doc.municipalities)) {
+    return doc.municipalities;
+  }
+  const columns = doc.columns;
+  const rows = doc.rows;
+  const result = [];
+  for (const row of rows) {
+    /** @type {Record<string, any>} */
+    const record = {};
+    for (let i = 0; i < columns.length; i += 1) {
+      record[columns[i]] = row[i];
+    }
+    result.push(record);
+  }
+  return result;
+}
+
 test("ESC-04 none of the 7 bands is empty across all 8 pairs on real data", () => {
   const munJson = JSON.parse(fs.readFileSync("data/municipalities.json", "utf8"));
   const regJson = JSON.parse(fs.readFileSync("data/regions.json", "utf8"));
-  const municipalities = munJson.municipalities;
+  const municipalities = parseMunicipalities(munJson);
   const regions = regJson.regions;
 
   const indicatorList = Object.values(INDICATORS);

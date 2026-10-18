@@ -56,10 +56,32 @@ test("ESC-06 computeHeightTargets returns a Float32Array in the same order", () 
   assert.equal(targets[2], 5.5);
 });
 
+/**
+ * @param {any} doc
+ * @returns {any[]}
+ */
+function parseMunicipalities(doc) {
+  if (Array.isArray(doc.municipalities)) {
+    return doc.municipalities;
+  }
+  const columns = doc.columns;
+  const rows = doc.rows;
+  const result = [];
+  for (const row of rows) {
+    /** @type {Record<string, any>} */
+    const record = {};
+    for (let i = 0; i < columns.length; i += 1) {
+      record[columns[i]] = row[i];
+    }
+    result.push(record);
+  }
+  return result;
+}
+
 test("ESC-06 in all 8 pairs on real data, class(A) > class(B) implies targetHeight(A) > targetHeight(B)", () => {
   const munJson = JSON.parse(fs.readFileSync("data/municipalities.json", "utf8"));
   const regJson = JSON.parse(fs.readFileSync("data/regions.json", "utf8"));
-  const municipalities = munJson.municipalities;
+  const municipalities = parseMunicipalities(munJson);
   const regions = regJson.regions;
 
   for (const indicator of Object.values(INDICATORS)) {
@@ -217,7 +239,7 @@ test("ESC-10 on real data, at both levels, one height per band and 7 increasing 
 
 /** @returns {any[]} */
 function readRealMunicipalities() {
-  return JSON.parse(fs.readFileSync("data/municipalities.json", "utf8")).municipalities;
+  return parseMunicipalities(JSON.parse(fs.readFileSync("data/municipalities.json", "utf8")));
 }
 
 /** @returns {any[]} */
