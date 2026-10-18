@@ -20,7 +20,7 @@ const ignoredPaths = ["node_modules", "scripts/dev/fixtures"];
 const criterionCandidateLine = /^- \*\*([^*]+)\*\*\s*(.*)$/gm;
 const validCriterionToken = /^([A-Z]{3}-\d{2})\.$/;
 export const VALID_CRITERION_ID = /^[A-Z]{3}-\d{2}$/;
-const testName = /\btest\(\s*(["'`])([A-Z]+-\d+)\b/g;
+const testName = /\b(?:test|it)\(\s*(["'`])([A-Z]+-\d+)\b/g;
 const testFileName = /\.(?:test|e2e)(?:\.fixture)?\.js$/;
 
 /**

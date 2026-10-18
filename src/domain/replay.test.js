@@ -37,7 +37,7 @@ describe("Replay Domain Unit Suite (N17, RPL-02, RPL-03, RPL-04, RPL-05)", () =>
   });
 
   describe("RPL-02: Cumulative state reconstruction", () => {
-    it("reconstructs initial frame index 0 exactly matching initial readings", () => {
+    it("RPL-02 reconstructs initial frame index 0 exactly matching initial readings", () => {
       const fixture = loadFixture();
       const state = reconstructReplayFrame(fixture, 0);
 
