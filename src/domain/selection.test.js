@@ -217,6 +217,16 @@ test("RGV-03 buildPanelUnits at governmentRegion level collapses a fully selecte
         areaKm2: 1,
         gdpThousandBrl: 1,
       },
+      {
+        code: "4",
+        name: "Delta",
+        regionCode: "R2",
+        governmentRegionCode: "rg-2",
+        governmentRegionName: "RG Dois",
+        population: 1,
+        areaKm2: 1,
+        gdpThousandBrl: 1,
+      },
     ],
     regions: [
       { code: "R1", label: "RA Um" },
