@@ -13,7 +13,11 @@ import {
   mountStageBanner,
   STAGE_BANNER_TITLE,
 } from "../features/demo/demo-view.js";
-import { INDICATOR_IDS, selectIndicatorDefinition } from "../features/indicator/indicator-slice.js";
+import {
+  changeIndicator,
+  INDICATOR_IDS,
+  selectIndicatorDefinition,
+} from "../features/indicator/indicator-slice.js";
 import { mountIndicatorView } from "../features/indicator/indicator-view.js";
 import { mountPillView } from "../features/indicator/pill-view.js";
 import { mountSourceView } from "../features/indicator/source-view.js";
@@ -26,7 +30,9 @@ import {
   NAV_TAB_COMPARE,
   NAV_TAB_LAYERS,
 } from "../features/layout/bottom-nav-view.js";
+import { mountModeToggle } from "../features/layout/mode-toggle-view.js";
 import { mountThemeToggle } from "../features/layout/theme-toggle-view.js";
+import { changeLevel } from "../features/level/level-slice.js";
 import { mountLevelView } from "../features/level/level-view.js";
 import { mountHowToReadView } from "../features/scale/how-to-read-view.js";
 import { mountLegendView } from "../features/scale/legend-view.js";
@@ -61,6 +67,7 @@ import {
 } from "../features/settings/settings-slice.js";
 import { createSettingsView } from "../features/settings/settings-view.js";
 import { loadData, loadStatus } from "./data-loader.js";
+import { isElectionFeatureEnabled } from "./election-loader.js";
 import { buildHeaderStats, buildMapMetrics, mountHeaderStats } from "./header-stats.js";
 import { projectPaletteForMode, readPalette } from "./palette.js";
 import {
@@ -73,6 +80,7 @@ import { mountStageView } from "./stage-view.js";
 import {
   changeInspectedUnit,
   changePointedUnit,
+  changeTab,
   createInitialState,
   readModeAttribute,
   reduceRootState,
@@ -572,6 +580,25 @@ export async function bootApplication(documentRef = document, windowRef = window
 
   stageView.clearStatus();
   applyMotionPreferences(engine, store, windowRef);
+  const modeToggleContainer = documentRef.getElementById("mode-toggle-container");
+  /** @type {ReturnType<typeof mountModeToggle> | null} */
+  let modeToggle = null;
+  const isElectionEnabled = isElectionFeatureEnabled(status);
+  if (modeToggleContainer) {
+    if (!isElectionEnabled) {
+      modeToggleContainer.hidden = true;
+      modeToggleContainer.style.display = "none";
+    }
+    if (isElectionEnabled) {
+      modeToggle = mountModeToggle(modeToggleContainer, {
+        activeTab: store.getState().tab,
+        documentRef,
+        onSelectTab: (nextTab) => {
+          store.dispatch(changeTab(nextTab));
+        },
+      });
+    }
+  }
   const themeToggle = mountThemeSwitch(engine, store, documentRef, windowRef);
   applyColorSchemePreferences(engine, store, documentRef, windowRef, () => {
     if (themeToggle) {
@@ -731,6 +758,9 @@ export async function bootApplication(documentRef = document, windowRef = window
     if (mobileBottomNav) {
       mobileBottomNav.setElectionMode(isElection);
     }
+    if (modeToggle) {
+      modeToggle.update(currentState.tab);
+    }
     syncUrlState(windowRef, {
       indicatorId: currentState.indicator.id,
       levelId: currentState.level.id,
@@ -738,6 +768,35 @@ export async function bootApplication(documentRef = document, windowRef = window
       isDemoActive: currentState.demo.isActive,
     });
   });
+
+  const tabBinding = bindToChange(
+    (state) => state.tab,
+    (tab) => {
+      if (modeToggle) {
+        modeToggle.update(tab);
+      }
+    },
+  );
+
+  if (windowRef?.addEventListener) {
+    windowRef.addEventListener("popstate", () => {
+      const injected = /** @type {any} */ (windowRef)?.__mapNow;
+      const parsed = parseUrlState(windowRef.location?.search || "", {
+        status,
+        now: injected,
+      });
+      const currentState = store.getState();
+      if (parsed.tab !== currentState.tab) {
+        store.dispatch(changeTab(parsed.tab));
+      }
+      if (parsed.indicatorId && parsed.indicatorId !== currentState.indicator.id) {
+        store.dispatch(changeIndicator(parsed.indicatorId));
+      }
+      if (parsed.levelId && parsed.levelId !== currentState.level.id) {
+        store.dispatch(changeLevel(parsed.levelId));
+      }
+    });
+  }
 
   // The legend card figures follow the indicator, the demo and the selection (LAY-09)
   const selectMetricsInputs = createSelector(
@@ -932,6 +991,7 @@ export async function bootApplication(documentRef = document, windowRef = window
       pillBinding,
       indicatorBinding,
       modeBinding,
+      tabBinding,
       metricsBinding,
       selectionBinding,
       compareBinding,
