@@ -95,62 +95,74 @@ function ensureOfficeSelectorStyles(documentRef) {
   styleEl.id = "office-selector-injected-styles";
   styleEl.textContent = `
     .office-selector-group {
-      border: 1px solid var(--border-color, #70737f);
-      border-radius: var(--radius-sm, 6px);
-      padding: var(--space-xs, 4px) var(--space-sm, 8px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius-md, 8px);
+      padding: var(--space-xs, 6px);
       margin: 0 0 var(--space-sm, 8px) 0;
-      background-color: var(--card-bg, rgba(25, 26, 31, 0.6));
+      background: rgba(18, 19, 24, 0.75);
     }
     .office-selector-legend {
-      font-size: var(--font-size-xs, 11px);
-      font-weight: 600;
-      color: var(--text-muted, #858a96);
-      padding: 0 var(--space-xs, 4px);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-muted, #94a3b8);
+      padding: 0 4px;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.8px;
+      margin-bottom: 4px;
     }
     .office-selector-options {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      justify-content: flex-start;
-      gap: var(--space-xs, 4px);
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4px;
     }
     .office-selector-option {
-      display: inline-flex;
+      position: relative;
+      display: flex;
       align-items: center;
-      gap: 4px;
-      font-size: var(--font-size-sm, 13px);
-      color: var(--text-primary, #eceef4);
+      justify-content: center;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted, #94a3b8);
       cursor: pointer;
-      min-height: 28px;
-      min-width: 24px;
-      padding: 2px 6px;
-      border-radius: var(--radius-xs, 4px);
+      min-height: 30px;
+      padding: 4px 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.03);
       user-select: none;
+      transition: all 0.15s ease;
     }
     .office-selector-option:hover {
-      background-color: var(--hover-bg, rgba(255, 255, 255, 0.06));
+      background-color: rgba(255, 255, 255, 0.08);
+      color: #f1f5f9;
+    }
+    .office-selector-option:has(input:checked) {
+      background: rgba(255, 255, 255, 0.14);
+      color: #ffffff;
+      font-weight: 600;
+      border-color: rgba(255, 255, 255, 0.25);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+    .office-selector-option-deputado-estadual {
+      grid-column: span 2;
     }
     .office-selector-radio {
-      margin: 0;
-      width: 16px;
-      height: 16px;
-      cursor: pointer;
-      accent-color: var(--text-primary, #eceef4);
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
     }
     .office-selector-label-text {
       white-space: nowrap;
     }
     @media (max-width: 600px) {
       .office-selector-options {
-        gap: 2px;
+        gap: 3px;
       }
       .office-selector-option {
-        font-size: var(--font-size-xs, 12px);
-        min-height: 24px;
-        padding: 2px 4px;
+        font-size: 11px;
+        min-height: 28px;
+        padding: 3px 4px;
       }
     }
   `;

@@ -716,7 +716,13 @@ export async function bootApplication(documentRef = document, windowRef = window
       }
       sourceView.update(def);
       if (periodBadge) {
-        periodBadge.textContent = describePeriod(def, isDemoActive);
+        const isElectionTabActive = store.getState().tab === "first-round" || store.getState().tab === "second-round";
+        if (isElectionTabActive) {
+          periodBadge.textContent = "ELEIÇÕES 2026";
+        }
+        if (!isElectionTabActive) {
+          periodBadge.textContent = describePeriod(def, isDemoActive);
+        }
       }
       if (headerStatsView) {
         headerStatsView.update(
@@ -755,6 +761,15 @@ export async function bootApplication(documentRef = document, windowRef = window
     updateRegionLabels();
     const currentState = store.getState();
     const isElection = currentState.tab === "first-round" || currentState.tab === "second-round";
+    if (periodBadge) {
+      if (isElection) {
+        periodBadge.textContent = "ELEIÇÕES 2026";
+      }
+      if (!isElection) {
+        const activeDef = selectIndicatorDefinition(currentState.indicator);
+        periodBadge.textContent = describePeriod(activeDef, currentState.demo.isActive);
+      }
+    }
     if (mobileBottomNav) {
       mobileBottomNav.setElectionMode(isElection);
     }
@@ -775,6 +790,13 @@ export async function bootApplication(documentRef = document, windowRef = window
       if (modeToggle) {
         modeToggle.update(tab);
       }
+      const currentState = store.getState();
+      syncUrlState(windowRef, {
+        indicatorId: currentState.indicator.id,
+        levelId: currentState.level.id,
+        tab,
+        isDemoActive: currentState.demo.isActive,
+      });
     },
   );
 

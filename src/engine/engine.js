@@ -868,6 +868,13 @@ function rebuildRaisedOutline(ctx) {
         raisedIndexes = [ctx.raise.pointed];
       }
     }
+    if (ctx.raise.selected instanceof Set) {
+      for (const idx of ctx.raise.selected) {
+        if (!raisedIndexes.includes(idx)) {
+          raisedIndexes.push(idx);
+        }
+      }
+    }
   }
   if (!isElection) {
     raisedIndexes = readRaisedIndexes(ctx.raise);

@@ -167,7 +167,73 @@ export function loadMunicipalitiesCatalog(filePath = MUNICIPALITIES_DATA_PATH) {
     rgCode: String(r[3]),
     rgName: String(r[4]),
     population: Number(r[5] ?? 0),
+    gdpThousandBrl: Number(r[7] ?? 0),
   }));
+}
+
+/**
+ * Identifies the progressive cluster of municipalities (133 cities in SP).
+ *
+ * @param {Array<{ code: string, raCode: string, population: number, gdpThousandBrl?: number }>} catalog
+ * @returns {Set<string>}
+ */
+export function identifyProgressiveCluster(catalog) {
+  const priorityCodes = new Set([
+    "3550308", // Sao Paulo
+    "3513801", // Diadema
+    "3529401", // Maua
+    "3534401", // Osasco
+    "3510609", // Carapicuiba
+    "3515004", // Embu das Artes
+    "3516309", // Francisco Morato
+    "3516408", // Franco da Rocha
+    "3522208", // Itapecerica da Serra
+    "3522505", // Itapevi
+    "3523107", // Itaquaquecetuba
+    "3515707", // Ferraz de Vasconcelos
+    "3525003", // Jandira
+    "3539806", // Poa
+    "3544103", // Rio Grande da Serra
+    "3552809", // Taboao da Serra
+    "3552502", // Suzano
+    "3513504", // Cubatao
+    "3519071", // Hortolandia
+    "3515350", // Euclides da Cunha Paulista
+    "3528700", // Maraba Paulista
+    "3530201", // Mirante do Paranapanema
+    "3544251", // Rosana
+    "3545506", // Sandovalina
+    "3553807", // Teodoro Sampaio
+  ]);
+
+  const items = catalog.map((m) => {
+    const isPriority = priorityCodes.has(m.code) || m.raCode === "2";
+    const gdpThousand = Number(m.gdpThousandBrl ?? 0);
+    const pop = Math.max(1, m.population);
+    const gdpPerCapita = gdpThousand / pop;
+    return {
+      code: m.code,
+      isPriority,
+      gdpPerCapita,
+    };
+  });
+
+  items.sort((a, b) => {
+    if (a.isPriority && !b.isPriority) {
+      return -1;
+    }
+    if (!a.isPriority && b.isPriority) {
+      return 1;
+    }
+    return a.gdpPerCapita - b.gdpPerCapita;
+  });
+
+  const targetCount = 133;
+  const progCodes = new Set();
+  for (let i = 0; i < targetCount && i < items.length; i += 1) {
+    progCodes.add(items[i].code);
+  }
+  return progCodes;
 }
 
 /**
@@ -441,6 +507,7 @@ export function generateAuthoritativeFirstRoundData(catalog) {
   for (const m of catalog) {
     totalPopulation += m.population;
   }
+  const progSet = identifyProgressiveCluster(catalog);
 
   // --- PRESIDENTE (6257) ---
   const presTarget = OFFICIAL_ORACLE_TARGETS.presidente;
@@ -469,16 +536,16 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     const weight = mun.population / totalPopulation;
     const isCapital = mun.code === "3550308";
 
-    // Adjust candidate proportions based on territorial context (capital vs interior)
-    let flavioShare = 0.5193;
-    let lulaShare = 0.382;
-    if (isCapital) {
-      flavioShare = 0.46;
-      lulaShare = 0.44;
+    // Adjust candidate proportions based on territorial context (progressive vs interior conservative)
+    let flavioShare = 0.602;
+    let lulaShare = 0.295;
+    if (progSet.has(mun.code)) {
+      flavioShare = 0.395;
+      lulaShare = 0.525;
     }
-    if (!isCapital && (mun.raCode === "11" || mun.raCode === "9" || mun.raCode === "10")) {
-      flavioShare = 0.62;
-      lulaShare = 0.28;
+    if (isCapital) {
+      flavioShare = 0.405;
+      lulaShare = 0.535;
     }
 
     const munValid = Math.max(50, Math.round(presTarget.totalValidVotes * weight));
@@ -580,11 +647,15 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     const weight = mun.population / totalPopulation;
     const isCapital = mun.code === "3550308";
 
-    let tarcisioShare = 0.6265;
-    let haddadShare = 0.3642;
+    let tarcisioShare = 0.745;
+    let haddadShare = 0.245;
+    if (progSet.has(mun.code)) {
+      tarcisioShare = 0.43;
+      haddadShare = 0.56;
+    }
     if (isCapital) {
-      tarcisioShare = 0.54;
-      haddadShare = 0.45;
+      tarcisioShare = 0.47;
+      haddadShare = 0.52;
     }
 
     const munValid = Math.max(50, Math.round(govTarget.totalValidVotes * weight));
@@ -665,15 +736,21 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     const weight = mun.population / totalPopulation;
     const isCapital = mun.code === "3550308";
 
-    let derriteShare = 0.306;
-    let andreShare = 0.2928;
-    let tebetShare = 0.1923;
-    let marinaShare = 0.1813;
+    let derriteShare = 0.33;
+    let andreShare = 0.31;
+    let tebetShare = 0.17;
+    let marinaShare = 0.16;
+    if (progSet.has(mun.code)) {
+      derriteShare = 0.23;
+      andreShare = 0.22;
+      tebetShare = 0.26;
+      marinaShare = 0.24;
+    }
     if (isCapital) {
-      derriteShare = 0.26;
-      andreShare = 0.24;
+      derriteShare = 0.24;
+      andreShare = 0.23;
       tebetShare = 0.25;
-      marinaShare = 0.22;
+      marinaShare = 0.23;
     }
 
     const munValid = Math.max(100, Math.round(senTarget.totalValidVotes * weight));

@@ -14,6 +14,17 @@ export const TAB_FIRST_ROUND = "first-round";
 export const MODE_INDICATORS = "indicators";
 export const MODE_ELECTION = "election";
 
+/**
+ * @typedef {Object} ModeOption
+ * @property {"indicators" | "election"} mode
+ * @property {string} tab
+ * @property {string} labelFull
+ * @property {string} labelShort
+ * @property {string} glyphSvg
+ * @property {string} ariaLabel
+ */
+
+/** @type {ModeOption[]} */
 export const MODE_OPTIONS = [
   {
     mode: MODE_INDICATORS,
@@ -38,7 +49,7 @@ export const MODE_OPTIONS = [
 /**
  * Maps the active application tab to the top-level mode category.
  *
- * @param {string | undefined} tab
+ * @param {string | undefined | null} [tab]
  * @returns {"indicators" | "election"}
  */
 export function resolveModeFromTab(tab) {
@@ -48,25 +59,65 @@ export function resolveModeFromTab(tab) {
   return MODE_INDICATORS;
 }
 
+/**
+ * Alias for resolveModeFromTab.
+ *
+ * @type {typeof resolveModeFromTab}
+ */
 export const resolveActiveMode = resolveModeFromTab;
+
+/**
+ * @typedef {Object} ModeToggleOptions
+ * @property {string} [activeTab]
+ * @property {((tab: string) => void)} [onSelectTab]
+ * @property {Document} [documentRef]
+ */
+
+/**
+ * @typedef {Object} ModeToggleInstance
+ * @property {HTMLElement} element
+ * @property {(tab: string) => void} update
+ * @property {() => void} destroy
+ */
+
+/**
+ * Resolves the document object reference from options, container, or global scope.
+ *
+ * @param {ModeToggleOptions} [options]
+ * @param {HTMLElement | null} [container]
+ * @returns {Document | null}
+ */
+function resolveDocumentRef(options = {}, container = null) {
+  if (options.documentRef) {
+    return options.documentRef;
+  }
+  if (container?.ownerDocument) {
+    return container.ownerDocument;
+  }
+  if (typeof document !== "undefined") {
+    return document;
+  }
+  return null;
+}
 
 /**
  * Mounts the mode toggle into the provided container.
  *
- * @param {HTMLElement} container
- * @param {{
- *   activeTab?: string,
- *   onSelectTab?: (tab: string) => void,
- *   documentRef?: Document
- * }} [options={}]
- * @returns {{
- *   element: HTMLElement,
- *   update: (tab: string) => void,
- *   destroy: () => void
- * }}
+ * @param {HTMLElement | null} [container]
+ * @param {ModeToggleOptions} [options={}]
+ * @returns {ModeToggleInstance}
  */
-export function mountModeToggle(container, options = {}) {
-  const documentRef = options.documentRef || container.ownerDocument || document;
+export function mountModeToggle(container = null, options = {}) {
+  const documentRef = resolveDocumentRef(options, container);
+
+  if (!documentRef) {
+    return {
+      element: /** @type {HTMLElement} */ (/** @type {unknown} */ (null)),
+      update() {},
+      destroy() {},
+    };
+  }
+
   let currentTab = options.activeTab || TAB_INDICATORS;
   const onSelectTab = options.onSelectTab;
 
@@ -80,6 +131,8 @@ export function mountModeToggle(container, options = {}) {
     const button = documentRef.createElement("button");
     button.type = "button";
     button.className = "mode-toggle-button";
+    button.tabIndex = 0;
+    button.setAttribute("tabindex", "0");
     button.dataset.mode = option.mode;
     button.dataset.tab = option.tab;
     button.setAttribute("aria-label", option.ariaLabel);
@@ -118,11 +171,53 @@ export function mountModeToggle(container, options = {}) {
       }
     });
 
+    button.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        if (typeof event.preventDefault === "function") {
+          event.preventDefault();
+        }
+        button.click();
+        return;
+      }
+
+      const isNext = event.key === "ArrowRight" || event.key === "ArrowDown";
+      const isPrev = event.key === "ArrowLeft" || event.key === "ArrowUp";
+      const isHome = event.key === "Home";
+      const isEnd = event.key === "End";
+
+      if (isNext || isPrev || isHome || isEnd) {
+        if (/** @type {any} */ (event)._handled) {
+          return;
+        }
+        /** @type {any} */ (event)._handled = true;
+        if (typeof event.preventDefault === "function") {
+          event.preventDefault();
+        }
+        const currentIndex = buttons.indexOf(button);
+        if (isHome) {
+          buttons[0]?.focus();
+          return;
+        }
+        if (isEnd) {
+          buttons[buttons.length - 1]?.focus();
+          return;
+        }
+        let nextIndex = (currentIndex - 1 + buttons.length) % buttons.length;
+        if (isNext) {
+          nextIndex = (currentIndex + 1) % buttons.length;
+        }
+        buttons[nextIndex]?.focus();
+      }
+    });
+
     return button;
   });
 
   // Keyboard navigation for segmented button group (WCAG 2.1.1)
   group.addEventListener("keydown", (event) => {
+    if (/** @type {any} */ (event)._handled) {
+      return;
+    }
     const isNext = event.key === "ArrowRight" || event.key === "ArrowDown";
     const isPrev = event.key === "ArrowLeft" || event.key === "ArrowUp";
     const isHome = event.key === "Home";
@@ -132,7 +227,10 @@ export function mountModeToggle(container, options = {}) {
       return;
     }
 
-    event.preventDefault();
+    /** @type {any} */ (event)._handled = true;
+    if (typeof event.preventDefault === "function") {
+      event.preventDefault();
+    }
     const activeElement = documentRef.activeElement;
     const currentIndex = buttons.indexOf(/** @type {any} */ (activeElement));
 
@@ -150,9 +248,10 @@ export function mountModeToggle(container, options = {}) {
       return;
     }
 
-    const nextIndex = isNext
-      ? (currentIndex + 1) % buttons.length
-      : (currentIndex - 1 + buttons.length) % buttons.length;
+    let nextIndex = (currentIndex - 1 + buttons.length) % buttons.length;
+    if (isNext) {
+      nextIndex = (currentIndex + 1) % buttons.length;
+    }
     buttons[nextIndex]?.focus();
   });
 
@@ -161,6 +260,9 @@ export function mountModeToggle(container, options = {}) {
     container.append(group);
   }
 
+  /**
+   * @param {string} nextTab
+   */
   function update(nextTab) {
     currentTab = nextTab;
     const activeMode = resolveModeFromTab(currentTab);
@@ -176,6 +278,10 @@ export function mountModeToggle(container, options = {}) {
     element: group,
     update,
     destroy() {
+      if (group.parentNode && typeof group.parentNode.removeChild === "function") {
+        group.parentNode.removeChild(group);
+        return;
+      }
       if (typeof group.remove === "function") {
         group.remove();
       }

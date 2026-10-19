@@ -172,3 +172,29 @@ test("FLG-02 missing or invalid status.json falls back to safe default and valid
   });
   assert.equal(parsedWithDisabled.tab, "indicators");
 });
+
+test("ELE-20 / IND-07 parseUrlState strips URL hash fragment before parsing parameters", () => {
+  const fullUrlWithHash = parseUrlState(
+    "http://localhost:4173/?aba=2turno#alt-table-slot",
+    { now: "2026-10-17T15:00:00-03:00" },
+  );
+  assert.equal(fullUrlWithHash.tab, "second-round");
+
+  const queryWithHash = parseUrlState("?aba=1turno#top", {
+    now: "2026-10-17T15:00:00-03:00",
+  });
+  assert.equal(queryWithHash.tab, "first-round");
+
+  const indicatorWithHash = parseUrlState(
+    "?indicador=density&ver=region#alt-table-slot",
+    { now: "2026-10-17T15:00:00-03:00" },
+  );
+  assert.equal(indicatorWithHash.indicatorId, "density");
+  assert.equal(indicatorWithHash.levelId, "region");
+
+  const rawParamsWithHash = parseUrlState("aba=2turno#alt-table-slot", {
+    now: "2026-10-17T15:00:00-03:00",
+  });
+  assert.equal(rawParamsWithHash.tab, "second-round");
+});
+

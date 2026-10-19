@@ -203,7 +203,9 @@ export function syncUrlState(windowRef, state) {
   if (state.levelId && isValidLevel(state.levelId)) {
     url.searchParams.set(LEVEL_PARAM, state.levelId);
     if (url.searchParams.has("nivel")) {
-      const alias = /** @type {Record<string, string | undefined>} */ (PARAM_FROM_LEVEL)[state.levelId];
+      const alias = /** @type {Record<string, string | undefined>} */ (PARAM_FROM_LEVEL)[
+        state.levelId
+      ];
       if (alias) {
         url.searchParams.set("nivel", alias);
       }
@@ -245,14 +247,24 @@ function extractSearchParams(input) {
     return new URLSearchParams("");
   }
   if (typeof input === "string") {
-    if (input.includes("?")) {
-      const queryString = input.slice(input.indexOf("?"));
-      return new URLSearchParams(queryString);
+    const withoutHash = input.split("#")[0];
+    const questionIndex = withoutHash.indexOf("?");
+    if (questionIndex >= 0) {
+      return new URLSearchParams(withoutHash.slice(questionIndex));
     }
-    return new URLSearchParams(input);
+    if (withoutHash.includes("://") || withoutHash.startsWith("/")) {
+      return new URLSearchParams("");
+    }
+    return new URLSearchParams(withoutHash);
   }
-  if ("search" in input && typeof input.search === "string") {
-    return new URLSearchParams(input.search);
+  if (
+    typeof input === "object" &&
+    input !== null &&
+    "search" in input &&
+    typeof input.search === "string"
+  ) {
+    const withoutHash = input.search.split("#")[0];
+    return new URLSearchParams(withoutHash);
   }
   return new URLSearchParams("");
 }

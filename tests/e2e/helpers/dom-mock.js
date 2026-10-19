@@ -410,8 +410,7 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-function createMatcher(selector) {
-  const trimmed = selector.trim();
+function createSingleMatcher(trimmed) {
   if (trimmed.startsWith("#")) {
     const id = trimmed.slice(1);
     return (el) => el.id === id;
@@ -430,12 +429,69 @@ function createMatcher(selector) {
         attrVal = attrVal.trim().replace(/^['"]|['"]$/g, "");
       }
       return (el) => {
-        if (tag && el.tagName !== tag) return false;
-        if (attrVal === undefined) return el.hasAttribute(attrName);
+        if (tag && el.tagName !== tag) {
+          return false;
+        }
+        if (attrVal === undefined) {
+          return el.hasAttribute(attrName);
+        }
         return el.getAttribute(attrName) === attrVal;
       };
     }
   }
   const tagUpper = trimmed.toUpperCase();
   return (el) => el.tagName === tagUpper;
+}
+
+/**
+ * Splits a comma-separated selector string, respecting quotes and attribute brackets.
+ *
+ * @param {string} selector
+ * @returns {string[]}
+ */
+function splitSelectorList(selector) {
+  const parts = [];
+  let current = "";
+  let inQuote = null;
+  let inBrackets = false;
+
+  for (let i = 0; i < selector.length; i++) {
+    const char = selector[i];
+    if (inQuote) {
+      if (char === inQuote && selector[i - 1] !== "\\") {
+        inQuote = null;
+      }
+      current += char;
+    } else if (char === '"' || char === "'") {
+      inQuote = char;
+      current += char;
+    } else if (char === "[") {
+      inBrackets = true;
+      current += char;
+    } else if (char === "]") {
+      inBrackets = false;
+      current += char;
+    } else if (char === "," && !inBrackets) {
+      if (current.trim()) {
+        parts.push(current.trim());
+      }
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  if (current.trim()) {
+    parts.push(current.trim());
+  }
+  return parts;
+}
+
+function createMatcher(selector) {
+  const trimmed = selector.trim();
+  const parts = splitSelectorList(trimmed);
+  if (parts.length > 1) {
+    const subMatchers = parts.map(createSingleMatcher);
+    return (el) => subMatchers.some((matcher) => matcher(el));
+  }
+  return createSingleMatcher(trimmed);
 }

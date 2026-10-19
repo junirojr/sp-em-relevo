@@ -177,9 +177,23 @@ export async function loadFirstRoundElectionData(office = "presidente", options 
   const colorLookup = palette.colorByBallotNumber;
   const municipalResults = {};
 
+  const nameMap = new Map();
+  if (Array.isArray(options.municipalities)) {
+    for (let mIdx = 0; mIdx < options.municipalities.length; mIdx += 1) {
+      const mItem = options.municipalities[mIdx];
+      if (mItem?.code) {
+        nameMap.set(String(mItem.code), String(mItem.name || mItem.code));
+      }
+    }
+  }
+
   for (let r = 0; r < rows.length; r += 1) {
     const row = rows[r];
     const code = String(row[0]);
+    let munName = nameMap.get(code);
+    if (!munName) {
+      munName = code;
+    }
     const validVotes = Number(row[1] ?? 0);
     const blankVotes = Number(row[2] ?? 0);
     const nullVotes = Number(row[3] ?? 0);
@@ -203,6 +217,7 @@ export async function loadFirstRoundElectionData(office = "presidente", options 
     const unitResult = computeUnitElectionResult(
       {
         code,
+        name: munName,
         validVotes,
         blankVotes,
         nullVotes,
@@ -217,6 +232,7 @@ export async function loadFirstRoundElectionData(office = "presidente", options 
       },
     );
 
+    unitResult.name = munName;
     municipalResults[code] = unitResult;
   }
 
@@ -340,8 +356,22 @@ export async function loadSecondRoundReplayData(options = {}) {
   const municipalResults = {};
   const accumulatedCodes = Object.keys(accumulatedMuns);
 
+  const nameMap = new Map();
+  if (Array.isArray(options.municipalities)) {
+    for (let mIdx = 0; mIdx < options.municipalities.length; mIdx += 1) {
+      const mItem = options.municipalities[mIdx];
+      if (mItem?.code) {
+        nameMap.set(String(mItem.code), String(mItem.name || mItem.code));
+      }
+    }
+  }
+
   for (let i = 0; i < accumulatedCodes.length; i += 1) {
     const code = accumulatedCodes[i];
+    let munName = nameMap.get(code);
+    if (!munName) {
+      munName = code;
+    }
     const munData = accumulatedMuns[code];
     // munData format: [leaderBallot, marginPp, pctCounted]
     const leaderBallot = String(munData[0] ?? colorCandidates[0].ballotNumber);
@@ -376,6 +406,7 @@ export async function loadSecondRoundReplayData(options = {}) {
     const unitResult = computeUnitElectionResult(
       {
         code,
+        name: munName,
         validVotes: votes1 + votes2,
         blankVotes: 1000,
         nullVotes: 1500,
@@ -390,6 +421,7 @@ export async function loadSecondRoundReplayData(options = {}) {
       },
     );
 
+    unitResult.name = munName;
     municipalResults[code] = unitResult;
   }
 

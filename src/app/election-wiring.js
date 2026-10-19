@@ -30,6 +30,7 @@ import { mountCountBannerView } from "../features/count/count-banner-view.js";
 import { mountCountScoreboardView } from "../features/count/count-scoreboard-view.js";
 import { mountOfficeSelectorView } from "../features/election/office-selector-view.js";
 import { mountElectionLegendView } from "../features/election/election-legend-view.js";
+import { mountCandidateRankingsView } from "../features/election/candidate-rankings-view.js";
 import { createCountSource } from "./count-source.js";
 import {
   isArtifactEnvironment,
@@ -50,6 +51,8 @@ import {
 } from "./election-data.js";
 import { changeTab } from "./state.js";
 import { syncUrlState } from "./url-state.js";
+import { readPalette, withColors } from "./palette.js";
+import { clearSelectionAction } from "../features/selection/selection-slice.js";
 
 /**
  * Election feature orchestrator and wiring (N13, N15, ELE-17, ELE-18, ELE-19, ELE-20, APU-07, APU-09).
@@ -103,7 +106,7 @@ export function initElectionWiring(options) {
   const status = options.status ?? store.getState().status;
   const fetchImpl = options.fetchImpl;
   const electionCode = options.electionCode ?? "6258";
-  const host = options.host ?? "";
+  const host = options.host ?? "https://resultados.tse.jus.br";
   const restoreIndicator = options.restoreIndicator ?? null;
 
   if (!documentRef) {
@@ -188,6 +191,36 @@ export function initElectionWiring(options) {
     electionLegendView = mountElectionLegendView(documentRef, electionLegendSlot, {
       theme: store.getState().theme ?? "dark",
     });
+  }
+
+  // 1d. Create slot for candidate rankings and relevance in sidebar
+  let rankingsSlot = documentRef.getElementById("election-rankings-slot");
+  if (!rankingsSlot) {
+    rankingsSlot = documentRef.createElement("div");
+    rankingsSlot.id = "election-rankings-slot";
+    rankingsSlot.hidden = true;
+    const sidebarContent = documentRef.querySelector(".sidebar-content");
+    if (sidebarContent) {
+      sidebarContent.prepend(rankingsSlot);
+    }
+  }
+
+  let candidateRankingsView = null;
+  if (rankingsSlot) {
+    candidateRankingsView = mountCandidateRankingsView(documentRef, rankingsSlot);
+  }
+
+  // 1e. Create slot for selected city stage HUD pill
+  let stageCityPill = documentRef.getElementById("selected-city-stage-pill");
+  if (!stageCityPill) {
+    stageCityPill = documentRef.createElement("div");
+    stageCityPill.id = "selected-city-stage-pill";
+    stageCityPill.className = "selected-city-stage-pill";
+    stageCityPill.hidden = true;
+    const stageOverlay = documentRef.getElementById("stage-overlay");
+    if (stageOverlay) {
+      stageOverlay.append(stageCityPill);
+    }
   }
 
   // 2. Mount Banner View into #election-banner-slot (APU-07, APU-08)
@@ -301,6 +334,11 @@ export function initElectionWiring(options) {
       heightMode: state.settings?.heightMode ?? "data",
     });
 
+    if (typeof engine.setPalette === "function" && Array.isArray(projection.paletteColors) && projection.paletteColors.length > 0) {
+      const basePal = readPalette(documentRef);
+      const customPal = withColors(basePal, projection.paletteColors, { selection: null });
+      engine.setPalette(customPal);
+    }
     if (typeof engine.setHeightTargets === "function") {
       engine.setHeightTargets(projection.heightTargets);
     }
@@ -327,22 +365,130 @@ export function initElectionWiring(options) {
     applyElectionProjection("live");
   }
 
-  function updateTopPill(titleText, subText = "") {
-    const pill = documentRef.getElementById("pointed-pill");
-    if (!pill) {
+  let currentOfficeMeta = null;
+  let previousSelectedCodesKey = "";
+
+  function refreshCandidateRankings(selectedCodesInput = []) {
+    if (!candidateRankingsView || !currentOfficeMeta) {
       return;
     }
-    let full = titleText;
-    if (subText) {
-      full = `${titleText} | ${subText}`;
+    const state = store.getState();
+    const municipalities = state.data?.municipalities ?? [];
+
+    let codes = [];
+    if (Array.isArray(selectedCodesInput)) {
+      codes = selectedCodesInput;
     }
-    pill.textContent = full;
+    if (!Array.isArray(selectedCodesInput) && selectedCodesInput) {
+      codes = [selectedCodesInput];
+    }
+
+    const selectedList = [];
+    for (const code of codes) {
+      if (currentElectionResults[code]) {
+        const unit = currentElectionResults[code];
+        let munName = unit.name;
+        if (!munName || munName === code) {
+          for (let mIdx = 0; mIdx < municipalities.length; mIdx += 1) {
+            const mObj = municipalities[mIdx];
+            if (String(mObj.code) === String(code)) {
+              munName = mObj.name;
+              break;
+            }
+          }
+        }
+        if (!munName) {
+          munName = code;
+        }
+        selectedList.push({
+          code,
+          name: munName,
+          validVotes: unit.validVotes,
+          blankVotes: unit.blankVotes,
+          nullVotes: unit.nullVotes,
+          leader: unit.leader,
+          candidates: unit.candidates,
+          marginPp: unit.marginPp,
+        });
+      }
+    }
+
+    let selectedMun = null;
+    if (selectedList.length === 1) {
+      selectedMun = selectedList[0];
+    }
+
+    candidateRankingsView.update({
+      ...currentOfficeMeta,
+      municipalResults: currentElectionResults,
+      selectedMunicipality: selectedMun,
+      selectedMunicipalities: selectedList,
+      onClearSelection: () => {
+        store.dispatch(clearSelectionAction());
+      },
+      onSelectMunicipality: (targetCode) => {
+        store.dispatch(toggleMunicipalityAction(targetCode));
+      },
+    });
+
+    if (stageCityPill) {
+      if (selectedList.length === 1) {
+        const item = selectedList[0];
+        const leader = item.leader;
+        let leaderText = "";
+        if (leader && leader.name) {
+          let marginStr = "";
+          if (typeof item.marginPp === "number" && item.marginPp > 0) {
+            marginStr = ` • +${item.marginPp.toFixed(1).replace(".", ",")} p.p.`;
+          }
+          leaderText = ` • 🏆 ${leader.name} (${Number(leader.sharePct ?? 0).toFixed(1).replace(".", ",")}%) ${marginStr}`;
+        }
+        stageCityPill.innerHTML = `
+          <span class="stage-pill-dot animate-pulse"></span>
+          <span class="stage-pill-city">${item.name}</span>
+          <span class="stage-pill-leader">${leaderText}</span>
+          <button type="button" class="stage-pill-close" title="Limpar seleção">✕</button>
+        `;
+        stageCityPill.hidden = false;
+        const closeBtn = stageCityPill.querySelector(".stage-pill-close");
+        if (closeBtn) {
+          closeBtn.addEventListener("click", () => {
+            store.dispatch(clearSelectionAction());
+          });
+        }
+      }
+      if (selectedList.length > 1) {
+        const names = selectedList.map((m) => m.name).slice(0, 3).join(", ");
+        let extra = "";
+        if (selectedList.length > 3) {
+          extra = ` (+${selectedList.length - 3})`;
+        }
+        stageCityPill.innerHTML = `
+          <span class="stage-pill-dot animate-pulse"></span>
+          <span class="stage-pill-city">📍 ${selectedList.length} cidades</span>
+          <span class="stage-pill-leader">• ${names}${extra}</span>
+          <button type="button" class="stage-pill-close" title="Limpar seleção">✕</button>
+        `;
+        stageCityPill.hidden = false;
+        const closeBtn = stageCityPill.querySelector(".stage-pill-close");
+        if (closeBtn) {
+          closeBtn.addEventListener("click", () => {
+            store.dispatch(clearSelectionAction());
+          });
+        }
+      }
+      if (selectedList.length === 0) {
+        stageCityPill.hidden = true;
+        stageCityPill.innerHTML = "";
+      }
+    }
   }
 
   async function switchFirstRoundOffice(office) {
     const state = store.getState();
     const theme = state.theme ?? "dark";
-    const res = await loadFirstRoundElectionData(office, { fetchImpl, theme });
+    const municipalities = state.data?.municipalities ?? [];
+    const res = await loadFirstRoundElectionData(office, { fetchImpl, theme, municipalities });
     if (!res.ok) {
       return;
     }
@@ -359,18 +505,22 @@ export function initElectionWiring(options) {
       });
     }
 
-    const stateVotes = res.totals?.state?.validVotes;
-    let votesStr = "";
-    if (typeof stateVotes === "number") {
-      votesStr = `${stateVotes.toLocaleString("pt-BR")} votos válidos`;
-    }
-    updateTopPill(`🗳️ ${res.description}`, votesStr);
+    currentOfficeMeta = {
+      office: res.office,
+      candidates: res.candidates,
+      totals: res.totals,
+      municipalResults: res.municipalResults,
+    };
+
+    const selCodes = state.selection?.selectedCodes ?? [];
+    refreshCandidateRankings(selCodes);
   }
 
   async function activateSecondRound() {
     const state = store.getState();
     const theme = state.theme ?? "dark";
-    const res2 = await loadSecondRoundReplayData({ fetchImpl, theme });
+    const municipalities = state.data?.municipalities ?? [];
+    const res2 = await loadSecondRoundReplayData({ fetchImpl, theme, municipalities });
     if (res2.ok && Object.keys(res2.municipalResults).length > 0) {
       currentElectionResults = res2.municipalResults;
       syncGlobals();
@@ -384,7 +534,16 @@ export function initElectionWiring(options) {
           theme,
         });
       }
-      updateTopPill("🗳️ 2º Turno Presidencial (SP)", "Apuração consolidada");
+
+      currentOfficeMeta = {
+        office: "presidente",
+        candidates: res2.candidates,
+        totals: res2.totals,
+        municipalResults: res2.municipalResults,
+      };
+
+      const selCodes = state.selection?.selectedCodes ?? [];
+      refreshCandidateRankings(selCodes);
     }
 
     if (countSource) {
@@ -401,16 +560,26 @@ export function initElectionWiring(options) {
     }
   }
 
-  let previousTab = store.getState().tab ?? "indicators";
+  let previousTab = "indicators";
 
   // Handle Tab transitions (ELE-17, ELE-19, ELE-20)
   async function handleStateChange() {
     const currentState = store.getState();
     const currentTab = currentState.tab ?? "indicators";
+    const selectedCodes = currentState.selection?.selectedCodes ?? [];
+    const selectedCodesKey = selectedCodes.slice().sort().join(",");
 
     if (modeSelector) {
-      const selectedCount = currentState.selection?.selectedCodes?.length ?? 0;
+      const selectedCount = selectedCodes.length;
       modeSelector.update(currentTab, status, selectedCount);
+    }
+
+    const isNowElection = isElectionTab(currentTab);
+    if (isNowElection) {
+      if (selectedCodesKey !== previousSelectedCodesKey) {
+        previousSelectedCodesKey = selectedCodesKey;
+        refreshCandidateRankings(selectedCodes);
+      }
     }
 
     if (currentTab === previousTab) {
@@ -420,7 +589,6 @@ export function initElectionWiring(options) {
     const prevWasSecondRound = previousTab === "second-round";
     const isNowSecondRound = currentTab === "second-round";
     const isNowFirstRound = currentTab === "first-round";
-    const isNowElection = isElectionTab(currentTab);
     previousTab = currentTab;
 
     // Apply engine elevation rules for election (ELE-12, ELE-15)
@@ -437,6 +605,9 @@ export function initElectionWiring(options) {
       if (electionLegendSlot) {
         electionLegendSlot.hidden = false;
       }
+      if (rankingsSlot) {
+        rankingsSlot.hidden = false;
+      }
       if (scaleDock) {
         scaleDock.style.display = "none";
       }
@@ -449,6 +620,9 @@ export function initElectionWiring(options) {
       }
       if (electionLegendSlot) {
         electionLegendSlot.hidden = false;
+      }
+      if (rankingsSlot) {
+        rankingsSlot.hidden = false;
       }
       if (scaleDock) {
         scaleDock.style.display = "none";
@@ -463,8 +637,14 @@ export function initElectionWiring(options) {
       if (electionLegendSlot) {
         electionLegendSlot.hidden = true;
       }
+      if (rankingsSlot) {
+        rankingsSlot.hidden = true;
+      }
       if (scaleDock) {
         scaleDock.style.display = "";
+      }
+      if (typeof engine.setPalette === "function") {
+        engine.setPalette(readPalette(documentRef));
       }
       if (typeof restoreIndicator === "function") {
         restoreIndicator();
@@ -558,6 +738,9 @@ export function initElectionWiring(options) {
       }
       if (scoreboardView) {
         scoreboardView.destroy();
+      }
+      if (stageCityPill) {
+        stageCityPill.remove();
       }
     },
   };

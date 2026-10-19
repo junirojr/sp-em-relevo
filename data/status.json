@@ -1,8 +1,8 @@
 {
   "mode": "live",
   "Features": {
-    "election": false,
-    "electionSecondRound": false,
+    "election": true,
+    "electionSecondRound": true,
     "indicatorIncome": true,
     "indicatorVoterTurnout": true,
     "levelGovernmentRegion": true,

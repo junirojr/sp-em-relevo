@@ -212,16 +212,35 @@ export function applyControlsVisibility(documentRef, tab) {
 
   const appearanceContainer = documentRef.getElementById("appearance-container");
   if (appearanceContainer) {
-    // Hide color mode group ("Cor do mapa")
+    appearanceContainer.hidden = isElection;
     const colorGroup = appearanceContainer.querySelector(".appearance-group-color");
     if (colorGroup) {
       colorGroup.hidden = isElection;
     }
-    // Hide step option (Degrau)
     const stepOption = appearanceContainer.querySelector(".height-mode-option-step");
     if (stepOption) {
       stepOption.hidden = isElection;
     }
+  }
+
+  const levelContainer = documentRef.getElementById("level-container");
+  if (levelContainer) {
+    levelContainer.hidden = isElection;
+  }
+
+  const selectionContainer = documentRef.getElementById("selection-container");
+  if (selectionContainer) {
+    selectionContainer.hidden = isElection;
+  }
+
+  const settingsContainer = documentRef.getElementById("settings-container");
+  if (settingsContainer) {
+    settingsContainer.hidden = isElection;
+  }
+
+  const pointedPill = documentRef.getElementById("pointed-pill");
+  if (pointedPill) {
+    pointedPill.hidden = isElection;
   }
 
   const stageBanner = documentRef.querySelector(".stage-banner");

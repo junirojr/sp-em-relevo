@@ -2,63 +2,112 @@
  * Election mode styles (ELE-16, ELE-18, ELE-19, MOB-01, MOB-06, ACE-04).
  */
 
+/* Aliases so the election, count and replay sheets follow the shell tokens in both themes */
+:root {
+  --border-color: var(--field-line);
+  --card-bg: var(--glass-bg);
+  --hover-bg: var(--row-hover);
+  --text-primary: var(--ink);
+  --text-muted: var(--ink-muted);
+  --space-2xs: 2px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --radius-xs: 4px;
+}
+
+/* The top bar switch owns the Census versus Elections choice, so the column keeps only the rounds */
+[data-mode="indicator"] #mode-selector-slot {
+  display: none;
+}
+
+.mode-selector-option:has(input[value="indicators"]) {
+  display: none;
+}
+
+/* Election mode shows only TSE data: every IBGE only block leaves the column and the stage */
+[data-mode="election"] #indicator-container,
+[data-mode="election"] #level-container,
+[data-mode="election"] #appearance-container,
+[data-mode="election"] #selection-container,
+[data-mode="election"] #settings-container,
+[data-mode="election"] #pointed-pill,
+[data-mode="election"] .selection-class-filter-field,
+[data-mode="election"] .selection-table-container,
+[data-mode="election"] .scale-legend,
+[data-mode="election"] #indicator-source-view,
+[data-mode="election"] .appearance-card:has(input[value="step"]) {
+  display: none !important;
+}
+
 /* Mode selector group in sidebar header */
 #mode-selector-slot {
   display: block;
-  margin-bottom: var(--space-xs, 4px);
+  margin-bottom: var(--space-xs, 6px);
   width: 100%;
 }
 
 .mode-selector-group {
-  border: 1px solid var(--border-color, #70737f);
-  border-radius: var(--radius-sm, 6px);
-  padding: var(--space-xs, 4px) var(--space-sm, 8px);
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md, 8px);
+  padding: 3px;
   margin: 0;
-  background-color: var(--card-bg, rgba(25, 26, 31, 0.6));
+  background-color: rgba(18, 19, 24, 0.7);
 }
 
 .mode-selector-legend {
-  font-size: var(--font-size-xs, 11px);
-  font-weight: 600;
-  color: var(--text-muted, #858a96);
-  padding: 0 var(--space-xs, 4px);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted, #94a3b8);
+  padding: 0 4px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
+  margin-bottom: 2px;
 }
 
 .mode-selector-options {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  gap: var(--space-sm, 8px);
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
 }
 
 .mode-selector-option {
-  display: inline-flex;
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: var(--space-2xs, 4px);
-  font-size: var(--font-size-sm, 13px);
-  color: var(--text-primary, #eceef4);
+  justify-content: center;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted, #94a3b8);
   cursor: pointer;
-  min-height: 28px;
-  min-width: 24px;
-  padding: 2px 4px;
-  border-radius: var(--radius-xs, 4px);
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
   user-select: none;
+  transition: all 0.15s ease;
 }
 
 .mode-selector-option:hover {
-  background-color: var(--hover-bg, rgba(255, 255, 255, 0.06));
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+}
+
+.mode-selector-option:has(input:checked) {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-weight: 600;
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 .mode-selector-radio {
-  margin: 0;
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-  accent-color: var(--text-primary, #eceef4);
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .mode-selector-label-text {
@@ -104,3 +153,502 @@
     min-height: 24px;
   }
 }
+
+/* Candidate rankings comparison card in sidebar (R3, F14, F15) */
+.election-rankings-card {
+  border: 1px solid var(--border-color, #70737f);
+  border-radius: var(--radius-sm, 6px);
+  padding: var(--space-sm, 8px) var(--space-md, 12px);
+  margin-bottom: var(--space-md, 12px);
+  background-color: var(--card-bg, rgba(25, 26, 31, 0.7));
+  color: var(--text-primary, #eceef4);
+}
+
+.election-rankings-header {
+  margin-bottom: var(--space-sm, 8px);
+  border-bottom: 1px solid var(--border-color, #33353c);
+  padding-bottom: 4px;
+}
+
+.election-rankings-title {
+  font-size: var(--font-size-sm, 13px);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 2px 0;
+  color: var(--text-primary, #eceef4);
+}
+
+.election-rankings-subtitle {
+  font-size: 11px;
+  color: var(--text-muted, #858a96);
+  margin: 0;
+}
+
+.election-rankings-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm, 8px);
+}
+
+.candidate-ranking-item {
+  border: 1px solid var(--border-color, #33353c);
+  border-radius: var(--radius-xs, 4px);
+  padding: var(--space-xs, 6px) var(--space-sm, 8px);
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.candidate-ranking-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.candidate-position-badge {
+  font-weight: 700;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background-color: var(--hover-bg, rgba(255, 255, 255, 0.08));
+  color: var(--text-primary, #eceef4);
+}
+
+.candidate-name-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.candidate-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary, #eceef4);
+}
+
+.candidate-party-ballot {
+  font-size: 11px;
+  color: var(--text-muted, #858a96);
+}
+
+.candidate-votes-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.candidate-share-pct {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary, #eceef4);
+  font-variant-numeric: tabular-nums;
+}
+
+.candidate-abs-votes {
+  font-size: 10px;
+  color: var(--text-muted, #858a96);
+  font-variant-numeric: tabular-nums;
+}
+
+.candidate-stats-row {
+  margin-top: 4px;
+  display: flex;
+  gap: 6px;
+}
+
+.candidate-stat-pill {
+  font-size: 10px;
+  color: var(--text-secondary, #b4b8c5);
+}
+
+.candidate-top-cities {
+  margin-top: 6px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border-color, #33353c);
+}
+
+.candidate-top-cities-title {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted, #858a96);
+  margin-bottom: 4px;
+}
+
+.candidate-cities-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.cities-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cities-col-title {
+  font-size: 10px;
+  color: var(--text-muted, #858a96);
+  font-style: italic;
+}
+
+.city-rank-item {
+  font-size: 10px;
+  color: var(--text-secondary, #b4b8c5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* City-level candidate rankings and winner highlight (Requisitos 3 e 4) */
+.candidate-rankings-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.city-badge-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.candidate-rankings-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #eceef4;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 5px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.candidate-rankings-back-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
+
+.candidate-ranking-item.is-winner {
+  border: 1px solid rgba(234, 179, 8, 0.45);
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.12) 0%, rgba(25, 26, 31, 0.85) 100%);
+  box-shadow: 0 0 16px rgba(234, 179, 8, 0.15);
+}
+
+.candidate-winner-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fbbf24;
+  background: rgba(234, 179, 8, 0.16);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  border-radius: 9999px;
+  padding: 2px 8px;
+  margin-bottom: 6px;
+  width: fit-content;
+}
+
+.candidate-progress-track {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 6px;
+  width: 100%;
+}
+
+.candidate-progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background-color: var(--text-primary, #eceef4);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.candidate-margin-stat {
+  font-size: 11px;
+  font-weight: 600;
+  color: #38bdf8;
+  margin-top: 4px;
+}
+
+/* Segmented switcher inside rankings card */
+.rankings-segmented-nav {
+  display: flex;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-color, #33353c);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.rankings-segment-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #858a96);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rankings-segment-btn:hover {
+  color: var(--text-primary, #eceef4);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.rankings-segment-btn.is-active {
+  background: var(--primary-container, #1d4ed8);
+  color: #ffffff;
+  box-shadow: 0 1px 6px rgba(29, 78, 216, 0.4);
+}
+
+/* City rankings meta row with apurado status */
+.city-rankings-meta-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.city-apurado-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 9999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+/* Municipal Demographics / Participation Mini-Bento */
+.municipal-demographics-bento {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color, #33353c);
+}
+
+.demographics-mini-card {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.demographics-card-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, #858a96);
+}
+
+.demographics-card-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary, #eceef4);
+  margin: 2px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.demographics-card-sub {
+  font-size: 10px;
+  color: var(--text-muted, #858a96);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Floating 3D Map Stage HUD Pin */
+.selected-city-stage-pill {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(18, 19, 24, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.7), 0 0 16px rgba(251, 191, 36, 0.2);
+  border-radius: 9999px;
+  padding: 6px 14px;
+  color: #eceef4;
+  font-size: 13px;
+  pointer-events: auto;
+  animation: fadeInScale 0.2s ease-out;
+  max-width: 90vw;
+  white-space: nowrap;
+}
+
+.stage-pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #fbbf24;
+  box-shadow: 0 0 8px #fbbf24;
+}
+
+.stage-pill-city {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.stage-pill-leader {
+  font-size: 12px;
+  color: #cad3ff;
+}
+
+.stage-pill-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #eceef4;
+  cursor: pointer;
+  font-size: 11px;
+  margin-left: 4px;
+  transition: background 0.15s ease;
+}
+
+.stage-pill-close:hover {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+/* Two-City Comparison Styles */
+.compare-cities-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.compare-city-summary-card {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.compare-city-card-name {
+  font-weight: 700;
+  font-size: 13px;
+  color: #ffffff;
+}
+
+.compare-city-card-winner {
+  font-size: 11px;
+  color: #fbbf24;
+  font-weight: 600;
+  margin: 2px 0;
+}
+
+.compare-city-card-votes {
+  font-size: 10px;
+  color: var(--text-muted, #858a96);
+}
+
+.compare-candidate-row {
+  border: 1px solid var(--border-color, #33353c);
+  border-radius: var(--radius-xs, 4px);
+  padding: 8px 10px;
+  background-color: rgba(255, 255, 255, 0.02);
+  margin-bottom: 8px;
+}
+
+.compare-candidate-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.compare-dual-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.compare-bar-subrow {
+  display: grid;
+  grid-template-columns: 80px 1fr 110px;
+  align-items: center;
+  gap: 8px;
+}
+
+.compare-bar-city-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #b4b8c5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compare-bar-val {
+  font-size: 10px;
+  color: var(--text-primary, #eceef4);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+
