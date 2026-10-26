@@ -1,5 +1,4 @@
 import { mountCountBannerView } from "../features/count/count-banner-view.js";
-import { mountCountScoreboardView } from "../features/count/count-scoreboard-view.js";
 import {
   countConcluded,
   countConnectionError,
@@ -17,7 +16,6 @@ import { changeElectionTab, isElectionTab } from "../features/election/election-
 import {
   ELECTION_STRINGS,
   formatBrasiliaHour,
-  formatCandidateLeadMessage,
   formatElectedAnnouncement,
   formatNoConnectionMessage,
   formatPartialCountMessage,
@@ -233,16 +231,16 @@ export function initElectionWiring(options) {
     }
   }
 
-  // 3. Mount Scoreboard View into #election-scoreboard-slot (APU-07, APU-09)
+  // 3. Configure source slot (scoreboard HUD on stage removed per user request)
   const scoreboardSlot = documentRef.getElementById("election-scoreboard-slot");
-  const sourceSlot = documentRef.getElementById("election-source-slot");
-  /** @type {ReturnType<typeof mountCountScoreboardView> | null} */
-  let scoreboardView = null;
   if (scoreboardSlot) {
-    scoreboardView = mountCountScoreboardView(documentRef, scoreboardSlot, {
-      sourceSlotElement: sourceSlot,
-      formatCandidateLeadMessage,
-    });
+    scoreboardSlot.hidden = true;
+    scoreboardSlot.innerHTML = "";
+  }
+  const sourceSlot = documentRef.getElementById("election-source-slot");
+  if (sourceSlot) {
+    sourceSlot.className = "count-source-slot";
+    sourceSlot.textContent = "Fonte: TSE";
   }
 
   // 4. Create Count Source polling adapter (APU-01 to APU-13)
@@ -312,9 +310,6 @@ export function initElectionWiring(options) {
     }
     if (bannerView) {
       bannerView.update(countState, isSecondRound);
-    }
-    if (scoreboardView) {
-      scoreboardView.update(countState, isSecondRound, state.theme ?? "dark");
     }
   }
 
@@ -663,9 +658,6 @@ export function initElectionWiring(options) {
       if (bannerView) {
         bannerView.update(countState, false);
       }
-      if (scoreboardView) {
-        scoreboardView.update(countState, false);
-      }
     }
 
     if (windowRef) {
@@ -753,9 +745,6 @@ export function initElectionWiring(options) {
       }
       if (bannerView) {
         bannerView.destroy();
-      }
-      if (scoreboardView) {
-        scoreboardView.destroy();
       }
     },
   };

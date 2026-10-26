@@ -175,12 +175,7 @@ function ensureStageStyles(documentRef) {
 }
 
 #election-scoreboard-slot {
-  top: calc(var(--topbar-height) + var(--space-2) + 38px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(640px, calc(100% - 2 * var(--space-3)));
-  max-width: 100%;
-  pointer-events: auto;
+  display: none !important;
 }
 
 #election-source-slot {
@@ -201,13 +196,7 @@ function ensureStageStyles(documentRef) {
   }
 
   #election-scoreboard-slot {
-    top: calc(var(--topbar-height) + 40px);
-    left: var(--space-3);
-    right: var(--space-3);
-    transform: none;
-    width: auto;
-    max-height: calc(var(--visual-viewport-height, 100dvh) * 0.22);
-    overflow-y: auto;
+    display: none !important;
   }
 
   #election-source-slot {

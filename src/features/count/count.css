@@ -64,14 +64,9 @@
   text-align: center;
 }
 
-/* Scoreboard slot on map stage */
+/* Scoreboard slot on map stage (removed per user request to avoid obstructing view) */
 #election-scoreboard-slot {
-  position: absolute;
-  top: calc(var(--space-md, 16px) + 52px);
-  left: var(--space-md, 16px);
-  z-index: 20;
-  width: min(320px, calc(100vw - 32px));
-  pointer-events: auto;
+  display: none !important;
 }
 
 .count-scoreboard {
@@ -218,11 +213,7 @@
   }
 
   #election-scoreboard-slot {
-    top: 50px;
-    left: 8px;
-    right: 8px;
-    width: auto;
-    max-width: calc(100vw - 16px);
+    display: none !important;
   }
 
   .count-scoreboard {
