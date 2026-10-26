@@ -33,7 +33,11 @@ import {
   toggleMunicipalityAction,
 } from "../features/selection/selection-slice.js";
 import { createCountSource } from "./count-source.js";
-import { loadFirstRoundElectionData, loadSecondRoundReplayData } from "./election-data.js";
+import {
+  loadFirstRoundElectionData,
+  loadSecondRoundElectionData,
+  loadSecondRoundReplayData,
+} from "./election-data.js";
 import {
   isArtifactEnvironment,
   isElectionFeatureEnabled,
@@ -549,6 +553,37 @@ export function initElectionWiring(options) {
     const state = store.getState();
     const theme = state.theme ?? "dark";
     const municipalities = state.data?.municipalities ?? [];
+
+    // Prioriza dados oficiais consolidados do 2º Turno TSE se disponiveis
+    const resConsolidated = await loadSecondRoundElectionData({ fetchImpl, theme, municipalities });
+    if (resConsolidated.ok && Object.keys(resConsolidated.municipalResults).length > 0) {
+      currentElectionResults = resConsolidated.municipalResults;
+      syncGlobals();
+      applyElectionProjection("first-round");
+
+      if (electionLegendView) {
+        electionLegendView.update({
+          officeTitle:
+            resConsolidated.description || "Presidente da República - 2º Turno 2026 (SP)",
+          candidates: resConsolidated.candidates,
+          palette: resConsolidated.palette,
+          theme,
+        });
+      }
+
+      currentOfficeMeta = {
+        office: "presidente",
+        candidates: resConsolidated.candidates,
+        totals: resConsolidated.totals,
+        municipalResults: resConsolidated.municipalResults,
+      };
+
+      const selCodes = state.selection?.selectedCodes ?? [];
+      refreshCandidateRankings(selCodes);
+      updateViews();
+      return;
+    }
+
     if (status.mode === "replay" && status.replay.available) {
       const res2 = await loadSecondRoundReplayData({ fetchImpl, theme, municipalities });
       if (res2.ok && Object.keys(res2.municipalResults).length > 0) {
@@ -558,7 +593,7 @@ export function initElectionWiring(options) {
 
         if (electionLegendView) {
           electionLegendView.update({
-            officeTitle: "Presidente da República: 2º Turno (SP)",
+            officeTitle: "Presidente da República - 2º Turno 2026 (SP)",
             candidates: res2.candidates,
             palette: res2.palette,
             theme,

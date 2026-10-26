@@ -10,8 +10,8 @@
     "pngExport": true
   },
   "replay": {
-    "available": false,
+    "available": true,
     "path": "data/election/replay-presidente-2t.json"
   },
-  "updatedAt": "2026-10-17T18:00:00-03:00"
+  "updatedAt": "2026-10-26T14:50:00-03:00"
 }

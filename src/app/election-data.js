@@ -34,6 +34,9 @@ let secondRoundCache = null;
  * @returns {string}
  */
 export function getFirstRoundOfficePath(office) {
+  if (office === "presidente-2t") {
+    return "./data/election/presidente-2t.json";
+  }
   const allowed = ["presidente", "governador", "senador", "deputado-federal", "deputado-estadual"];
   if (allowed.includes(office)) {
     return `./data/election/${office}-1t.json`;
@@ -245,6 +248,19 @@ export async function loadFirstRoundElectionData(office = "presidente", options 
     totals,
     error: null,
   };
+}
+
+/**
+ * Loads second-round official consolidated election data (presidente 2t).
+ *
+ * @param {{
+ *   fetchImpl?: typeof fetch,
+ *   theme?: ThemeMode,
+ *   municipalities?: readonly import("../domain/territory.js").MunicipalityRecord[]
+ * }} [options={}]
+ */
+export async function loadSecondRoundElectionData(options = {}) {
+  return loadFirstRoundElectionData("presidente-2t", options);
 }
 
 /**
