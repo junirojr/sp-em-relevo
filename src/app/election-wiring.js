@@ -215,19 +215,6 @@ export function initElectionWiring(options) {
     candidateRankingsView = mountCandidateRankingsView(documentRef, rankingsSlot);
   }
 
-  // 1e. Create slot for selected city stage HUD pill
-  let stageCityPill = documentRef.getElementById("selected-city-stage-pill");
-  if (!stageCityPill) {
-    stageCityPill = documentRef.createElement("div");
-    stageCityPill.id = "selected-city-stage-pill";
-    stageCityPill.className = "selected-city-stage-pill";
-    stageCityPill.hidden = true;
-    const stageOverlay = documentRef.getElementById("stage-overlay");
-    if (stageOverlay) {
-      stageOverlay.append(stageCityPill);
-    }
-  }
-
   // 2. Mount Banner View into #election-banner-slot (APU-07, APU-08)
   const bannerSlot = documentRef.getElementById("election-banner-slot");
   /** @type {ReturnType<typeof mountCountBannerView> | null} */
@@ -455,63 +442,6 @@ export function initElectionWiring(options) {
         store.dispatch(toggleMunicipalityAction(targetCode));
       },
     });
-
-    if (stageCityPill) {
-      if (selectedList.length === 1) {
-        const item = selectedList[0];
-        const leader = item.leader;
-        let leaderText = "";
-        if (leader && leader.name) {
-          let marginStr = "";
-          if (typeof item.marginPp === "number" && item.marginPp > 0) {
-            marginStr = ` • +${item.marginPp.toFixed(1).replace(".", ",")} p.p.`;
-          }
-          leaderText = ` • 🏆 ${leader.name} (${Number(leader.sharePct ?? 0)
-            .toFixed(1)
-            .replace(".", ",")}%) ${marginStr}`;
-        }
-        stageCityPill.innerHTML = `
-          <span class="stage-pill-dot animate-pulse"></span>
-          <span class="stage-pill-city">${item.name}</span>
-          <span class="stage-pill-leader">${leaderText}</span>
-          <button type="button" class="stage-pill-close" title="Limpar seleção">✕</button>
-        `;
-        stageCityPill.hidden = false;
-        const closeBtn = stageCityPill.querySelector(".stage-pill-close");
-        if (closeBtn) {
-          closeBtn.addEventListener("click", () => {
-            store.dispatch(clearSelectionAction());
-          });
-        }
-      }
-      if (selectedList.length > 1) {
-        const names = selectedList
-          .map((m) => m.name)
-          .slice(0, 3)
-          .join(", ");
-        let extra = "";
-        if (selectedList.length > 3) {
-          extra = ` (+${selectedList.length - 3})`;
-        }
-        stageCityPill.innerHTML = `
-          <span class="stage-pill-dot animate-pulse"></span>
-          <span class="stage-pill-city">📍 ${selectedList.length} cidades</span>
-          <span class="stage-pill-leader">• ${names}${extra}</span>
-          <button type="button" class="stage-pill-close" title="Limpar seleção">✕</button>
-        `;
-        stageCityPill.hidden = false;
-        const closeBtn = stageCityPill.querySelector(".stage-pill-close");
-        if (closeBtn) {
-          closeBtn.addEventListener("click", () => {
-            store.dispatch(clearSelectionAction());
-          });
-        }
-      }
-      if (selectedList.length === 0) {
-        stageCityPill.hidden = true;
-        stageCityPill.innerHTML = "";
-      }
-    }
   }
 
   /**
@@ -826,9 +756,6 @@ export function initElectionWiring(options) {
       }
       if (scoreboardView) {
         scoreboardView.destroy();
-      }
-      if (stageCityPill) {
-        stageCityPill.remove();
       }
     },
   };
