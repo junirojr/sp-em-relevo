@@ -1,17 +1,11 @@
 import {
-  BASE_HEIGHT,
-  DEFAULT_EXAGGERATION,
-} from "../domain/height.js";
-import {
-  assignCandidateColors,
-  getElectionNeutrals,
-} from "../domain/election-colors.js";
-import {
   aggregateElectionUnits,
   computeElectionHeight,
   computeUnitElectionResult,
   isBelowSectionsThreshold,
 } from "../domain/election.js";
+import { assignCandidateColors, getElectionNeutrals } from "../domain/election-colors.js";
+import { BASE_HEIGHT, DEFAULT_EXAGGERATION } from "../domain/height.js";
 import {
   buildElectionCompareModel,
   computeDisplayedMarginPp,
@@ -34,6 +28,7 @@ import { buildElectionTableModel } from "../features/election/election-table-mod
  * - ELE-12: Zero lift elevation for hover and selection in election tabs
  * - ELE-15: Selected units preserve candidate/party color without blue overlay
  *
+ * @typedef {import("../domain/election.js").ElectionUnitInput} ElectionUnitInput
  * @typedef {import("../domain/election.js").ElectionUnitResult} ElectionUnitResult
  * @typedef {import("../domain/election.js").ElectionRoundMode} ElectionRoundMode
  * @typedef {import("../domain/election-colors.js").ThemeMode} ThemeMode

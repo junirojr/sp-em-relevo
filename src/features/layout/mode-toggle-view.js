@@ -17,7 +17,7 @@ export const MODE_ELECTION = "election";
 /**
  * @typedef {Object} ModeOption
  * @property {"indicators" | "election"} mode
- * @property {string} tab
+ * @property {import("../../app/state.js").TabId} tab
  * @property {string} labelFull
  * @property {string} labelShort
  * @property {string} glyphSvg
@@ -69,7 +69,7 @@ export const resolveActiveMode = resolveModeFromTab;
 /**
  * @typedef {Object} ModeToggleOptions
  * @property {string} [activeTab]
- * @property {((tab: string) => void)} [onSelectTab]
+ * @property {((tab: import("../../app/state.js").TabId) => void)} [onSelectTab]
  * @property {Document} [documentRef]
  */
 

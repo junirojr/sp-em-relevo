@@ -3,13 +3,14 @@ import { expect, test } from "@playwright/test";
 import { inspect } from "../../../tests/support/inspector.js";
 import { oklab } from "../../../tests/support/oklab.js";
 import { openPage, settle } from "../../../tests/support/page.js";
+import { parseMunicipalities } from "../../app/data-loader.js";
 import { classify } from "../../domain/classification.js";
 
 const VIEWPORT_1280_900 = { width: 1280, height: 900 };
 
-const municipalitiesData = JSON.parse(
-  fs.readFileSync("data/municipalities.json", "utf8"),
-).municipalities;
+const municipalitiesData = parseMunicipalities(
+  JSON.parse(fs.readFileSync("data/municipalities.json", "utf8")),
+);
 
 /**
  * @param {import("@playwright/test").Page} page
@@ -192,13 +193,14 @@ test.describe("ESC scale slice (ESC-05, ESC-07 to ESC-09)", () => {
       await page.route("**/data/municipalities.json", async (route) => {
         const response = await route.fetch();
         const json = await response.json();
-        const target = json.municipalities?.find(
+        const municipalities = parseMunicipalities(json);
+        const target = municipalities.find(
           (/** @type {{ code: string }} */ m) => m.code === "3550308",
         );
         if (target) {
-          target.population = null;
+          /** @type {{population: number | null}} */ (target).population = null;
         }
-        await route.fulfill({ json });
+        await route.fulfill({ json: { ...json, municipalities } });
       });
 
       await page.goto("/");
@@ -245,6 +247,7 @@ test.describe("ESC scale slice (ESC-05, ESC-07 to ESC-09)", () => {
       const colorDesc = page.locator(".scale-legend .legend-rows dd").nth(1);
       await expect(colorDesc).toBeVisible();
 
+      await page.locator("summary.how-to-read-summary").click();
       const howToReadLine = page.locator(".how-to-read-line.line-scale");
       await expect(howToReadLine).toBeVisible();
 

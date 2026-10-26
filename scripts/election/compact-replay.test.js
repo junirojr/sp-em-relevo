@@ -1,18 +1,18 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 
 import {
-  MAX_REPLAY_SIZE_BYTES,
-  SCHEMA_VERSION,
   buildReplayFrames,
   calculateLeaderAndMargin,
   compactReplayLog,
   extractElectoralEvents,
+  MAX_REPLAY_SIZE_BYTES,
   parseCliArgs,
   parseNdjson,
+  SCHEMA_VERSION,
 } from "./compact-replay.mjs";
 
 test("parseCliArgs parses custom CLI options deterministically", () => {
@@ -212,7 +212,10 @@ test("GRV-04 preserves real temporal gaps > 5 minutes without synthetic interpol
         st: 10,
         ts: 100,
         vv: 100,
-        cand: [{ n: "22", vap: 60, pvap: "60,00" }, { n: "13", vap: 40, pvap: "40,00" }],
+        cand: [
+          { n: "22", vap: 60, pvap: "60,00" },
+          { n: "13", vap: 40, pvap: "40,00" },
+        ],
       },
     },
     // Real 12-minute silence in the log (720,000 ms)
@@ -225,7 +228,10 @@ test("GRV-04 preserves real temporal gaps > 5 minutes without synthetic interpol
         st: 20,
         ts: 100,
         vv: 200,
-        cand: [{ n: "22", vap: 120, pvap: "60,00" }, { n: "13", vap: 80, pvap: "40,00" }],
+        cand: [
+          { n: "22", vap: 120, pvap: "60,00" },
+          { n: "13", vap: 80, pvap: "40,00" },
+        ],
       },
     },
   ];

@@ -1,7 +1,4 @@
-import {
-  assignCandidateColors,
-  getElectionNeutrals,
-} from "../../domain/election-colors.js";
+import { assignCandidateColors, getElectionNeutrals } from "../../domain/election-colors.js";
 import { ELECTION_STRINGS } from "./election-strings.js";
 
 /**
@@ -399,6 +396,8 @@ export function mountElectionLegendView(documentRef, slotElement, options = {}) 
 
   slotElement.append(section);
 
+  /** @param {ElectionLegendOptions} opts
+   * @returns {AssignedCandidatePalette} */
   function resolvePalette(opts) {
     if (opts.palette) {
       return opts.palette;
@@ -409,6 +408,7 @@ export function mountElectionLegendView(documentRef, slotElement, options = {}) 
     });
   }
 
+  /** @param {AssignedCandidatePalette} palette */
   function renderCandidates(palette) {
     candidatesList.innerHTML = "";
     const coloredList = palette.coloredCandidates ?? [];
@@ -453,6 +453,8 @@ export function mountElectionLegendView(documentRef, slotElement, options = {}) 
     }
   }
 
+  /** @param {AssignedCandidatePalette} palette
+   * @param {NeutralCounts} neutralCounts */
   function renderNeutrals(palette, neutralCounts) {
     neutralsContainer.innerHTML = "";
     const neutrals = getElectionNeutrals(currentTheme);
@@ -544,6 +546,9 @@ export function mountElectionLegendView(documentRef, slotElement, options = {}) 
     }
   }
 
+  /**
+   * @param {InspectedUnitInfo | null | undefined} unit
+   */
   function renderInspectedOthers(unit) {
     othersCalloutSlot.innerHTML = "";
     const inOthers = isUnitInOthers(unit);
@@ -595,6 +600,7 @@ export function mountElectionLegendView(documentRef, slotElement, options = {}) 
 
   render();
 
+  /** @param {ElectionLegendOptions} newOptions */
   function update(newOptions) {
     currentOptions = { ...currentOptions, ...newOptions };
     if (newOptions.theme) {
@@ -606,6 +612,9 @@ export function mountElectionLegendView(documentRef, slotElement, options = {}) 
     render();
   }
 
+  /**
+   * @param {InspectedUnitInfo | null} unit
+   */
   function inspectUnit(unit) {
     currentInspectedUnit = unit;
     renderInspectedOthers(currentInspectedUnit);

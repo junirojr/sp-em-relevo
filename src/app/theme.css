@@ -365,8 +365,6 @@ body {
 #app {
   display: flex;
   width: 100vw;
-  height: 100vh;
-  height: 100dvh;
   height: var(--visual-viewport-height, 100dvh);
   position: relative;
 }
@@ -458,4 +456,9 @@ summary:focus-visible {
     /* biome-ignore lint/complexity/noImportantStyles: reduced motion must win over every feature rule */
     scroll-behavior: auto !important;
   }
+}
+
+/* The hidden attribute also applies to components with an explicit display layout. */
+[hidden] {
+  display: none !important;
 }

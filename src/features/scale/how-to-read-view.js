@@ -54,10 +54,7 @@ const AGGREGATION_LINE = {
  * @param {string} [colorMode] defaults to heat.
  * @returns {HowToReadViewModel}
  */
-export function buildHowToReadViewModel(
-  heightMode = DEFAULT_HEIGHT_MODE,
-  colorMode = "heat",
-) {
+export function buildHowToReadViewModel(heightMode = DEFAULT_HEIGHT_MODE, colorMode = "heat") {
   return {
     title: TITLE,
     lines: [buildScaleLine(colorMode), buildHeightLine(heightMode), AGGREGATION_LINE],

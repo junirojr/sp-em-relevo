@@ -1,20 +1,20 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
 import { pathToFileURL } from "node:url";
 
 import {
-  DEFAULT_ELECTION_CODE,
   buildMunicipalConfigUrl,
   buildStateTrackingUrl,
   buildTotalizationUrl,
+  createSessionBlocklist,
+  DEFAULT_ELECTION_CODE,
   hasTrackingChanged,
-  planMunicipalQueue,
+  isBlocked404,
+  markHttp404,
   parseMunicipalCountPayload,
   parseTseNumber,
-  createSessionBlocklist,
-  markHttp404,
-  isBlocked404,
+  planMunicipalQueue,
 } from "../../src/domain/count-reader.js";
 
 /**
@@ -125,6 +125,7 @@ export function parseCliArgs(args) {
 export async function fetchTseResource(url, options = {}) {
   const timeoutMs = options.timeoutMs || 15000;
   const activeFetch = options.customFetch || globalThis.fetch;
+  /** @type {Record<string, string>} */
   const headers = {};
   if (options.etag) {
     headers["If-None-Match"] = options.etag;
@@ -188,7 +189,7 @@ export async function fetchTseResource(url, options = {}) {
   } catch (err) {
     clearTimeout(timer);
     let msg = "network-error";
-    if (err && typeof err.message === "string") {
+    if (err instanceof Error) {
       msg = err.message;
     }
     return {
@@ -360,7 +361,9 @@ export class ElectionRecorder {
     this.stateAggregate = null;
 
     this.lastSuccessTimestamp = this.clock.now();
+    /** @type {ReturnType<ElectionRecorder["performAutocheck"]>[]} */
     this.autocheckLogs = [];
+    /** @type {{type: string, durationMs: number, timestamp: string}[]} */
     this.alertLogs = [];
     this.timerHandle = null;
     this.isRunning = false;
@@ -439,6 +442,7 @@ export class ElectionRecorder {
       abrList = payload.abr;
     }
     for (const abr of abrList) {
+      /** @type {Record<string, unknown>} */
       let abrObj = {};
       if (abr && typeof abr === "object") {
         abrObj = /** @type {Record<string, unknown>} */ (abr);
@@ -452,7 +456,9 @@ export class ElectionRecorder {
           continue;
         }
         const muObj = /** @type {Record<string, unknown>} */ (mu);
-        const cd = String(muObj.cd || "").trim().padStart(5, "0");
+        const cd = String(muObj.cd || "")
+          .trim()
+          .padStart(5, "0");
         if (cd.length === 5 && cd !== "00000") {
           const cdi = String(muObj.cdi || "");
           const nm = String(muObj.nm || cd);
@@ -556,7 +562,11 @@ export class ElectionRecorder {
     let trackingChanged = false;
     let currentTracking = null;
 
-    if (trackingRes.status === 200 && trackingRes.payload && typeof trackingRes.payload === "object") {
+    if (
+      trackingRes.status === 200 &&
+      trackingRes.payload &&
+      typeof trackingRes.payload === "object"
+    ) {
       this.lastSuccessTimestamp = this.clock.now();
       currentTracking = /** @type {Record<string, unknown>} */ (trackingRes.payload);
       trackingChanged = hasTrackingChanged(this.lastTracking, currentTracking);
@@ -664,7 +674,6 @@ export class ElectionRecorder {
    * Autochecks data integrity: non-regressive sections, sum of municipalities vs SP aggregate,
    * and 404 count (APU-01, APU-04).
    *
-   * @returns {Record<string, unknown>}
    */
   performAutocheck() {
     const regressions = [];
@@ -756,7 +765,7 @@ export class ElectionRecorder {
         this.onAlert(alertEvent);
       }
       console.warn(
-        `[ALERT] No successful reading for ${Math.round(silenceDurationMs / 1000)} seconds (> 3 minutes).`
+        `[ALERT] No successful reading for ${Math.round(silenceDurationMs / 1000)} seconds (> 3 minutes).`,
       );
     }
   }

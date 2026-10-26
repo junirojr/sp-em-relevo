@@ -2,7 +2,11 @@
  * List of data assets required by the application runtime.
  * Single source of truth across the app and error scenarios (ERR-02).
  */
-export const DATA_FILES = ["data/mesh.topo.json", "data/municipalities.json", "data/regions.json"];
+export const DATA_FILES = [
+  "data/mesh.topo.json.gz",
+  "data/municipalities.json",
+  "data/regions.json",
+];
 
 /**
  * Operational status configuration file path (FLG-01, FLG-02).
@@ -284,6 +288,7 @@ function normalizeReplay(rawReplay) {
     return DEFAULT_REPLAY;
   }
   const available = readBooleanOrFallback(rawReplay.available, DEFAULT_REPLAY.available);
+  /** @type {string} */
   let replayPath = DEFAULT_REPLAY.path;
   if (typeof rawReplay.path === "string" && rawReplay.path.trim().length > 0) {
     replayPath = rawReplay.path.trim();
@@ -369,6 +374,11 @@ async function fetchJson(url, fetchImpl) {
   }
 
   try {
+    if (url.endsWith(".gz")) {
+      if (!response.body) throw new Error("Resposta vazia");
+      const stream = response.body.pipeThrough(new DecompressionStream("gzip"));
+      return await new Response(stream).json();
+    }
     return await response.json();
   } catch (_error) {
     throw new Error(`JSON corrompido ou truncado em ${url}. Recarregue a página.`);

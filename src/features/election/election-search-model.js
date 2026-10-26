@@ -1,7 +1,4 @@
-import {
-  aggregateElectionUnits,
-  computeUnitElectionResult,
-} from "../../domain/election.js";
+import { aggregateElectionUnits, computeUnitElectionResult } from "../../domain/election.js";
 import { findSuggestions, normalizeName } from "../../domain/search.js";
 import { highlightMatch } from "../../domain/search-results.js";
 import { groupOf } from "../../domain/territory.js";
@@ -154,7 +151,7 @@ export function describeElectionSearchEntry(entry, query, electionLookup, option
   const municipalities = options.municipalities ?? [];
   const lookupMap = toLookupMap(electionLookup);
 
-  let unitResult = null;
+  let unitResult = computeUnitElectionResult({ code: entry.code, name: entry.label }, options);
   let memberCount = 1;
 
   if (entry.kind === "municipality" || !territory || municipalities.length === 0) {

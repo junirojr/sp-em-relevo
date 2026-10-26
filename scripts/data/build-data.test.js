@@ -4,6 +4,8 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promis
 import { homedir, hostname, tmpdir, userInfo } from "node:os";
 import path from "node:path";
 import { after, test } from "node:test";
+import { gunzipSync } from "node:zlib";
+import { parseMunicipalities } from "../../src/app/data-loader.js";
 import { buildData } from "./build-data.mjs";
 import { checkMeta } from "./data-checks.js";
 import {
@@ -74,7 +76,10 @@ test("DAD-01 swapping the names of two rows in Seade and SIDRA 5938 leaves the r
 
   const original = await readOutputs(originalOut);
   const swapped = await readOutputs(swappedOut);
-  assert.deepEqual(swapped.municipalities.municipalities, original.municipalities.municipalities);
+  assert.deepEqual(
+    parseMunicipalities(swapped.municipalities),
+    parseMunicipalities(original.municipalities),
+  );
   assert.deepEqual(swapped.regions.regions, original.regions.regions);
   assert.deepEqual(swapped.regions.governmentRegions, original.regions.governmentRegions);
   assert.deepEqual(swapped.mesh.objects, original.mesh.objects);
@@ -85,8 +90,8 @@ test("DAD-01 swapping the names of two rows in Seade and SIDRA 5938 leaves the r
 test("DAD-06 a SIDRA marker for unavailable data becomes null, never 0", async () => {
   const { municipalities } = await readOutputs(await buildFixture(createFixtureOptions()));
 
-  assert.equal(municipalities.municipalities[MUNICIPALITY_WITHOUT_GDP].gdpThousandBrl, null);
-  assert.equal(municipalities.municipalities[0].gdpThousandBrl, 5000);
+  assert.equal(parseMunicipalities(municipalities)[MUNICIPALITY_WITHOUT_GDP].gdpThousandBrl, null);
+  assert.equal(parseMunicipalities(municipalities)[0].gdpThousandBrl, 5000);
 });
 
 test("DAD-02 regions.json lists the 16 Seade regions by code with the double space normalized", async () => {
@@ -113,9 +118,11 @@ test("RGV-01 regions.json lists the 43 Geoseade government regions by code", asy
 
 test("RGV-02 government regions strictly nest within administrative regions and RM SP coincides with RG SP", async () => {
   const { municipalities } = await readOutputs(await buildFixture(createFixtureOptions()));
-  const records = municipalities.municipalities;
+  const records = parseMunicipalities(municipalities);
 
-  const spMunicipalities = records.filter((m) => m.regionCode === "1");
+  const spMunicipalities = records.filter(
+    (/** @type {{ regionCode: string; }} */ m) => m.regionCode === "1",
+  );
   assert.equal(spMunicipalities.length, 39);
   for (const m of spMunicipalities) {
     assert.equal(m.governmentRegionCode, "rg-40");
@@ -179,7 +186,7 @@ test("DAD-05 only the mesh carries the processing notice in its license", async 
 
 test("DAD-07 municipalities.json stores only the expected fields, ordered by code", async () => {
   const { municipalities } = await readOutputs(await buildFixture(createFixtureOptions()));
-  const records = municipalities.municipalities;
+  const records = parseMunicipalities(municipalities);
   const codes = records.map((/** @type {{ code: string }} */ record) => record.code);
 
   assert.equal(records.length, 645);
@@ -596,3 +603,9 @@ function createCellRing(row, column) {
 function reversed(arcIndex) {
   return -arcIndex - 1;
 }
+
+test("DAD-03 PUB-08 distributed gzip mesh reconstructs the exact intermediate topology", async () => {
+  const compressed = await readFile(new URL("../../data/mesh.topo.json.gz", import.meta.url));
+  const source = await readFile(new URL("../../data/mesh.topo.json", import.meta.url));
+  assert.deepEqual(gunzipSync(compressed), source);
+});

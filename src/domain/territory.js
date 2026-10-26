@@ -237,7 +237,7 @@ function resolveMunicipalityRecord(codeOrRecord, context) {
     return codeOrRecord;
   }
   const code = String(codeOrRecord);
-  if (context && typeof context.municipalityByCode === "function") {
+  if (context && !Array.isArray(context) && typeof context.municipalityByCode === "function") {
     const found = context.municipalityByCode(code);
     if (found) {
       return found;

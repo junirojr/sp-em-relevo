@@ -6,7 +6,11 @@ import {
   formatFoundCount,
   rememberRecent,
 } from "../../domain/search-results.js";
-import { addRegionAction, toggleMunicipalityAction } from "./selection-slice.js";
+import {
+  addGovernmentRegionAction,
+  addRegionAction,
+  toggleMunicipalityAction,
+} from "./selection-slice.js";
 
 /**
  * @typedef {import("../../domain/territory.js").TerritoryIndex} TerritoryIndex
@@ -276,6 +280,10 @@ function stepActiveIndex(activeIndex, step, optionCount) {
 function dispatchAddition(dispatch, entry, options) {
   if (entry.kind === "region") {
     dispatch(addRegionAction(entry.code, options.territory));
+    return;
+  }
+  if (entry.kind === "governmentRegion") {
+    dispatch(addGovernmentRegionAction(entry.code, options.territory));
     return;
   }
   const isAlreadySelected = options.readSelectedCodes().includes(entry.code);

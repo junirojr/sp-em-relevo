@@ -113,6 +113,9 @@ test.describe("LAY-10 color and height cards in the column", () => {
       expect(restingOutline.style).toBe("none");
 
       await page.keyboard.press("ArrowRight");
+      await expect(page.locator("#appearance-color-region")).toBeFocused();
+      await expect(page.locator("#appearance-color-region")).toBeChecked();
+      await page.keyboard.press("ArrowRight");
       await expect(page.locator("#appearance-color-heat")).toBeFocused();
       await expect(page.locator("#appearance-color-heat")).toBeChecked();
 

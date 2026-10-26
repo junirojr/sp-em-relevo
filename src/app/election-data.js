@@ -1,5 +1,5 @@
-import { assignCandidateColors, getElectionNeutrals } from "../domain/election-colors.js";
 import { computeUnitElectionResult } from "../domain/election.js";
+import { assignCandidateColors, getElectionNeutrals } from "../domain/election-colors.js";
 
 /**
  * Election data loader and processor for 1st and 2nd round data.
@@ -34,13 +34,7 @@ let secondRoundCache = null;
  * @returns {string}
  */
 export function getFirstRoundOfficePath(office) {
-  const allowed = [
-    "presidente",
-    "governador",
-    "senador",
-    "deputado-federal",
-    "deputado-estadual",
-  ];
+  const allowed = ["presidente", "governador", "senador", "deputado-federal", "deputado-estadual"];
   if (allowed.includes(office)) {
     return `./data/election/${office}-1t.json`;
   }
@@ -53,7 +47,8 @@ export function getFirstRoundOfficePath(office) {
  * @param {string} [office="presidente"]
  * @param {{
  *   fetchImpl?: typeof fetch,
- *   theme?: ThemeMode
+ *   theme?: ThemeMode,
+ *   municipalities?: readonly import("../domain/territory.js").MunicipalityRecord[]
  * }} [options={}]
  * @returns {Promise<{
  *   ok: boolean,
@@ -151,7 +146,7 @@ export async function loadFirstRoundElectionData(office = "presidente", options 
       const count = Number(pair[1] ?? 0);
       if (count > bestVotes) {
         bestVotes = count;
-        bestBallot = String(pair[0]);
+        bestBallot = resolveBallotReference(pair[0], rawCandidates);
       }
     }
     if (bestBallot !== null) {
@@ -162,7 +157,8 @@ export async function loadFirstRoundElectionData(office = "presidente", options 
     }
   }
 
-  const stateTotals = rawData.totals?.state?.votes ?? [];
+  const totals = normalizeFirstRoundTotals(rawData.totals, rawCandidates);
+  const stateTotals = totals?.state?.votes ?? [];
   for (let s = 0; s < stateTotals.length; s += 1) {
     const sPair = stateTotals[s];
     const sBallot = String(sPair[0]);
@@ -175,6 +171,7 @@ export async function loadFirstRoundElectionData(office = "presidente", options 
 
   const palette = assignCandidateColors(colorInputCandidates, theme);
   const colorLookup = palette.colorByBallotNumber;
+  /** @type {Record<string, ElectionUnitResult>} */
   const municipalResults = {};
 
   const nameMap = new Map();
@@ -202,7 +199,7 @@ export async function loadFirstRoundElectionData(office = "presidente", options 
     const unitCandidates = [];
     for (let v = 0; v < votesArr.length; v += 1) {
       const pair = votesArr[v];
-      const ballotNumber = String(pair[0]);
+      const ballotNumber = resolveBallotReference(pair[0], rawCandidates);
       const vCount = Number(pair[1] ?? 0);
       const meta = candidateMap.get(ballotNumber);
       unitCandidates.push({
@@ -221,6 +218,8 @@ export async function loadFirstRoundElectionData(office = "presidente", options 
         validVotes,
         blankVotes,
         nullVotes,
+        demais: Number(row[4] ?? 0),
+        tenthPlaceVotes: Number(row[5] ?? 0),
         candidates: unitCandidates,
         sectionsCounted: 100,
         sectionsTotal: 100,
@@ -243,7 +242,7 @@ export async function loadFirstRoundElectionData(office = "presidente", options 
     candidates: colorInputCandidates,
     palette,
     municipalResults,
-    totals: rawData.totals ?? null,
+    totals,
     error: null,
   };
 }
@@ -253,7 +252,8 @@ export async function loadFirstRoundElectionData(office = "presidente", options 
  *
  * @param {{
  *   fetchImpl?: typeof fetch,
- *   theme?: ThemeMode
+ *   theme?: ThemeMode,
+ *   municipalities?: readonly import("../domain/territory.js").MunicipalityRecord[]
  * }} [options={}]
  * @returns {Promise<{
  *   ok: boolean,
@@ -321,27 +321,30 @@ export async function loadSecondRoundReplayData(options = {}) {
     { ballotNumber: "20", name: "Candidato Beta", party: "PARTIDO-B" },
   ];
 
-  const colorCandidates = rawCandidates.map((c, idx) => {
-    let votes = 10000000;
-    let ledMunicipalities = 295;
-    if (idx === 0) {
-      votes = 12000000;
-      ledMunicipalities = 350;
-    }
-    return {
-      ballotNumber: String(c.ballotNumber ?? idx + 1),
-      name: String(c.name ?? `Candidato ${idx + 1}`),
-      party: String(c.party ?? `PARTIDO-${idx + 1}`),
-      votes,
-      ledMunicipalities,
-    };
-  });
+  const colorCandidates = rawCandidates.map(
+    (/** @type {{ ballotNumber: any; name: any; party: any; }} */ c, /** @type {number} */ idx) => {
+      let votes = 10000000;
+      let ledMunicipalities = 295;
+      if (idx === 0) {
+        votes = 12000000;
+        ledMunicipalities = 350;
+      }
+      return {
+        ballotNumber: String(c.ballotNumber ?? idx + 1),
+        name: String(c.name ?? `Candidato ${idx + 1}`),
+        party: String(c.party ?? `PARTIDO-${idx + 1}`),
+        votes,
+        ledMunicipalities,
+      };
+    },
+  );
 
   const palette = assignCandidateColors(colorCandidates, theme);
   const colorLookup = palette.colorByBallotNumber;
 
   // Replay frame accumulation: compile all frames to get last known state per municipality
   const frames = rawData.frames ?? [];
+  /** @type {Record<string, [string, number, number]>} */
   const accumulatedMuns = {};
   for (let f = 0; f < frames.length; f += 1) {
     const frame = frames[f];
@@ -353,6 +356,7 @@ export async function loadSecondRoundReplayData(options = {}) {
     }
   }
 
+  /** @type {Record<string, ElectionUnitResult>} */
   const municipalResults = {};
   const accumulatedCodes = Object.keys(accumulatedMuns);
 
@@ -434,4 +438,33 @@ export async function loadSecondRoundReplayData(options = {}) {
     summary: rawData.summary ?? null,
     error: null,
   };
+}
+
+/** @param {string | number} reference
+ * @param {readonly (readonly [string, ...unknown[]])[]} candidates
+ * @returns {string} */
+function resolveBallotReference(reference, candidates) {
+  if (typeof reference === "number" && candidates[reference])
+    return String(candidates[reference][0]);
+  return String(reference);
+}
+/** @typedef {{validVotes: number, blankVotes: number, nullVotes: number, demais: number, votes: [string | number, number][]}} CompactVoteTotals */
+/** @param {{state?: CompactVoteTotals, ra?: Record<string, CompactVoteTotals>, rg?: Record<string, CompactVoteTotals>} | null | undefined} totals
+ * @param {readonly (readonly [string, ...unknown[]])[]} candidates */
+function normalizeFirstRoundTotals(totals, candidates) {
+  if (!totals) return null;
+  /** @param {CompactVoteTotals} unit */
+  const normalize = (unit) => ({
+    ...unit,
+    votes: unit.votes.map(
+      ([reference, votes]) =>
+        /** @type {[string, number]} */ ([resolveBallotReference(reference, candidates), votes]),
+    ),
+  });
+  /** @param {Record<string, CompactVoteTotals> | undefined} groups */
+  const normalizeGroups = (groups) =>
+    Object.fromEntries(Object.entries(groups ?? {}).map(([code, unit]) => [code, normalize(unit)]));
+  let state;
+  if (totals.state) state = normalize(totals.state);
+  return { ...totals, state, ra: normalizeGroups(totals.ra), rg: normalizeGroups(totals.rg) };
 }

@@ -235,6 +235,7 @@ test("RGV-01 accepts every municipality in exactly one government region with al
 });
 
 test("RGV-01 fails when a municipality has no government region", () => {
+  /** @type {{code: string, governmentRegionCode: string | null, governmentRegionName: string | null}[]} */
   const rows = createGovernmentRegionRows();
   rows[0] = { ...rows[0], governmentRegionCode: null, governmentRegionName: null };
 

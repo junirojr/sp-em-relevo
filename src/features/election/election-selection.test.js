@@ -14,10 +14,7 @@ import {
   resolveOfficeLabel,
   UNCERTAIN_LEADER_MESSAGE,
 } from "./election-compare-model.js";
-import {
-  buildElectionSearchEntries,
-  findElectionSearchResults,
-} from "./election-search-model.js";
+import { buildElectionSearchEntries, findElectionSearchResults } from "./election-search-model.js";
 import {
   buildElectionTableColumns,
   buildElectionTableModel,
@@ -91,7 +88,7 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
 
     const sideZero = describeElectionCompareSide(
       { code: "3550308", name: "Sao Paulo" },
-      { "3550308": zeroVotesData },
+      { 3550308: zeroVotesData },
     );
     // Before count / zero votes: ballot number ascending (13, 15, 22)
     const ballotsZero = sideZero.candidates.map((c) => c.ballotNumber);
@@ -110,7 +107,7 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
 
     const sideVotes = describeElectionCompareSide(
       { code: "3550308", name: "Sao Paulo" },
-      { "3550308": withVotesData },
+      { 3550308: withVotesData },
     );
     // With votes: 450 votes tied between 13 and 22 -> 13 comes first by tie-break, then 22, then 15
     const ballotsVotes = sideVotes.candidates.map((c) => c.ballotNumber);
@@ -137,7 +134,7 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
 
     // Exact match test
     const mockElectionUnits = {
-      "3550308": {
+      3550308: {
         code: "3550308",
         name: "Sao Paulo",
         totalValidVotes: 100000,
@@ -161,7 +158,7 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
 
   it("ELE-22 projects votes, shares, and margin in election comparison model", () => {
     const mockUnits = {
-      "3550308": {
+      3550308: {
         code: "3550308",
         name: "Sao Paulo",
         totalValidVotes: 100000,
@@ -172,7 +169,7 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
           { ballotNumber: 22, name: "Candidato B", party: "PL", validVotes: 40000 },
         ],
       },
-      "3509502": {
+      3509502: {
         code: "3509502",
         name: "Campinas",
         totalValidVotes: 50000,
@@ -186,7 +183,10 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
     };
 
     const compareModel = buildElectionCompareModel(
-      [{ code: "3550308", name: "Sao Paulo" }, { code: "3509502", name: "Campinas" }],
+      [
+        { code: "3550308", name: "Sao Paulo" },
+        { code: "3509502", name: "Campinas" },
+      ],
       mockUnits,
       { office: "presidente" },
     );
@@ -211,7 +211,7 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
     assert.ok(entries.length > 0);
 
     const mockUnits = {
-      "3550308": {
+      3550308: {
         code: "3550308",
         name: "Sao Paulo",
         totalValidVotes: 100000,
@@ -247,7 +247,7 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
     // Mun 2: SJC (RG: rg-38, RA: 4) -> PL: 1000, PT: 1500
     // Mun 3: SP (RG: rg-40, RA: 1) -> PL: 4000, PT: 6000
     const mockUnits = {
-      "3509502": {
+      3509502: {
         code: "3509502",
         name: "Campinas",
         totalValidVotes: 5000,
@@ -256,7 +256,7 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
           { ballotNumber: 13, name: "Candidato A", party: "PT", validVotes: 2000 },
         ],
       },
-      "3549904": {
+      3549904: {
         code: "3549904",
         name: "Sao Jose dos Campos",
         totalValidVotes: 2500,
@@ -265,7 +265,7 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
           { ballotNumber: 13, name: "Candidato A", party: "PT", validVotes: 1500 },
         ],
       },
-      "3550308": {
+      3550308: {
         code: "3550308",
         name: "Sao Paulo",
         totalValidVotes: 10000,
@@ -319,7 +319,7 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
 
   it("ACE-02 alternative table displays unit name, office, leader, party, percentages, margin, pst and color text", () => {
     const mockUnits = {
-      "3550308": {
+      3550308: {
         code: "3550308",
         name: "Sao Paulo",
         totalValidVotes: 10000,
@@ -384,9 +384,7 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
       totalValidVotes: 5000,
       otherVotes: 500,
       tenthPlaceVotes: 200,
-      candidates: [
-        { ballotNumber: 10101, name: "Deputado X", party: "PSOL", validVotes: 1000 },
-      ],
+      candidates: [{ ballotNumber: 10101, name: "Deputado X", party: "PSOL", validVotes: 1000 }],
     };
 
     const mun2 = {
@@ -395,9 +393,7 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
       totalValidVotes: 5000,
       otherVotes: 500,
       tenthPlaceVotes: 200,
-      candidates: [
-        { ballotNumber: 20202, name: "Deputado Y", party: "NOVO", validVotes: 1000 },
-      ],
+      candidates: [{ ballotNumber: 20202, name: "Deputado Y", party: "NOVO", validVotes: 1000 }],
     };
 
     const sideUncertain = describeElectionCompareSide(
@@ -406,13 +402,41 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
       {
         level: "region",
         municipalities: [
-          { code: "mun1", name: "Municipio 1", regionCode: "group1" },
-          { code: "mun2", name: "Municipio 2", regionCode: "group1" },
+          {
+            population: 0,
+            areaKm2: 0,
+            gdpThousandBrl: 0,
+            code: "mun1",
+            name: "Municipio 1",
+            regionCode: "group1",
+          },
+          {
+            population: 0,
+            areaKm2: 0,
+            gdpThousandBrl: 0,
+            code: "mun2",
+            name: "Municipio 2",
+            regionCode: "group1",
+          },
         ],
         territory: createTerritory({
           municipalities: [
-            { code: "mun1", name: "Municipio 1", regionCode: "group1" },
-            { code: "mun2", name: "Municipio 2", regionCode: "group1" },
+            {
+              population: 0,
+              areaKm2: 0,
+              gdpThousandBrl: 0,
+              code: "mun1",
+              name: "Municipio 1",
+              regionCode: "group1",
+            },
+            {
+              population: 0,
+              areaKm2: 0,
+              gdpThousandBrl: 0,
+              code: "mun2",
+              name: "Municipio 2",
+              regionCode: "group1",
+            },
           ],
           regions: [{ code: "group1", label: "Grupo Incerto" }],
         }),
@@ -437,9 +461,7 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
       totalValidVotes: 10000,
       otherVotes: 500,
       tenthPlaceVotes: 200,
-      candidates: [
-        { ballotNumber: 10101, name: "Deputado X", party: "PSOL", validVotes: 5000 },
-      ],
+      candidates: [{ ballotNumber: 10101, name: "Deputado X", party: "PSOL", validVotes: 5000 }],
     };
 
     const sideCertified = describeElectionCompareSide(
@@ -448,13 +470,41 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
       {
         level: "region",
         municipalities: [
-          { code: "mun1", name: "Municipio 1", regionCode: "group2" },
-          { code: "mun2", name: "Municipio 2", regionCode: "group2" },
+          {
+            population: 0,
+            areaKm2: 0,
+            gdpThousandBrl: 0,
+            code: "mun1",
+            name: "Municipio 1",
+            regionCode: "group2",
+          },
+          {
+            population: 0,
+            areaKm2: 0,
+            gdpThousandBrl: 0,
+            code: "mun2",
+            name: "Municipio 2",
+            regionCode: "group2",
+          },
         ],
         territory: createTerritory({
           municipalities: [
-            { code: "mun1", name: "Municipio 1", regionCode: "group2" },
-            { code: "mun2", name: "Municipio 2", regionCode: "group2" },
+            {
+              population: 0,
+              areaKm2: 0,
+              gdpThousandBrl: 0,
+              code: "mun1",
+              name: "Municipio 1",
+              regionCode: "group2",
+            },
+            {
+              population: 0,
+              areaKm2: 0,
+              gdpThousandBrl: 0,
+              code: "mun2",
+              name: "Municipio 2",
+              regionCode: "group2",
+            },
           ],
           regions: [{ code: "group2", label: "Grupo Certificado" }],
         }),
@@ -466,6 +516,7 @@ describe("Election Selection, Compare, Search and Table Model (ELE-11, ELE-22, R
     assert.equal(sideCertified.uncertainLeader, false);
     assert.ok(sideCertified.leader);
     assert.equal(sideCertified.leader.name, "Deputado X");
+    assert.ok(sideCertified.boundsCertificate);
     assert.equal(sideCertified.boundsCertificate.certified, true);
     assert.equal(sideCertified.boundsCertificate.bounds.minVotes, 5000);
   });

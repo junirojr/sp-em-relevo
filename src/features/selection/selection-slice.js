@@ -1,4 +1,5 @@
 import {
+  addGovernmentRegion,
   addRegion,
   selectByClassIndex,
   toggleGovernmentRegion,
@@ -17,18 +18,20 @@ import {
  *
  * @typedef {{ type: "selection/toggled", code: string }} ToggleMunicipalityAction
  * @typedef {{ type: "selection/regionToggled", regionCode: string, territory: TerritoryIndex }} ToggleRegionAction
+ * @typedef {{type: "selection/governmentRegionAdded", governmentRegionCode: string, territory: TerritoryIndex}} AddGovernmentRegionAction
  * @typedef {{ type: "selection/regionAdded", regionCode: string, territory: TerritoryIndex }} AddRegionAction
  * @typedef {{ type: "selection/classChosen", classIndex: number | null, classIndexByCode: Map<string, number> }} SelectClassAction
  * @typedef {{ type: "selection/unitRemoved", codes: readonly string[] }} RemoveCodesAction
  * @typedef {{ type: "selection/cleared" }} ClearSelectionAction
  * @typedef {{ type: "selection/noticeSet", notice: string }} SetNoticeAction
  * @typedef {{ type: "selection/noticeCleared" }} ClearNoticeAction
- * @typedef {ToggleMunicipalityAction | ToggleRegionAction | AddRegionAction | SelectClassAction | RemoveCodesAction | ClearSelectionAction | SetNoticeAction | ClearNoticeAction | { type: string }} SelectionAction
+ * @typedef {ToggleMunicipalityAction | ToggleRegionAction | AddGovernmentRegionAction | AddRegionAction | SelectClassAction | RemoveCodesAction | ClearSelectionAction | SetNoticeAction | ClearNoticeAction | { type: string }} SelectionAction
  */
 
 export const SELECTION_TOGGLED = "selection/toggled";
 export const SELECTION_REGION_TOGGLED = "selection/regionToggled";
 export const SELECTION_GOVERNMENT_REGION_TOGGLED = "selection/governmentRegionToggled";
+export const SELECTION_GOVERNMENT_REGION_ADDED = "selection/governmentRegionAdded";
 export const SELECTION_REGION_ADDED = "selection/regionAdded";
 export const SELECTION_CLASS_CHOSEN = "selection/classChosen";
 export const SELECTION_UNIT_REMOVED = "selection/unitRemoved";
@@ -180,6 +183,18 @@ export function reduceSelection(state, action) {
   if (action.type === SELECTION_GOVERNMENT_REGION_TOGGLED) {
     return handleToggleGovernmentRegion(state, /** @type {any} */ (action));
   }
+  if (action.type === SELECTION_GOVERNMENT_REGION_ADDED) {
+    const added = /** @type {AddGovernmentRegionAction} */ (action);
+    return {
+      selectedCodes: addGovernmentRegion(
+        [...state.selectedCodes],
+        added.territory,
+        added.governmentRegionCode,
+      ),
+      selectedClassIndex: null,
+      retentionNotice: null,
+    };
+  }
   if (action.type === SELECTION_REGION_ADDED) {
     return handleAddRegion(state, /** @type {AddRegionAction} */ (action));
   }
@@ -235,7 +250,11 @@ function handleToggleRegion(state, action) {
  * @returns {SelectionState}
  */
 function handleToggleGovernmentRegion(state, action) {
-  const nextCodes = toggleGovernmentRegion([...state.selectedCodes], action.territory, action.governmentRegionCode);
+  const nextCodes = toggleGovernmentRegion(
+    [...state.selectedCodes],
+    action.territory,
+    action.governmentRegionCode,
+  );
   return {
     selectedCodes: nextCodes,
     selectedClassIndex: null,
@@ -368,4 +387,11 @@ export function selectSelectedClassIndex(state) {
  */
 export function selectRetentionNotice(state) {
   return state.retentionNotice;
+}
+
+/** @param {string} governmentRegionCode
+ * @param {TerritoryIndex} territory
+ * @returns {AddGovernmentRegionAction} */
+export function addGovernmentRegionAction(governmentRegionCode, territory) {
+  return { type: SELECTION_GOVERNMENT_REGION_ADDED, governmentRegionCode, territory };
 }

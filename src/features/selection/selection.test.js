@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
+import { parseMunicipalities } from "../../app/data-loader.js";
 import { createRootSelectors } from "../../app/projection.js";
 import { changePointedUnit, createInitialState, reduceRootState } from "../../app/state.js";
 import { aggregateIndicator } from "../../domain/aggregation.js";
@@ -18,7 +19,6 @@ import {
   retargetLifts,
 } from "../../engine/frame-loop.js";
 import { buildMunicipalities } from "../../engine/geometry.js";
-import { parseMunicipalities } from "../../app/data-loader.js";
 import { buildClearViewModel } from "./clear-view.js";
 import { buildRankingUnits } from "./panel-view.js";
 import {
@@ -307,12 +307,7 @@ test("SEL-08 ranking lists the top 12 units in descending value order when empty
     assert.ok(top12Mun[i - 1].value >= top12Mun[i].value);
   }
 
-  const top12Reg = buildRankingUnits(
-    INDICATORS.population,
-    "region",
-    territory,
-    municipalities,
-  );
+  const top12Reg = buildRankingUnits(INDICATORS.population, "region", territory, municipalities);
   assert.equal(top12Reg.length, 12);
   assert.equal(top12Reg[0].name, "RM São Paulo");
 });
@@ -326,4 +321,30 @@ test("SEL-10 clear button is disabled with empty selection and enabled otherwise
 
   const cleared = reduceSelection(withCode, clearSelectionAction());
   assert.equal(buildClearViewModel(cleared).isDisabled, true);
+});
+
+test("RGV-03 SEL-02 adding a government region selects municipal codes and preserves an existing selection on repeated searches", async () => {
+  const { addGovernmentRegionAction } = await import("./selection-slice.js");
+  const municipalities = ["a", "b", "c"].map((code, index) => ({
+    code,
+    name: code,
+    regionCode: "1",
+    governmentRegionCode: index < 2 ? "rg-1" : "rg-2",
+    population: 1,
+    areaKm2: 1,
+    gdpThousandBrl: 1,
+  }));
+  const territory = createTerritory({
+    municipalities,
+    regions: [{ code: "1", label: "RA" }],
+    governmentRegions: [
+      { code: "rg-1", label: "RG 1" },
+      { code: "rg-2", label: "RG 2" },
+    ],
+  });
+  const initial = { ...createSelectionState(), selectedCodes: ["c"] };
+  const action = addGovernmentRegionAction("rg-1", territory);
+  const selected = reduceSelection(initial, action);
+  assert.deepEqual(new Set(selected.selectedCodes), new Set(["a", "b", "c"]));
+  assert.deepEqual(reduceSelection(selected, action).selectedCodes, selected.selectedCodes);
 });

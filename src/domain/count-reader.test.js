@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  DEFAULT_ELECTION_CODE,
-  FAILURE_BACKOFF_BASE_SECONDS,
-  FAILURE_BACKOFF_THRESHOLD,
-  MAX_RECOMMENDED_RATE_PER_SECOND,
   buildMunicipalConfigUrl,
   buildStateTrackingUrl,
   buildTotalizationUrl,
@@ -12,11 +8,15 @@ import {
   buildTseConfigIndexUrl,
   calculateFailureBackoff,
   createSessionBlocklist,
+  DEFAULT_ELECTION_CODE,
   detectAccessibilityMilestone,
   detectElectedCandidate,
+  FAILURE_BACKOFF_BASE_SECONDS,
+  FAILURE_BACKOFF_THRESHOLD,
   hasTrackingChanged,
   isBlocked404,
   isStaleGeneration,
+  MAX_RECOMMENDED_RATE_PER_SECOND,
   markHttp404,
   padElectionCode,
   parseMunicipalCountPayload,
@@ -175,15 +175,15 @@ test("APU-03 municipal queue prioritizes by descending electorate with <= 10 req
   ];
 
   const municipalConfigMap = {
-    "71072": { cdi: "3550308", nm: "Sao Paulo", elet: 9322444 },
-    "63770": { cdi: "3509502", nm: "Campinas", elet: 884784 },
-    "70998": { cdi: "3548500", nm: "Santos", elet: 353684 },
-    "61000": { cdi: "3599901", nm: "Ficticio", elet: 3500 },
+    71072: { cdi: "3550308", nm: "Sao Paulo", elet: 9322444 },
+    63770: { cdi: "3509502", nm: "Campinas", elet: 884784 },
+    70998: { cdi: "3548500", nm: "Santos", elet: 353684 },
+    61000: { cdi: "3599901", nm: "Ficticio", elet: 3500 },
   };
 
   const processedMap = {
     // 70998 is already processed with the exact same dg, hg, and sections
-    "70998": { dg: "25/10/2026", hg: "18:30:00", st: 450 },
+    70998: { dg: "25/10/2026", hg: "18:30:00", st: 450 },
   };
 
   const blocklist = createSessionBlocklist();
@@ -496,10 +496,7 @@ test("ACE-05 generates accessible status messages in pt-BR without en-dash or em
     { bannerState: "em-apuracao", sectionsPct: 99.8 },
     { bannerState: "apuracao-concluida", sectionsPct: 100 },
   );
-  assert.equal(
-    milestoneConcluded,
-    "Apuracao encerrada em Sao Paulo, 100% das secoes totalizadas",
-  );
+  assert.equal(milestoneConcluded, "Apuracao encerrada em Sao Paulo, 100% das secoes totalizadas");
 
   // Proclamation of elected
   const milestoneElected = detectAccessibilityMilestone(

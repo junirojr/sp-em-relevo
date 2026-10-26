@@ -554,9 +554,9 @@
       min(
         var(--sheet-collapsed-height, 128px),
         calc(var(--visual-viewport-height, 100dvh) * 0.26)
-      ) + var(--space-2)
+      ) +
+      var(--space-2)
     );
     right: var(--space-3);
   }
 }
-

@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  EXPECTED_MUNICIPALITY_COUNT,
-  EXPECTED_RA_CODES,
-  EXPECTED_RG_CODES,
-  MAX_FILE_SIZE_BYTES,
   checkCandidateOraclePercentage,
   checkDeputyStructure,
   checkFileSizeCeiling,
   checkMunicipalityCoverage,
   checkPreaggregatedTotals,
   checkValidVotesIntegrity,
+  EXPECTED_MUNICIPALITY_COUNT,
+  EXPECTED_RA_CODES,
+  EXPECTED_RG_CODES,
   hydrateUnitFromRow,
+  MAX_FILE_SIZE_BYTES,
 } from "./first-round-checks.js";
 
 test("TUR-01 checkMunicipalityCoverage approves exactly 645 valid 7-digit IBGE codes starting with 35", () => {
@@ -112,7 +112,9 @@ test("TUR-03 checkDeputyStructure enforces maximum 10 candidates, vote ordering,
     ],
   };
   const unorderedProblems = checkDeputyStructure(unorderedUnit);
-  assert.ok(unorderedProblems.some((p) => p.includes("nao estao ordenados por votos decrescentes")));
+  assert.ok(
+    unorderedProblems.some((p) => p.includes("nao estao ordenados por votos decrescentes")),
+  );
 
   const tooManyCandidatesUnit = {
     code: "3500105",
@@ -130,6 +132,7 @@ test("TUR-03 checkDeputyStructure enforces maximum 10 candidates, vote ordering,
 test("TUR-03 checkPreaggregatedTotals verifies RA (16), RG (43), and State totals", () => {
   const validStateVotes = 24000;
   const raVotes = Math.floor(validStateVotes / 16);
+  /** @type {Record<string, {validVotes: number}>} */
   const raMap = {};
   for (const ra of EXPECTED_RA_CODES) {
     raMap[ra] = { validVotes: raVotes };
@@ -138,6 +141,7 @@ test("TUR-03 checkPreaggregatedTotals verifies RA (16), RG (43), and State total
   raMap["1"].validVotes += validStateVotes - raVotes * 16;
 
   const rgVotes = Math.floor(validStateVotes / 43);
+  /** @type {Record<string, {validVotes: number}>} */
   const rgMap = {};
   for (const rg of EXPECTED_RG_CODES) {
     rgMap[rg] = { validVotes: rgVotes };
@@ -145,6 +149,7 @@ test("TUR-03 checkPreaggregatedTotals verifies RA (16), RG (43), and State total
   // Balance remainder into first RG
   rgMap["rg-1"].validVotes += validStateVotes - rgVotes * 43;
 
+  /** @type {Parameters<typeof checkPreaggregatedTotals>[0]} */
   const totals = {
     state: { validVotes: validStateVotes },
     ra: raMap,
@@ -156,7 +161,7 @@ test("TUR-03 checkPreaggregatedTotals verifies RA (16), RG (43), and State total
 
   const missingRaTotals = {
     state: { validVotes: validStateVotes },
-    ra: { "1": { validVotes: validStateVotes } },
+    ra: { 1: { validVotes: validStateVotes } },
     rg: rgMap,
   };
   const missingRaProblems = checkPreaggregatedTotals(missingRaTotals);
@@ -185,6 +190,7 @@ test("TUR-02 checkCandidateOraclePercentage checks tolerance bounds", () => {
 });
 
 test("hydrateUnitFromRow transforms compact columnar row into ElectionUnitInput", () => {
+  /** @type {Parameters<typeof hydrateUnitFromRow>[0]} */
   const row = [
     "3550308",
     10000,
@@ -199,8 +205,8 @@ test("hydrateUnitFromRow transforms compact columnar row into ElectionUnitInput"
   ];
 
   const metaMap = {
-    "22": { name: "Flavio Bolsonaro", party: "PL" },
-    "13": { name: "Lula", party: "PT" },
+    22: { name: "Flavio Bolsonaro", party: "PL" },
+    13: { name: "Lula", party: "PT" },
   };
 
   const hydrated = hydrateUnitFromRow(row, metaMap);

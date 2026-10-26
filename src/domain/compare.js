@@ -63,6 +63,7 @@ import { buildPanelUnits } from "./selection.js";
  *   recordsByCode: Map<string, MunicipalityRecord>,
  *   municipalities: StandingEntry[],
  *   regions: StandingEntry[],
+ *   governmentRegions: StandingEntry[],
  *   breaks: number[]
  * }} Standings
  */

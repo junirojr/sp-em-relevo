@@ -112,7 +112,7 @@ export function buildPanelUnits(selectedCodes, territory, level = "region") {
     return buildGovernmentRegionPanelUnits(selectedCodes, territory);
   }
   if (level === "municipality") {
-    return buildMunicipalityPanelUnits(selectedCodes, territory);
+    return buildRegionPanelUnits(selectedCodes, territory);
   }
   return buildRegionPanelUnits(selectedCodes, territory);
 }
@@ -231,6 +231,7 @@ function findFullRegions(selectedCodes, territory) {
 function findFullGovernmentRegions(selectedCodes, territory) {
   const selectedSet = new Set(selectedCodes);
   const fullRegions = new Map();
+  /** @type {import("./territory.js").RegionRecord[]} */
   let list = [];
   if (typeof territory.governmentRegions === "function") {
     list = territory.governmentRegions();
@@ -260,7 +261,9 @@ function codesOfRegion(territory, regionCode) {
  */
 function codesOfGovernmentRegion(territory, governmentRegionCode) {
   if (typeof territory.municipalitiesInGovernmentRegion === "function") {
-    return territory.municipalitiesInGovernmentRegion(governmentRegionCode).map((record) => record.code);
+    return territory
+      .municipalitiesInGovernmentRegion(governmentRegionCode)
+      .map((record) => record.code);
   }
   return [];
 }

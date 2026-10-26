@@ -18,15 +18,8 @@ test.describe("N13 Count and Election live 2nd round browser suite (APU, ELE, FL
       expect(selected).toContain(spCode);
 
       // Initialize election wiring inside the page
-      await page.evaluate(async () => {
-        const { initElectionWiring } = await import("../../src/app/election-wiring.js");
-        const store = /** @type {any} */ (window).__appStore;
-        initElectionWiring({
-          store,
-          documentRef: document,
-          windowRef: window,
-        });
-      });
+      await page.getByRole("button", { name: "Eleições TSE", exact: true }).click();
+      await expect(page.locator("#mode-selector-slot .mode-selector-group")).toBeVisible();
       await settle(page);
 
       const modeSlot = page.locator("#mode-selector-slot");
@@ -61,15 +54,8 @@ test.describe("N13 Count and Election live 2nd round browser suite (APU, ELE, FL
   }) => {
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_1366_768 });
     try {
-      await page.evaluate(async () => {
-        const { initElectionWiring } = await import("../../src/app/election-wiring.js");
-        const store = /** @type {any} */ (window).__appStore;
-        initElectionWiring({
-          store,
-          documentRef: document,
-          windowRef: window,
-        });
-      });
+      await page.getByRole("button", { name: "Eleições TSE", exact: true }).click();
+      await expect(page.locator("#mode-selector-slot .mode-selector-group")).toBeVisible();
       await settle(page);
 
       const modeSlot = page.locator("#mode-selector-slot");
@@ -82,8 +68,7 @@ test.describe("N13 Count and Election live 2nd round browser suite (APU, ELE, FL
       await expect(indicatorContainer).toBeHidden();
 
       // Switch back to indicators
-      const indicatorsRadio = modeSlot.locator('input[value="indicators"]');
-      await indicatorsRadio.check();
+      await page.getByRole("button", { name: "Censo IBGE", exact: true }).click();
       await settle(page);
 
       await expect(indicatorContainer).toBeVisible();
@@ -92,20 +77,15 @@ test.describe("N13 Count and Election live 2nd round browser suite (APU, ELE, FL
     }
   });
 
-  test("ELE-20 ?aba=2turno URL parameter opens second round directly", async ({
-    browser,
-  }) => {
-    const { context, page } = await openPage(browser, { viewport: VIEWPORT_1366_768 }, "/?aba=2turno");
+  test("ELE-20 ?aba=2turno URL parameter opens second round directly", async ({ browser }) => {
+    const { context, page } = await openPage(
+      browser,
+      { viewport: VIEWPORT_1366_768 },
+      "/?aba=2turno",
+    );
     try {
-      await page.evaluate(async () => {
-        const { initElectionWiring } = await import("../../src/app/election-wiring.js");
-        const store = /** @type {any} */ (window).__appStore;
-        initElectionWiring({
-          store,
-          documentRef: document,
-          windowRef: window,
-        });
-      });
+      await page.getByRole("button", { name: "Eleições TSE", exact: true }).click();
+      await expect(page.locator("#mode-selector-slot .mode-selector-group")).toBeVisible();
       await settle(page);
 
       const tab = await page.evaluate(() => {
@@ -126,15 +106,8 @@ test.describe("N13 Count and Election live 2nd round browser suite (APU, ELE, FL
   }) => {
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_390_844 });
     try {
-      await page.evaluate(async () => {
-        const { initElectionWiring } = await import("../../src/app/election-wiring.js");
-        const store = /** @type {any} */ (window).__appStore;
-        initElectionWiring({
-          store,
-          documentRef: document,
-          windowRef: window,
-        });
-      });
+      await page.getByRole("button", { name: "Eleições TSE", exact: true }).click();
+      await expect(page.locator("#mode-selector-slot .mode-selector-group")).toBeVisible();
       await settle(page);
 
       const bannerSlot = page.locator("#map-stage > #election-banner-slot");
@@ -173,8 +146,12 @@ test.describe("N13 Count and Election live 2nd round browser suite (APU, ELE, FL
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_1366_768 });
     try {
       await page.evaluate(async () => {
-        const { mountCountBannerView } = await import("../../src/features/count/count-banner-view.js");
-        const { createCountState } = await import("../../src/features/count/count-slice.js");
+        const { mountCountBannerView } = await import(
+          new URL("/src/features/count/count-banner-view.js", window.location.href).href
+        );
+        const { createCountState } = await import(
+          new URL("/src/features/count/count-slice.js", window.location.href).href
+        );
 
         const slot = document.getElementById("election-banner-slot");
         if (!slot) {
@@ -203,7 +180,9 @@ test.describe("N13 Count and Election live 2nd round browser suite (APU, ELE, FL
       await settle(page);
 
       const results = await page.evaluate(() => /** @type {any} */ (window).__bannerTestResults);
-      expect(results.textStopped).toContain("O TSE nao publicou dados novos desde 18:00:00 (Brasilia)");
+      expect(results.textStopped).toContain(
+        "O TSE nao publicou dados novos desde 18:00:00 (Brasilia)",
+      );
       expect(results.textNoConn).toContain("Sem conexao com o TSE desde 18:00:00 (Brasilia)");
       expect(results.textStopped).not.toContain("Recarregue");
       expect(results.textNoConn).not.toContain("Recarregue");
@@ -218,7 +197,9 @@ test.describe("N13 Count and Election live 2nd round browser suite (APU, ELE, FL
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_1366_768 });
     try {
       await page.evaluate(async () => {
-        const { renderArtifactNotice } = await import("../../src/app/election-loader.js");
+        const { renderArtifactNotice } = await import(
+          new URL("/src/app/election-loader.js", window.location.href).href
+        );
         const slot = document.getElementById("election-banner-slot");
         renderArtifactNotice(slot, document);
       });
@@ -238,14 +219,32 @@ test.describe("N13 Count and Election live 2nd round browser suite (APU, ELE, FL
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_1366_768 });
     try {
       await page.evaluate(async () => {
-        const { initElectionWiring } = await import("../../src/app/election-wiring.js");
+        const { initElectionWiring } = await import(
+          new URL("/src/app/election-wiring.js", window.location.href).href
+        );
         const store = /** @type {any} */ (window).__appStore;
         initElectionWiring({
           store,
           status: {
             mode: "live",
-            Features: { election: false, electionSecondRound: false, indicatorIncome: true, indicatorVoterTurnout: true, levelGovernmentRegion: true, altTable: true, pngExport: true },
-            features: { election: false, electionSecondRound: false, indicatorIncome: true, indicatorVoterTurnout: true, levelGovernmentRegion: true, altTable: true, pngExport: true },
+            Features: {
+              election: false,
+              electionSecondRound: false,
+              indicatorIncome: true,
+              indicatorVoterTurnout: true,
+              levelGovernmentRegion: true,
+              altTable: true,
+              pngExport: true,
+            },
+            features: {
+              election: false,
+              electionSecondRound: false,
+              indicatorIncome: true,
+              indicatorVoterTurnout: true,
+              levelGovernmentRegion: true,
+              altTable: true,
+              pngExport: true,
+            },
             replay: { available: false, path: "" },
             updatedAt: null,
           },
@@ -261,4 +260,33 @@ test.describe("N13 Count and Election live 2nd round browser suite (APU, ELE, FL
       await context.close();
     }
   });
+});
+
+test("APU-04 FLG-01 live mode with replay unavailable never loads synthetic replay results", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ viewport: VIEWPORT_1366_768 });
+  const page = await context.newPage();
+  /** @type {string[]} */
+  const replayRequests = [];
+  page.on("request", (request) => {
+    if (request.url().includes("replay-presidente")) replayRequests.push(request.url());
+  });
+  await page.route("https://resultados.tse.jus.br/**", (route) =>
+    route.fulfill({ status: 503, body: "Unavailable" }),
+  );
+  try {
+    await page.goto("/");
+    await settle(page);
+    await page.getByRole("button", { name: "Eleições TSE", exact: true }).click();
+    await expect(page.locator("#election-banner-slot")).toBeVisible();
+    await expect(page.locator("#election-rankings-view")).toBeVisible();
+    await expect(page.locator("#election-rankings-view .candidate-ranking-item")).toHaveCount(0);
+    expect(replayRequests).toEqual([]);
+    expect(
+      await page.evaluate(() => Object.keys(/** @type {any} */ (window).__electionResults ?? {})),
+    ).toEqual([]);
+  } finally {
+    await context.close();
+  }
 });

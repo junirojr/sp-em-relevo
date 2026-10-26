@@ -5,6 +5,9 @@ import { MockDocument } from "../helpers/dom-mock.js";
 
 test("F09-01: Switching from TSE back to Censo IBGE restores indicators tab", () => {
   let activeTab = "second-round";
+  /**
+   * @param {string} nextTab
+   */
   function switchTab(nextTab) {
     activeTab = nextTab;
   }

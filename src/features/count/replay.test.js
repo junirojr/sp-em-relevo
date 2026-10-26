@@ -13,6 +13,8 @@ function loadFixture() {
 
 /**
  * Minimal recursive selector matching for mock DOM.
+ * @param {{ attributes: { class: any; id: any; }; className: any; id: any; tagName: any; }} el
+ * @param {string} selector
  */
 function matchesSelector(el, selector) {
   if (!el || typeof el !== "object") {
@@ -33,6 +35,11 @@ function matchesSelector(el, selector) {
   return el.tagName === selector.toUpperCase();
 }
 
+/**
+ * @param {{ tagName?: any; attributes?: {}; children: any; classList?: Set<any>; style?: {}; hidden?: boolean; textContent?: string; innerHTML?: string; value?: string; min?: string; max?: string; step?: string; type?: string; parentNode?: null; setAttribute?: (name: any, val: any) => void; getAttribute?: (name: any) => any; removeAttribute?: (name: any) => void; append?: (...items: any[]) => void; querySelector?: (selector: any) => any; querySelectorAll?: (selector: any) => any[]; addEventListener?: (ev: any, cb: any) => void; removeEventListener?: (ev: any, cb: any) => void; dispatchEvent?: (event: any) => void; }} root
+ * @param {any} selector
+ * @returns {any}
+ */
 function findInTree(root, selector) {
   for (const child of root.children || []) {
     if (matchesSelector(child, selector)) {
@@ -46,6 +53,11 @@ function findInTree(root, selector) {
   return null;
 }
 
+/**
+ * @param {{ tagName?: any; attributes?: {}; children: any; classList?: Set<any>; style?: {}; hidden?: boolean; textContent?: string; innerHTML?: string; value?: string; min?: string; max?: string; step?: string; type?: string; parentNode?: null; setAttribute?: (name: any, val: any) => void; getAttribute?: (name: any) => any; removeAttribute?: (name: any) => void; append?: (...items: any[]) => void; querySelector?: (selector: any) => any; querySelectorAll?: (selector: any) => any[]; addEventListener?: (ev: any, cb: any) => void; removeEventListener?: (ev: any, cb: any) => void; dispatchEvent?: (event: any) => void; }} root
+ * @param {any} selector
+ * @param {any[]} results
+ */
 function collectInTree(root, selector, results) {
   for (const child of root.children || []) {
     if (matchesSelector(child, selector)) {
@@ -61,8 +73,12 @@ function collectInTree(root, selector, results) {
 function createMockEnvironment() {
   const elements = new Map();
 
+  /**
+   * @param {string} tag
+   */
   function createElement(tag) {
     const listeners = new Map();
+    /** @type {any} DOM test double. */
     const el = {
       tagName: tag.toUpperCase(),
       attributes: {},
@@ -78,15 +94,28 @@ function createMockEnvironment() {
       step: "",
       type: "",
       parentNode: null,
+      /**
+       * @param {string | number} name
+       * @param {any} val
+       */
       setAttribute(name, val) {
         el.attributes[name] = String(val);
       },
+      /**
+       * @param {string | number} name
+       */
       getAttribute(name) {
         return el.attributes[name] ?? null;
       },
+      /**
+       * @param {string | number} name
+       */
       removeAttribute(name) {
         delete el.attributes[name];
       },
+      /**
+       * @param {any[]} items
+       */
       append(...items) {
         for (const item of items) {
           if (typeof item === "string") {
@@ -97,26 +126,46 @@ function createMockEnvironment() {
           el.children.push(item);
         }
       },
+      /**
+       * @param {any} selector
+       */
       querySelector(selector) {
         return findInTree(el, selector);
       },
+      /**
+       * @param {any} selector
+       */
       querySelectorAll(selector) {
+        /**
+         * @type {any[]}
+         */
         const results = [];
         collectInTree(el, selector, results);
         return results;
       },
+      /**
+       * @param {any} ev
+       * @param {any} cb
+       */
       addEventListener(ev, cb) {
         if (!listeners.has(ev)) {
           listeners.set(ev, []);
         }
         listeners.get(ev).push(cb);
       },
+      /**
+       * @param {any} ev
+       * @param {any} cb
+       */
       removeEventListener(ev, cb) {
         if (listeners.has(ev)) {
-          const list = listeners.get(ev).filter((fn) => fn !== cb);
+          const list = listeners.get(ev).filter((/** @type {any} */ fn) => fn !== cb);
           listeners.set(ev, list);
         }
       },
+      /**
+       * @param {{ type: any; }} event
+       */
       dispatchEvent(event) {
         const cbs = listeners.get(event.type) || [];
         for (const cb of cbs) {
@@ -127,8 +176,12 @@ function createMockEnvironment() {
     return el;
   }
 
+  /** @type {any} DOM test double. */
   const documentRef = {
     createElement,
+    /**
+     * @param {string} id
+     */
     getElementById(id) {
       if (!elements.has(id)) {
         const el = createElement("div");
@@ -209,7 +262,7 @@ describe("Replay View Component Suite (N17, RPL-01, RPL-03, RPL-04, RPL-05, ACE-
     const totalFrames = fixture.frames.length;
     const lastIdx = totalFrames - 1;
 
-    let frameChanges = [];
+    const frameChanges = [];
     const view = mountReplayView(documentRef, slotElement, {
       isAvailable: true,
       replayDoc: fixture,
@@ -303,6 +356,7 @@ describe("Replay View Component Suite (N17, RPL-01, RPL-03, RPL-04, RPL-05, ACE-
 
     assert.equal(view.getCurrentIndex(), 6);
     const currentF = view.getCurrentFrame();
+    assert.ok(currentF);
     assert.equal(currentF.isGap, true);
     assert.equal(currentF.gapBeforeSeconds, 420);
 

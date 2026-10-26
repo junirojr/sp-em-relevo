@@ -14,6 +14,10 @@ const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const ignoredPaths = ["legacy", "node_modules", ".git", ".claude", "scripts/dev/fixtures"];
 const scannedAreas = ["src/domain", "src/engine", "src/features", "src/app", "scripts"];
 const sourceExtensions = new Set([".js", ".mjs"]);
+const toolDependencies = new Map([
+  ["scripts/dev/build-runtime.mjs", new Set(["esbuild"])],
+  ["scripts/publish/runtime-files.mjs", new Set(["typescript"])],
+]);
 
 /**
  * @typedef {{ kind: string, slice?: string }} Place
@@ -46,6 +50,7 @@ async function violationsOfFile(rootDir, file) {
   /** @type {Violation[]} */
   const violations = [];
   for (const specifier of importSpecifiersOf(source)) {
+    if (toolDependencies.get(file)?.has(specifier)) continue;
     const to = classifyImport(file, specifier);
     if (!isAllowed(from, to)) {
       violations.push({ file, specifier, rule: describeRule(from, to) });

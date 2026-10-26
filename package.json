@@ -3,18 +3,19 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node scripts/dev/serve.mjs --port 4173",
-    "serve": "node scripts/dev/serve.mjs --port 4173",
+    "start": "npm run build && node scripts/dev/serve.mjs --port 4173",
+    "serve": "npm run build && node scripts/dev/serve.mjs --port 4173",
     "lint": "biome check . && node scripts/dev/check-boundaries.mjs",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.domain.json",
-    "test:unit": "node --test \"src/**/*.test.js\" \"scripts/**/*.test.js\" \"tests/**/*.test.js\"",
-    "test:e2e": "playwright test",
+    "test:unit": "npm run build && node --test \"src/**/*.test.js\" \"scripts/**/*.test.js\" \"tests/**/*.test.js\"",
+    "test:e2e": "npm run build && playwright test",
     "verify": "npm run lint && npm run typecheck && npm run test:unit && npm run test:e2e",
     "trace": "node scripts/dev/check-traceability.mjs",
     "scan": "node scripts/publish/scan.mjs",
     "data:fetch": "node scripts/data/fetch-sources.mjs",
     "data:build": "node scripts/data/build-data.mjs",
-    "data": "npm run data:fetch && npm run data:build"
+    "data": "npm run data:fetch && npm run data:build",
+    "build": "node scripts/dev/build-runtime.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
@@ -22,6 +23,7 @@
     "@playwright/test": "1.63.0",
     "@types/node": "22.20.4",
     "@types/three": "0.185.4",
+    "esbuild": "0.28.2",
     "three": "0.185.1",
     "typescript": "6.0.3"
   }

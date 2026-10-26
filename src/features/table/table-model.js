@@ -27,6 +27,7 @@ import { groupOf } from "../../domain/territory.js";
  *   isPointed: boolean,
  *   isInspected: boolean,
  *   value?: number | null,
+ *   office?: string,
  *   formattedValue?: string,
  *   classIndex?: number,
  *   classLabel?: string,
@@ -59,17 +60,21 @@ import { groupOf } from "../../domain/territory.js";
 
 export const WCAG_FOOTER_BADGE = "projetado para WCAG 2.2 AA";
 
+/** @type {Record<string, string>} */
+/** @type {Record<string, string>} */
 const LEVEL_LABELS = {
   municipality: "Município",
   governmentRegion: "Região de governo",
   region: "Região administrativa",
 };
 
+/** @type {Record<string, string>} */
 const ROUND_LABELS = {
   "first-round": "1º turno (Governador e Presidente)",
   "second-round": "2º turno (Presidente)",
 };
 
+/** @type {Record<string, string>} */
 const THEME_LABELS = {
   light: "claro",
   dark: "escuro",
@@ -111,6 +116,8 @@ export function resolveRoundLabel(round) {
   return "Eleição";
 }
 
+/** @type {Record<string, string>} */
+/** @type {Record<string, string>} */
 const OFFICE_LABELS = {
   presidente: "Presidente",
   governador: "Governador",
@@ -151,7 +158,10 @@ export function resolveIndicatorLabel(indicator) {
  *   level?: TerritorialLevel,
  *   indicator?: any,
  *   totalUnits?: number,
- *   theme?: ThemeId
+ *   theme?: ThemeId,
+ *   office?: string,
+ *   territory?: import("../../domain/territory.js").TerritoryIndex,
+ *   isDeputyFreeSelection?: boolean
  * }} [options]
  * @returns {string}
  */
@@ -192,7 +202,10 @@ export function resolveColorText(party = "", status = "") {
     return "Cinza em apuração";
   }
 
-  const normalized = String(party || "").toUpperCase().trim();
+  const normalized = String(party || "")
+    .toUpperCase()
+    .trim();
+  /** @type {Record<string, string>} */
   const partyColors = {
     PT: "Vermelho",
     PL: "Azul escuro",
@@ -270,7 +283,9 @@ export function formatMarginPoints(value) {
  * @param {{
  *   mode?: ModeId,
  *   level?: TerritorialLevel,
- *   indicator?: any
+ *   indicator?: any,
+ *   includeOffice?: boolean,
+ *   office?: string
  * }} [options]
  * @returns {TableColumn[]}
  */
@@ -280,6 +295,7 @@ export function buildTableColumns(options = {}) {
   const unitLabel = resolveLevelLabel(level);
 
   if (mode === "first-round" || mode === "second-round") {
+    /** @type {TableColumn[]} */
     const cols = [
       { key: "selection", label: "Seleção", align: "center", type: "control" },
       { key: "code", label: "Código", align: "left", type: "text" },
@@ -302,6 +318,7 @@ export function buildTableColumns(options = {}) {
   }
 
   const indicatorLabel = resolveIndicatorLabel(options.indicator);
+  /** @type {TableColumn[]} */
   const columns = [
     { key: "selection", label: "Seleção", align: "center", type: "control" },
     { key: "code", label: "Código", align: "left", type: "text" },
@@ -337,7 +354,10 @@ export function buildTableColumns(options = {}) {
  *   pointedCode?: string | null,
  *   inspectedCode?: string | null,
  *   electionUnits?: Record<string, any> | Map<string, any> | any[],
- *   theme?: ThemeId
+ *   theme?: ThemeId,
+ *   office?: string,
+ *   territory?: import("../../domain/territory.js").TerritoryIndex,
+ *   isDeputyFreeSelection?: boolean
  * }} [options]
  * @returns {TableRow[]}
  */
@@ -417,7 +437,10 @@ export function buildTableRows(options = {}) {
  *   pointedCode: string | null,
  *   inspectedCode: string | null,
  *   electionUnits?: any,
- *   theme?: ThemeId
+ *   theme?: ThemeId,
+ *   office?: string,
+ *   territory?: import("../../domain/territory.js").TerritoryIndex,
+ *   isDeputyFreeSelection?: boolean
  * }} ctx
  * @returns {TableRow[]}
  */
@@ -462,7 +485,7 @@ function buildMunicipalityRows(ctx) {
         name: mun.name,
       };
       const elecResult = computeUnitElectionResult(elecData, {
-        mode: ctx.mode,
+        mode: resolveElectionRoundMode(ctx.mode),
         theme: ctx.theme || "dark",
       });
 
@@ -563,7 +586,10 @@ function buildMunicipalityRows(ctx) {
  *   pointedCode: string | null,
  *   inspectedCode: string | null,
  *   electionUnits?: any,
- *   theme?: ThemeId
+ *   theme?: ThemeId,
+ *   office?: string,
+ *   territory?: import("../../domain/territory.js").TerritoryIndex,
+ *   isDeputyFreeSelection?: boolean
  * }} ctx
  * @returns {TableRow[]}
  */
@@ -609,7 +635,7 @@ function buildGovernmentRegionRows(ctx) {
       const aggResult = aggregateElectionUnits(childInputs, {
         code: gov.code,
         name: gov.label,
-        mode: ctx.mode,
+        mode: resolveElectionRoundMode(ctx.mode),
         theme: ctx.theme || "dark",
         isDeputyFreeSelection: ctx.isDeputyFreeSelection,
       });
@@ -742,7 +768,7 @@ function buildRegionRows(ctx) {
       const aggResult = aggregateElectionUnits(childInputs, {
         code: reg.code,
         name: reg.label,
-        mode: ctx.mode,
+        mode: resolveElectionRoundMode(ctx.mode),
         theme: ctx.theme || "dark",
         isDeputyFreeSelection: ctx.isDeputyFreeSelection,
       });
@@ -863,7 +889,10 @@ function resolveElectionLookup(electionUnits) {
  *   pointedCode?: string | null,
  *   inspectedCode?: string | null,
  *   electionUnits?: any,
- *   theme?: ThemeId
+ *   theme?: ThemeId,
+ *   office?: string,
+ *   territory?: import("../../domain/territory.js").TerritoryIndex,
+ *   isDeputyFreeSelection?: boolean
  * }} [options]
  * @returns {TableModel}
  */
@@ -897,4 +926,11 @@ export function buildTableModel(options = {}) {
     totalCount: rows.length,
     selectedCount,
   };
+}
+
+/** @param {ModeId} mode
+ * @returns {import("../../domain/election.js").ElectionRoundMode} */
+function resolveElectionRoundMode(mode) {
+  if (mode === "first-round") return mode;
+  return "live";
 }

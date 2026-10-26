@@ -23,10 +23,7 @@ test("B08-01: Candidate index out of bounds in votes array is skipped without th
     rows: [["3550308", 100, 0, 0, 0, 0, [[999, 100]]]],
   };
 
-  const fakeFetch = async () => ({
-    ok: true,
-    json: async () => fakeData,
-  });
+  const fakeFetch = async () => new Response(JSON.stringify(fakeData));
 
   const res = await loadFirstRoundElectionData("deputado-federal", { fetchImpl: fakeFetch });
   assert.ok(res.ok);

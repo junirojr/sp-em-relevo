@@ -5,6 +5,8 @@ export const openTable = () => ({ type: TABLE_OPEN });
 export const closeTable = () => ({ type: TABLE_CLOSE });
 export const createTableState = () => ({ isOpen: false });
 
+/** @param {{isOpen: boolean}} [state]
+ * @param {{type?: string}} [action] */
 export function reduceTable(state = createTableState(), action = {}) {
   if (action.type === TABLE_OPEN) return { isOpen: true };
   if (action.type === TABLE_CLOSE) return { isOpen: false };
@@ -14,8 +16,9 @@ export function reduceTable(state = createTableState(), action = {}) {
 export function mountTableFeature(doc = document, opts = {}) {
   const link = doc.getElementById("open-table-link");
   if (!link) return null;
+  /** @type {import("./table-view.js").TableViewController | null} */
   let view = null;
-  const onOpen = (e) => {
+  const onOpen = (/** @type {{ preventDefault: () => void; }} */ e) => {
     e.preventDefault();
     if (view) {
       view.open();

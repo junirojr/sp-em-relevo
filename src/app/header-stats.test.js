@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import { findIndicator } from "../domain/indicator.js";
+import { parseMunicipalities } from "./data-loader.js";
 import {
   buildHeaderStats,
   buildMapMetrics,
@@ -14,7 +15,7 @@ const SYNTHETIC_LABEL = "Dado sintético";
 /** @returns {Array<Record<string, any>>} */
 function loadMunicipalities() {
   const content = fs.readFileSync("data/municipalities.json", "utf8");
-  return JSON.parse(content).municipalities;
+  return parseMunicipalities(JSON.parse(content));
 }
 
 test("LAY-07 header stats count the loaded municipalities and sum the population", () => {

@@ -50,14 +50,19 @@ export function mountTableView(documentRef = document, options = {}) {
   ensureStylesheet(documentRef);
 
   const windowRef = documentRef.defaultView || window;
-  let slot = documentRef.getElementById("alt-table-slot");
-  if (!slot) {
-    slot = documentRef.createElement("div");
-    slot.id = "alt-table-slot";
-    slot.hidden = true;
-    documentRef.body.appendChild(slot);
+  let existingSlot = documentRef.getElementById("alt-table-slot");
+  if (!existingSlot) {
+    existingSlot = documentRef.createElement("div");
+    existingSlot.id = "alt-table-slot";
+    existingSlot.hidden = true;
+    documentRef.body.appendChild(existingSlot);
   }
 
+  const slot = existingSlot;
+
+  /**
+   * @type {HTMLElement | null}
+   */
   let lastFocusedElement = null;
   let currentOptions = { ...options };
   let isCurrentlyOpen = !slot.hidden;
@@ -102,11 +107,9 @@ export function mountTableView(documentRef = document, options = {}) {
     const governmentRegions =
       currentOptions.governmentRegions || data.regions?.governmentRegions || [];
     const breaks = currentOptions.breaks || state.scale?.breaks || [];
-    const selectedCodes =
-      currentOptions.selectedCodes || state.selection?.selectedCodes || [];
+    const selectedCodes = currentOptions.selectedCodes || state.selection?.selectedCodes || [];
     const pointedCode = currentOptions.pointedCode || state.pointer?.pointedCode || null;
-    const inspectedCode =
-      currentOptions.inspectedCode || state.pointer?.inspectedCode || null;
+    const inspectedCode = currentOptions.inspectedCode || state.pointer?.inspectedCode || null;
     const mode = currentOptions.mode || state.tab || "indicators";
     const level = currentOptions.level || state.level?.id || "municipality";
     const indicator = currentOptions.indicator || state.indicator?.definition || null;
@@ -150,6 +153,9 @@ export function mountTableView(documentRef = document, options = {}) {
     windowRef.dispatchEvent(new CustomEvent("app:action", { detail: action }));
   }
 
+  /**
+   * @param {string} code
+   */
   function handleSelectUnit(code) {
     if (typeof currentOptions.onSelectUnit === "function") {
       currentOptions.onSelectUnit(code);
@@ -158,6 +164,9 @@ export function mountTableView(documentRef = document, options = {}) {
     dispatchAction({ type: ACTION_SELECTION_TOGGLED, code });
   }
 
+  /**
+   * @param {string} code
+   */
   function handleInspectUnit(code) {
     if (typeof currentOptions.onInspectUnit === "function") {
       currentOptions.onInspectUnit(code);
@@ -426,14 +435,19 @@ export function mountTableView(documentRef = document, options = {}) {
     // Restore focus if previously active element was inside table (ACE-03)
     if (savedCode && savedType) {
       const match = container.querySelector(
-        `[data-code="${savedCode}"][data-action="${savedType}"]`,
+        /* focusable row control */ /** @type {string} */ (
+          `[data-code="${savedCode}"][data-action="${savedType}"]`
+        ),
       );
-      if (match && typeof match.focus === "function") {
+      if (match && "focus" in match && typeof match.focus === "function") {
         match.focus();
       }
     }
   }
 
+  /**
+   * @param {{ key: string; preventDefault: () => void; }} event
+   */
   function handleKeyDown(event) {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -446,10 +460,10 @@ export function mountTableView(documentRef = document, options = {}) {
   function open() {
     isCurrentlyOpen = true;
     slot.hidden = false;
-    lastFocusedElement = documentRef.activeElement;
+    lastFocusedElement = /** @type {HTMLElement | null} */ (documentRef.activeElement);
     render();
 
-    const closeBtn = container.querySelector(".alt-table-close-btn");
+    const closeBtn = container.querySelector(/** @type {"button"} */ (".alt-table-close-btn"));
     if (closeBtn && typeof closeBtn.focus === "function") {
       closeBtn.focus();
     }
@@ -485,6 +499,9 @@ export function mountTableView(documentRef = document, options = {}) {
     }
   }
 
+  /**
+   * @type {(() => void) | null}
+   */
   let unsubscribeStore = null;
   const store = /** @type {any} */ (windowRef).__appStore;
   if (store && typeof store.subscribe === "function") {

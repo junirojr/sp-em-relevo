@@ -139,6 +139,7 @@ function wireCompareActions(parts, actions) {
   parts.minimizeButton.addEventListener("click", (e) => {
     e.stopPropagation();
     actions.minimize();
+    parts.reopenButton.focus();
   });
   parts.panel.addEventListener("click", (e) => {
     const target = /** @type {HTMLElement} */ (e.target);
@@ -258,8 +259,8 @@ function renderCompare(documentRef, parts, local) {
     parts.minimizeButton.title = "Minimizar comparativo";
     parts.minimizeButton.replaceChildren(buildIcon(documentRef, MINIMIZE_ICON));
   }
-  parts.panel.hidden = false;
-  parts.reopenButton.hidden = true;
+  parts.panel.hidden = local.isMinimized;
+  parts.reopenButton.hidden = !local.isMinimized;
   renderModel(documentRef, parts, shown);
 }
 
@@ -271,7 +272,9 @@ function renderCompare(documentRef, parts, local) {
 function renderModel(documentRef, parts, model) {
   parts.title.textContent = model.title;
   parts.count.textContent = model.countLabel;
-  const sideCards = model.sides.map((side, index) => buildSideCard(documentRef, side, SIDE_LETTERS[index]));
+  const sideCards = model.sides.map((side, index) =>
+    buildSideCard(documentRef, side, SIDE_LETTERS[index]),
+  );
   const vsBadge = createElement(documentRef, "div", "compare-vs-badge", "VS");
   vsBadge.setAttribute("aria-hidden", "true");
   if (sideCards.length === 2) {

@@ -13,8 +13,7 @@ import { DEFAULT_STATUS, normalizeStatus } from "./data-loader.js";
  * @typedef {import("./data-loader.js").OperationalStatus} OperationalStatus
  */
 
-export const ARTIFACT_URL_PAGES =
-  "https://junirojr.github.io/sp-em-relevo/?aba=2turno";
+export const ARTIFACT_URL_PAGES = "https://junirojr.github.io/sp-em-relevo/?aba=2turno";
 
 export const ARTIFACT_TIMELESS_NOTICE =
   "A apuracao ao vivo do 2º turno e transmitida em https://junirojr.github.io/sp-em-relevo/?aba=2turno durante a contagem de 25/10.";

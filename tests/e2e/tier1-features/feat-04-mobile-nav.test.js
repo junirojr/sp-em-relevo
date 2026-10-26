@@ -59,7 +59,7 @@ test("F04-04: Clicking tab in bottom nav dispatches onTabSelect", () => {
   });
 
   const buttons = nav.element.querySelectorAll("button, [role='tab']");
-  buttons[1].click();
+  /** @type {HTMLElement} */ (buttons[1]).click();
   assert.ok(clickedTab !== null, "clicking tab must trigger onTabSelect");
   nav.destroy();
 });

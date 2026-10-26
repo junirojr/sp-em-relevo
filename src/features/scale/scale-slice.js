@@ -1,10 +1,10 @@
 import {
   classify,
   classifyRegionColors,
-  computeBreaks as domainComputeBreaks,
-  getRegionColor,
   HEAT_BAND_COUNT as DOMAIN_HEAT_BAND_COUNT,
   REGION_COLOR_COUNT as DOMAIN_REGION_COLOR_COUNT,
+  computeBreaks as domainComputeBreaks,
+  getRegionColor,
   REGION_COLORS_DARK,
   REGION_COLORS_LIGHT,
   REGION_PALETTES,

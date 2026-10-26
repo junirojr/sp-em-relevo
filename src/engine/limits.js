@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { decodeArc, readArcUsage, readSharedArcs } from "../domain/topology.js";
 import { groupOf } from "../domain/territory.js";
+import { decodeArc, readArcUsage, readSharedArcs } from "../domain/topology.js";
 import { BORDER_OFFSET, REGION_BORDER_OPACITY } from "./constants.js";
 import { readTopHeight } from "./frame-loop.js";
 
@@ -126,7 +126,11 @@ export function applyLimitStyle({ borders, limitLines }, level) {
  * @returns {{ isLimitVisible: boolean; borderOpacity: number }}
  */
 export function readLimitStyle(level) {
-  if (level === REGION_LEVEL || level === ADMINISTRATIVE_REGION_LEVEL || level === GOVERNMENT_REGION_LEVEL) {
+  if (
+    level === REGION_LEVEL ||
+    level === ADMINISTRATIVE_REGION_LEVEL ||
+    level === GOVERNMENT_REGION_LEVEL
+  ) {
     return { isLimitVisible: true, borderOpacity: REGION_BORDER_OPACITY };
   }
   return { isLimitVisible: false, borderOpacity: VISIBLE_BORDER_OPACITY };

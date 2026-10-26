@@ -157,4 +157,3 @@ export const MAP_FIVE_LINES = Object.freeze({
   pointedHighlight: POINTED_HIGHLIGHT,
   selectedPerimeter: SELECTED_PERIMETER,
 });
-

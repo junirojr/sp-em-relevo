@@ -2,7 +2,9 @@
   "include": [
     "index.html",
     "src/**",
+    "dist/**",
     "data/*.json",
+    "data/*.json.gz",
     "data/election/**",
     "scripts/data/*",
     "scripts/election/*",

@@ -50,10 +50,7 @@ export const ELECTION_SELECTION_NOTICE_CLEARED = "election/selectionNoticeCleare
  * @param {ElectionOffice} [initialOffice="presidente"]
  * @returns {ElectionState}
  */
-export function createElectionState(
-  initialTab = TAB_INDICATORS,
-  initialOffice = OFFICE_PRESIDENT,
-) {
+export function createElectionState(initialTab = TAB_INDICATORS, initialOffice = OFFICE_PRESIDENT) {
   return {
     tab: initialTab,
     office: initialOffice,

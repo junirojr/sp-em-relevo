@@ -11,7 +11,7 @@ import { addRegionAction, removeCodesAction, toggleMunicipalityAction } from "./
  * @typedef {import("../../domain/territory.js").MunicipalityRecord} MunicipalityRecord
  * @typedef {import("../../domain/indicator.js").IndicatorDefinition} IndicatorDefinition
  * @typedef {import("../../domain/selection.js").PanelUnit} PanelUnit
- * @typedef {{ type: string }} Action
+ * @typedef {{ type: string, code?: string | null }} Action
  *
  * @typedef {{
  *   code: string,
@@ -21,6 +21,7 @@ import { addRegionAction, removeCodesAction, toggleMunicipalityAction } from "./
  * }} RankingUnit
  *
  * @typedef {{
+ *   onFocusUnit?: (code: string) => void,
  *   onPointUnit?: (code: string | null) => void
  * }} PanelViewOptions
  */
@@ -554,8 +555,8 @@ function resolveMunicipalityContext(mun, territory) {
       return reg.label;
     }
   }
-  if (mun.regionName) {
-    return mun.regionName;
+  if (mun.governmentRegionName) {
+    return mun.governmentRegionName;
   }
   return "São Paulo";
 }
@@ -573,7 +574,6 @@ function resolveWindow(documentRef) {
   }
   return null;
 }
-
 
 /**
  * @param {HTMLDivElement} noticeArea

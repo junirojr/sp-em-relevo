@@ -1,19 +1,15 @@
 import { expect, test } from "@playwright/test";
+import { inspect, readEngineStats, readSelection } from "../../../tests/support/inspector.js";
 import { openPage, settle } from "../../../tests/support/page.js";
-import {
-  inspect,
-  readEngineStats,
-  readSelection,
-} from "../../../tests/support/inspector.js";
+import { DARK_PALETTE, LIGHT_PALETTE } from "../../app/palette.js";
+import { ELECTION_NEUTRALS, PARTY_COLOR_TABLE } from "../../domain/election-colors.js";
 import {
   OUTLINE_DARK_TONE,
-  OUTLINE_LIGHT_TONE,
   OUTLINE_INNER_WIDTH,
+  OUTLINE_LIGHT_TONE,
   OUTLINE_OUTER_WIDTH,
   satisfiesOutlineContrast,
 } from "../../engine/selection-outline.js";
-import { PARTY_COLOR_TABLE, ELECTION_NEUTRALS } from "../../domain/election-colors.js";
-import { LIGHT_PALETTE, DARK_PALETTE } from "../../app/palette.js";
 
 const VIEWPORT_1280_900 = { width: 1280, height: 900 };
 
@@ -21,8 +17,15 @@ test.describe("N14 Strong selection outline and engine painting suite (ELE-12, E
   test("ELE-12 hover and selection give elevation 0 in election mode and use distinct objects", async ({
     browser,
   }) => {
-    const { context, page } = await openPage(browser, { viewport: VIEWPORT_1280_900 });
+    const { context, page } = await openPage(
+      browser,
+      { viewport: VIEWPORT_1280_900 },
+      "/?aba=1turno",
+    );
     try {
+      await expect(
+        page.locator("#election-rankings-view .candidate-ranking-item").first(),
+      ).toBeVisible();
       await page.evaluate(() => {
         document.documentElement.dataset.mode = "election";
         const store = /** @type {any} */ (window).__appStore;
@@ -67,8 +70,15 @@ test.describe("N14 Strong selection outline and engine painting suite (ELE-12, E
   test("ELE-13 strong outline has dual tone >= 3 px CSS and >= 3:1 contrast against candidate, neutral and plate colors", async ({
     browser,
   }) => {
-    const { context, page } = await openPage(browser, { viewport: VIEWPORT_1280_900 });
+    const { context, page } = await openPage(
+      browser,
+      { viewport: VIEWPORT_1280_900 },
+      "/?aba=1turno",
+    );
     try {
+      await expect(
+        page.locator("#election-rankings-view .candidate-ranking-item").first(),
+      ).toBeVisible();
       // Verify width requirements
       expect(OUTLINE_OUTER_WIDTH).toBeGreaterThanOrEqual(3);
       expect(OUTLINE_INNER_WIDTH).toBeGreaterThanOrEqual(3);
@@ -104,8 +114,15 @@ test.describe("N14 Strong selection outline and engine painting suite (ELE-12, E
   test("ELE-14 perimeter excludes internal edges between selected units, follows block height and stays visible", async ({
     browser,
   }) => {
-    const { context, page } = await openPage(browser, { viewport: VIEWPORT_1280_900 });
+    const { context, page } = await openPage(
+      browser,
+      { viewport: VIEWPORT_1280_900 },
+      "/?aba=1turno",
+    );
     try {
+      await expect(
+        page.locator("#election-rankings-view .candidate-ranking-item").first(),
+      ).toBeVisible();
       await page.evaluate(() => {
         document.documentElement.dataset.mode = "election";
       });
@@ -144,8 +161,15 @@ test.describe("N14 Strong selection outline and engine painting suite (ELE-12, E
   test("ELE-15 inspect preserves candidate/party color and draw calls equal base + 2 (PUB-11)", async ({
     browser,
   }) => {
-    const { context, page } = await openPage(browser, { viewport: VIEWPORT_1280_900 });
+    const { context, page } = await openPage(
+      browser,
+      { viewport: VIEWPORT_1280_900 },
+      "/?aba=1turno",
+    );
     try {
+      await expect(
+        page.locator("#election-rankings-view .candidate-ranking-item").first(),
+      ).toBeVisible();
       // Turn off shadow and borders to read base draw calls accurately
       await page.evaluate(() => {
         const store = /** @type {any} */ (window).__appStore;
@@ -185,8 +209,15 @@ test.describe("N14 Strong selection outline and engine painting suite (ELE-12, E
   test("PUB-11 election mode draw calls remain strictly within base + 2 budget", async ({
     browser,
   }) => {
-    const { context, page } = await openPage(browser, { viewport: VIEWPORT_1280_900 });
+    const { context, page } = await openPage(
+      browser,
+      { viewport: VIEWPORT_1280_900 },
+      "/?aba=1turno",
+    );
     try {
+      await expect(
+        page.locator("#election-rankings-view .candidate-ranking-item").first(),
+      ).toBeVisible();
       await page.evaluate(() => {
         document.documentElement.dataset.mode = "election";
         const store = /** @type {any} */ (window).__appStore;

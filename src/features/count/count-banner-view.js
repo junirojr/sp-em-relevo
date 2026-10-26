@@ -47,6 +47,9 @@ export function mountCountBannerView(documentRef, slotElement, formatters = {}) 
   slotElement.innerHTML = "";
   slotElement.append(bannerContent);
 
+  /**
+   * @param {{ bannerState?: "replay" | "nao-iniciada" | "em-apuracao" | "apuracao-pausada" | "matematicamente-definida" | "apuracao-concluida" | "sem-conexao"; bannerAlias: any; bannerLabel?: string; isPaused: any; hasConnectionError: any; lastUpdateHour: any; lastTracking?: { dg?: string; hg?: string; etag?: string; } | null; sectionsCounted: any; sectionsTotal?: number; sectionsPct: any; readCount: any; totalMunicipalities: any; stateResult?: import("../../domain/election.js").ElectionUnitResult | null; municipalResults?: Record<string, import("../../domain/election.js").ElectionUnitResult>; proclamation: any; accessibilityMilestone?: string | null; isConcluded: any; consecutiveFailures?: number; }} state
+   */
   function resolveMessage(state) {
     if (state.proclamation && state.proclamation.announced && state.proclamation.announcementText) {
       return state.proclamation.announcementText;
@@ -95,6 +98,9 @@ export function mountCountBannerView(documentRef, slotElement, formatters = {}) 
     return `Em apuracao em Sao Paulo: ${formattedPct}% das secoes (${state.readCount} de ${state.totalMunicipalities} municipios lidos)`;
   }
 
+  /**
+   * @param {{ bannerState?: "replay" | "nao-iniciada" | "em-apuracao" | "apuracao-pausada" | "matematicamente-definida" | "apuracao-concluida" | "sem-conexao"; bannerAlias?: "replay" | "matematicamente-definida" | "sem-conexao" | "aguardando" | "parcial" | "tse-sem-novidade" | "encerrada"; bannerLabel?: string; isPaused: any; hasConnectionError: any; lastUpdateHour?: string; lastTracking?: { dg?: string; hg?: string; etag?: string; } | null; sectionsCounted: any; sectionsTotal?: number; sectionsPct?: number; readCount?: number; totalMunicipalities?: number; stateResult?: import("../../domain/election.js").ElectionUnitResult | null; municipalResults?: Record<string, import("../../domain/election.js").ElectionUnitResult>; proclamation?: { announced: boolean; candidate: { ballotNumber: string; name: string; party: string; status: string; elected: boolean; } | null; announcementText: string | null; } | null; accessibilityMilestone?: string | null; isConcluded: any; consecutiveFailures?: number; }} state
+   */
   function resolveStatusClass(state) {
     if (state.hasConnectionError) {
       return "count-banner-error";

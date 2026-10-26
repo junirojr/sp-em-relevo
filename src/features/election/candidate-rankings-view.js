@@ -1,3 +1,8 @@
+/**
+ * @typedef {import("../../domain/election.js").NormalizedCandidateVote & {color?: string}} Candidate
+ * @typedef {{code: string, name: string, validVotes: number, blankVotes: number, nullVotes: number, marginPp: number, candidates: Candidate[], leader: Candidate | null}} SelectedMunicipality
+ * @typedef {{office?: string, candidates?: any[], totals?: {state?: {validVotes?: number, votes?: any}}, municipalResults?: Record<string, any>, selectedMunicipalities?: SelectedMunicipality[], selectedMunicipality?: SelectedMunicipality | null, onClearSelection?: () => void, onSelectMunicipality?: (code: string) => void}} RankingsData
+ */
 import { buildElectionCandidateRankings } from "../../domain/election-ranking.js";
 
 /**
@@ -30,6 +35,8 @@ export function mountCandidateRankingsView(documentRef, container) {
 
   container.append(root);
 
+  /** @param {SelectedMunicipality} selectedMun
+   * @param {(() => void) | undefined} onClearSelection */
   function renderCityRankings(selectedMun, onClearSelection) {
     header.innerHTML = "";
 
@@ -89,19 +96,20 @@ export function mountCandidateRankingsView(documentRef, container) {
       return;
     }
 
+    /** @type {Record<string, string>} */
     const partyColorFallbacks = {
-      "22": "#1d4ed8",
-      "10": "#1d4ed8",
-      "13": "#dc2626",
-      "30": "#ea580c",
-      "44": "#9333ea",
-      "55": "#059669",
-      "111": "#2563eb",
-      "222": "#1d4ed8",
-      "400": "#f59e0b",
-      "188": "#10b981",
-      "50": "#64748b",
-      "16": "#64748b",
+      22: "#1d4ed8",
+      10: "#1d4ed8",
+      13: "#dc2626",
+      30: "#ea580c",
+      44: "#9333ea",
+      55: "#059669",
+      111: "#2563eb",
+      222: "#1d4ed8",
+      400: "#f59e0b",
+      188: "#10b981",
+      50: "#64748b",
+      16: "#64748b",
     };
 
     for (let i = 0; i < cityCandidates.length; i += 1) {
@@ -234,6 +242,9 @@ export function mountCandidateRankingsView(documentRef, container) {
     listContainer.append(bento);
   }
 
+  /**
+   * @param {{ office?: string; candidates?: any[]; totals?: { state?: { validVotes?: number; votes?: any; }; }; municipalResults?: Record<string | number, any>; }} electionData
+   */
   function renderStateRankings(electionData) {
     header.innerHTML = "";
 
@@ -370,6 +381,9 @@ export function mountCandidateRankingsView(documentRef, container) {
     }
   }
 
+  /** @param {SelectedMunicipality} munA
+   * @param {SelectedMunicipality} munB
+   * @param {(() => void) | undefined} onClearSelection */
   function renderTwoCitiesComparison(munA, munB, onClearSelection) {
     header.innerHTML = "";
 
@@ -406,7 +420,7 @@ export function mountCandidateRankingsView(documentRef, container) {
     const summaryGrid = documentRef.createElement("div");
     summaryGrid.className = "compare-cities-summary-grid";
 
-    const createCityCard = (mun) => {
+    const createCityCard = (/** @type {SelectedMunicipality} */ mun) => {
       const card = documentRef.createElement("div");
       card.className = "compare-city-summary-card";
       const name = documentRef.createElement("span");
@@ -417,7 +431,9 @@ export function mountCandidateRankingsView(documentRef, container) {
       winner.className = "compare-city-card-winner";
       let leaderText = "Sem votos";
       if (mun.leader && mun.leader.name) {
-        leaderText = `🏆 ${mun.leader.name} (${Number(mun.leader.sharePct ?? 0).toFixed(1).replace(".", ",")}%)`;
+        leaderText = `🏆 ${mun.leader.name} (${Number(mun.leader.sharePct ?? 0)
+          .toFixed(1)
+          .replace(".", ",")}%)`;
       }
       winner.textContent = leaderText;
 
@@ -435,23 +451,24 @@ export function mountCandidateRankingsView(documentRef, container) {
     // Candidate comparison rows
     const candsA = munA.candidates || [];
     const candMapB = new Map();
-    for (const c of (munB.candidates || [])) {
+    for (const c of munB.candidates || []) {
       candMapB.set(String(c.ballotNumber), c);
     }
 
+    /** @type {Record<string, string>} */
     const partyColorFallbacks = {
-      "22": "#1d4ed8",
-      "10": "#1d4ed8",
-      "13": "#dc2626",
-      "30": "#ea580c",
-      "44": "#9333ea",
-      "55": "#059669",
-      "111": "#2563eb",
-      "222": "#1d4ed8",
-      "400": "#f59e0b",
-      "188": "#10b981",
-      "50": "#64748b",
-      "16": "#64748b",
+      22: "#1d4ed8",
+      10: "#1d4ed8",
+      13: "#dc2626",
+      30: "#ea580c",
+      44: "#9333ea",
+      55: "#059669",
+      111: "#2563eb",
+      222: "#1d4ed8",
+      400: "#f59e0b",
+      188: "#10b981",
+      50: "#64748b",
+      16: "#64748b",
     };
 
     for (let i = 0; i < candsA.length; i += 1) {
@@ -482,7 +499,11 @@ export function mountCandidateRankingsView(documentRef, container) {
       const dualBars = documentRef.createElement("div");
       dualBars.className = "compare-dual-bars";
 
-      const makeBarRow = (cityName, cData, validTotal) => {
+      const makeBarRow = (
+        /** @type {string | null} */ cityName,
+        /** @type {Candidate | undefined} */ cData,
+        /** @type {number} */ validTotal,
+      ) => {
         const row = documentRef.createElement("div");
         row.className = "compare-bar-subrow";
 
@@ -490,9 +511,9 @@ export function mountCandidateRankingsView(documentRef, container) {
         label.className = "compare-bar-city-label";
         label.textContent = cityName;
 
-        let pct = Number(cData.sharePct ?? 0);
+        let pct = Number(cData?.sharePct ?? 0);
         if (!pct && validTotal > 0) {
-          pct = (Number(cData.validVotes ?? 0) * 100) / validTotal;
+          pct = (Number(cData?.validVotes ?? 0) * 100) / validTotal;
         }
 
         const track = documentRef.createElement("div");
@@ -500,7 +521,7 @@ export function mountCandidateRankingsView(documentRef, container) {
         const fill = documentRef.createElement("div");
         fill.className = "candidate-progress-fill";
         fill.style.width = `${Math.min(100, Math.max(0, pct))}%`;
-        let color = cData.color || partyColorFallbacks[ballot];
+        const color = cData?.color || partyColorFallbacks[ballot];
         if (color) {
           fill.style.backgroundColor = color;
         }
@@ -508,7 +529,7 @@ export function mountCandidateRankingsView(documentRef, container) {
 
         const val = documentRef.createElement("span");
         val.className = "compare-bar-val";
-        val.textContent = `${pct.toFixed(1).replace(".", ",")}% (${Number(cData.validVotes ?? 0).toLocaleString("pt-BR")})`;
+        val.textContent = `${pct.toFixed(1).replace(".", ",")}% (${Number(cData?.validVotes ?? 0).toLocaleString("pt-BR")})`;
 
         row.append(label, track, val);
         return row;
@@ -523,6 +544,8 @@ export function mountCandidateRankingsView(documentRef, container) {
     }
   }
 
+  /** @param {SelectedMunicipality[]} muns
+   * @param {(() => void) | undefined} onClearSelection */
   function renderMultiCitiesView(muns, onClearSelection) {
     header.innerHTML = "";
 
@@ -579,7 +602,9 @@ export function mountCandidateRankingsView(documentRef, container) {
       winner.className = "candidate-party-ballot";
       let leaderTxt = "Sem votos";
       if (m.leader && m.leader.name) {
-        leaderTxt = `🏆 ${m.leader.name} (${Number(m.leader.sharePct ?? 0).toFixed(1).replace(".", ",")}%)`;
+        leaderTxt = `🏆 ${m.leader.name} (${Number(m.leader.sharePct ?? 0)
+          .toFixed(1)
+          .replace(".", ",")}%)`;
       }
       winner.textContent = leaderTxt;
       nameInfo.append(name, winner);
@@ -600,6 +625,7 @@ export function mountCandidateRankingsView(documentRef, container) {
     }
   }
 
+  /** @param {RankingsData | null} electionData */
   function update(electionData) {
     listContainer.innerHTML = "";
     if (!electionData) {

@@ -121,7 +121,7 @@ export function formatReplayBannerText(isoString) {
  *
  * Ensures that the state at index k is identical to recorded reading k.
  *
- * @param {Record<string, any>} replayDoc
+ * @param {Record<string, any> | null} replayDoc
  * @param {number} targetIndex
  * @returns {ReconstructedReplayFrame}
  */
@@ -204,7 +204,7 @@ export function reconstructReplayFrame(replayDoc, targetIndex) {
 /**
  * Extracts a sequence of timeline markers for all frames in the replay document (RPL-04).
  *
- * @param {Record<string, any>} replayDoc
+ * @param {Record<string, any> | null} replayDoc
  * @returns {ReplayTimelineMarker[]}
  */
 export function extractReplayTimeline(replayDoc) {
@@ -246,7 +246,7 @@ export function extractReplayTimeline(replayDoc) {
  * Identifies real temporal gaps > 5 minutes (> 300 s) preserved by recorder (RPL-05).
  * Returns list of interval descriptors with start and end indices and duration.
  *
- * @param {Record<string, any>} replayDoc
+ * @param {Record<string, any> | null} replayDoc
  * @param {number} [minGapSeconds=300]
  * @returns {ReplayGapInterval[]}
  */

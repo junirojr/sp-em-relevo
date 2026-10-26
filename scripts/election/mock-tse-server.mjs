@@ -1,7 +1,7 @@
-import http from "node:http";
-import fs from "node:fs";
-import path from "node:path";
 import crypto from "node:crypto";
+import fs from "node:fs";
+import http from "node:http";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -38,11 +38,11 @@ function computeEtag(content) {
  * Safely loads fixture JSON from disk or returns provided object.
  *
  * @param {string | Record<string, unknown>} [fixtureOrPath]
- * @returns {Record<string, unknown>}
+ * @returns {{ele_c?: Record<string, unknown>, mun_e006258_cm?: Record<string, unknown>, stages?: Record<string, {tracking?: Record<string, unknown>, sp?: Record<string, unknown>, br?: Record<string, unknown>}>, municipalities?: Record<string, Record<string, unknown>>}}
  */
 function loadFixtures(fixtureOrPath) {
   if (fixtureOrPath && typeof fixtureOrPath === "object") {
-    return fixtureOrPath;
+    return /** @type {ReturnType<typeof loadFixtures>} */ (fixtureOrPath);
   }
   let resolvedPath = DEFAULT_FIXTURE_PATH;
   if (typeof fixtureOrPath === "string") {
@@ -89,6 +89,7 @@ export function createMockTseServer(options = {}) {
   const errorMunicipalityCode = String(options.errorMunicipalityCode || "99999");
   const clock = options.clock || { now: () => Date.now() };
 
+  /** @type {string} */
   let currentMode = options.initialMode || "progression";
   let currentStageIndex = 0;
   if (typeof options.initialStage === "number") {
@@ -121,7 +122,7 @@ export function createMockTseServer(options = {}) {
    * @param {http.IncomingMessage} req
    * @param {http.ServerResponse} res
    * @param {number} statusCode
-   * @param {string | Record<string, unknown>} payload
+   * @param {unknown} payload
    */
   function sendResponse(req, res, statusCode, payload) {
     let bodyStr = "";
@@ -162,7 +163,10 @@ export function createMockTseServer(options = {}) {
     if (req.method === "OPTIONS") {
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "Content-Type, If-None-Match, If-Modified-Since");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Content-Type, If-None-Match, If-Modified-Since",
+      );
       res.writeHead(204);
       res.end();
       return;

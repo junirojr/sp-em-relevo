@@ -210,7 +210,7 @@ export function mountLayoutToggle(documentRef, sidebarElement, onToggle = undefi
     }
 
     sheetButton.setAttribute("aria-expanded", meta.ariaExpanded);
-    sheetButton.setAttribute("aria-label", meta.ariaLabel);
+    sheetButton.setAttribute("aria-label", `${meta.text}, ${meta.ariaLabel}`);
     sheetButton.setAttribute("data-sheet-state", currentSheetState);
     sheetLabel.textContent = meta.text;
 
@@ -309,7 +309,10 @@ export function mountLayoutToggle(documentRef, sidebarElement, onToggle = undefi
   if (windowRef && typeof windowRef.addEventListener === "function") {
     windowRef.addEventListener("resize", syncVisualViewport);
   }
-  if (windowRef?.visualViewport && typeof windowRef.visualViewport.addEventListener === "function") {
+  if (
+    windowRef?.visualViewport &&
+    typeof windowRef.visualViewport.addEventListener === "function"
+  ) {
     windowRef.visualViewport.addEventListener("resize", syncVisualViewport);
     windowRef.visualViewport.addEventListener("scroll", syncVisualViewport);
   }

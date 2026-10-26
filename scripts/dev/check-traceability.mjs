@@ -262,7 +262,9 @@ async function runCommandLine(argv) {
   const invalid = findInvalidCriteria(trace);
   if (invalid.length > 0) {
     for (const entry of invalid) {
-      console.error(`Invalid criterion id "${entry.id}" in ${entry.file} (expected XXX-NN, VER-01)`);
+      console.error(
+        `Invalid criterion id "${entry.id}" in ${entry.file} (expected XXX-NN, VER-01)`,
+      );
     }
     process.exitCode = 1;
     return;

@@ -16,7 +16,8 @@ function readMunicipalitiesFile() {
     return raw.municipalities;
   }
   const cols = raw.columns;
-  return raw.rows.map((row) => {
+  return raw.rows.map((/** @type {any[]} */ row) => {
+    /** @type {Record<string, any>} */
     const record = {};
     for (let i = 0; i < cols.length; i += 1) {
       record[cols[i]] = row[i];

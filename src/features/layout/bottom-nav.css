@@ -11,13 +11,12 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 60px;
     height: calc(60px + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
-    background: rgba(14, 17, 26, 0.94);
+    background: var(--column-bg);
     -webkit-backdrop-filter: blur(24px);
     backdrop-filter: blur(24px);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid var(--column-line);
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
     z-index: 50;
     align-items: center;
@@ -35,10 +34,12 @@
     gap: 3px;
     background: transparent;
     border: none;
-    color: var(--ink-2, #858a96);
+    color: var(--ink-muted);
     cursor: pointer;
     padding: 4px 2px;
-    transition: color 0.15s ease, transform 0.15s ease;
+    transition:
+      color 0.15s ease,
+      transform 0.15s ease;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
@@ -74,9 +75,17 @@
     filter: drop-shadow(0 2px 8px rgba(244, 63, 94, 0.45));
   }
 
-  /* Ensure #sidebar sits above or accounts for bottom nav on mobile */
+  :root {
+    --bottom-nav-height: calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+
   #sidebar {
-    bottom: 60px !important;
+    bottom: var(--bottom-nav-height);
+    max-height: calc(
+      var(--visual-viewport-height, 100dvh) -
+      var(--topbar-height) -
+      var(--bottom-nav-height)
+    );
   }
 
   /* Stage gesture hint pill on map */
@@ -99,7 +108,9 @@
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
     white-space: nowrap;
     animation: fadeInPill 0.4s ease;
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease;
   }
 
   html[data-sheet-state="half"] .map-gesture-pill,

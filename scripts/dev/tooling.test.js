@@ -7,11 +7,13 @@ const packageJson = JSON.parse(
 );
 
 const expectedScripts = {
-  serve: "node scripts/dev/serve.mjs --port 4173",
+  build: "node scripts/dev/build-runtime.mjs",
+  serve: "npm run build && node scripts/dev/serve.mjs --port 4173",
   lint: "biome check . && node scripts/dev/check-boundaries.mjs",
   typecheck: "tsc -p tsconfig.json && tsc -p tsconfig.domain.json",
-  "test:unit": 'node --test "src/**/*.test.js" "scripts/**/*.test.js" "tests/**/*.test.js"',
-  "test:e2e": "playwright test",
+  "test:unit":
+    'npm run build && node --test "src/**/*.test.js" "scripts/**/*.test.js" "tests/**/*.test.js"',
+  "test:e2e": "npm run build && playwright test",
   trace: "node scripts/dev/check-traceability.mjs",
   scan: "node scripts/publish/scan.mjs",
   "data:fetch": "node scripts/data/fetch-sources.mjs",

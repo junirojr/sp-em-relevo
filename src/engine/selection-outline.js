@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import { decodeArc, readArcUsage, readSharedArcs } from "../domain/topology.js";
 import { BORDER_OFFSET } from "./constants.js";
@@ -146,7 +146,7 @@ export function computeSelectionArcs(topology, selectedCodes) {
     return [];
   }
 
-  const groupOfFn = (id) => {
+  const groupOfFn = (/** @type {string} */ id) => {
     if (selectedSet.has(id)) {
       return "selected";
     }
@@ -353,14 +353,7 @@ function buildGeometryFromOutlines({ selectedCodes, municipalities, indexByCode 
   const owners = [];
 
   for (const segment of perimeterSegments) {
-    coordinates.push(
-      segment.startX,
-      segment.startY,
-      0,
-      segment.endX,
-      segment.endY,
-      0,
-    );
+    coordinates.push(segment.startX, segment.startY, 0, segment.endX, segment.endY, 0);
     owners.push(segment.ownerIndex);
   }
 
@@ -435,7 +428,7 @@ export function updateSelectionOutlineHeights(selectionOutline, heightCurrent) {
     return;
   }
   const instanceStart = geometry.attributes?.instanceStart;
-  if (!instanceStart?.data) {
+  if (!instanceStart || !("data" in instanceStart)) {
     return;
   }
   const positions = instanceStart.data.array;
@@ -459,11 +452,11 @@ export function updateSelectionOutlineHeights(selectionOutline, heightCurrent) {
  */
 export function computeRelativeLuminance(hex) {
   const { r, g, b } = parseHex(hex);
-  const toLinear = (c) => {
+  const toLinear = (/** @type {number} */ c) => {
     if (c <= 0.04045) {
       return c / 12.92;
     }
-    return Math.pow((c + 0.055) / 1.055, 2.4);
+    return ((c + 0.055) / 1.055) ** 2.4;
   };
   return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
 }

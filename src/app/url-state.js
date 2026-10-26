@@ -11,7 +11,7 @@ import { resolveAllowedTab } from "./state.js";
  * Follows IND-07, ELE-20, E19, R9 and RGV-03.
  *
  * @typedef {import("./state.js").TabId} TabId
- * @typedef {{ indicatorId: string, levelId: string, tab: TabId }} UrlState
+ * @typedef {{ indicatorId: import("../features/indicator/indicator-slice.js").IndicatorId, levelId: import("../features/level/level-slice.js").LevelId, tab: TabId }} UrlState
  * @typedef {{
  *   now?: Date | string | number,
  *   status?: import("./data-loader.js").OperationalStatus
@@ -72,12 +72,14 @@ export function parseUrlState(locationOrSearch = "", options = {}) {
   const searchParams = extractSearchParams(locationOrSearch);
 
   const rawIndicator = searchParams.get(INDICATOR_PARAM);
+  /** @type {import("../features/indicator/indicator-slice.js").IndicatorId} */
   let indicatorId = DEFAULT_INDICATOR_ID;
   if (rawIndicator && isValidIndicator(rawIndicator)) {
     indicatorId = rawIndicator;
   }
 
   const rawLevel = searchParams.get("nivel") || searchParams.get(LEVEL_PARAM);
+  /** @type {import("../features/level/level-slice.js").LevelId} */
   let levelId = LEVEL_MUNICIPALITY;
   if (rawLevel) {
     const resolvedLevel = resolveLevelFromParam(rawLevel);
@@ -96,14 +98,17 @@ export function parseUrlState(locationOrSearch = "", options = {}) {
 /**
  * Resolves territorial level id from either English id or Portuguese alias.
  * @param {string} raw
- * @returns {string | null}
+ * @returns {import("../features/level/level-slice.js").LevelId | null}
  */
 function resolveLevelFromParam(raw) {
   if (!raw) {
     return null;
   }
   const key = String(raw).trim().toLowerCase();
-  const direct = /** @type {Record<string, string | undefined>} */ (LEVEL_FROM_PARAM)[key];
+  const direct =
+    /** @type {Record<string, import("../features/level/level-slice.js").LevelId | undefined>} */ (
+      LEVEL_FROM_PARAM
+    )[key];
   if (direct) {
     return direct;
   }
@@ -271,7 +276,7 @@ function extractSearchParams(input) {
 
 /**
  * @param {string} id
- * @returns {boolean}
+ * @returns {id is import("../features/level/level-slice.js").LevelId}
  */
 function isValidLevel(id) {
   return id === LEVEL_MUNICIPALITY || id === LEVEL_GOVERNMENT_REGION || id === LEVEL_REGION;

@@ -120,9 +120,18 @@ test("ELE-14 selected perimeter specifies topology perimeter, elevation tracking
 test("NIV-07 line opacity and visibility contracts across territorial levels", () => {
   assert.equal(MUNICIPAL_OPACITY_AT_MUNICIPALITY_LEVEL, 1.0);
   assert.equal(MUNICIPAL_OPACITY_AT_REGION_LEVEL, 0.3);
-  assert.equal(MUNICIPAL_BOUNDARY.opacityByLevel.municipality, MUNICIPAL_OPACITY_AT_MUNICIPALITY_LEVEL);
-  assert.equal(MUNICIPAL_BOUNDARY.opacityByLevel.governmentRegion, MUNICIPAL_OPACITY_AT_REGION_LEVEL);
-  assert.equal(MUNICIPAL_BOUNDARY.opacityByLevel.administrativeRegion, MUNICIPAL_OPACITY_AT_REGION_LEVEL);
+  assert.equal(
+    MUNICIPAL_BOUNDARY.opacityByLevel.municipality,
+    MUNICIPAL_OPACITY_AT_MUNICIPALITY_LEVEL,
+  );
+  assert.equal(
+    MUNICIPAL_BOUNDARY.opacityByLevel.governmentRegion,
+    MUNICIPAL_OPACITY_AT_REGION_LEVEL,
+  );
+  assert.equal(
+    MUNICIPAL_BOUNDARY.opacityByLevel.administrativeRegion,
+    MUNICIPAL_OPACITY_AT_REGION_LEVEL,
+  );
   assert.equal(GOVERNMENT_REGION_BOUNDARY.visibleLevels.includes("governmentRegion"), true);
   assert.equal(ADMINISTRATIVE_REGION_BOUNDARY.visibleLevels.includes("administrativeRegion"), true);
 });

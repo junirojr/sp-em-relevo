@@ -63,8 +63,17 @@ export function mountReplayView(documentRef, slotElement, options = {}) {
   const onBannerTextChange = options.onBannerTextChange;
 
   let currentIndex = -1;
+  /**
+   * @type {import("../../domain/replay.js").ReconstructedReplayFrame | null}
+   */
   let currentFrame = null;
+  /**
+   * @type {string | any[]}
+   */
   let timeline = [];
+  /**
+   * @type {string | any[]}
+   */
   let gaps = [];
 
   slotElement.className = "count-replay-slot";
@@ -280,7 +289,12 @@ export function mountReplayView(documentRef, slotElement, options = {}) {
    * Refreshes view structure when replay document changes.
    */
   function refreshDocument() {
-    if (!isAvailable || !replayDoc || !Array.isArray(replayDoc.frames) || replayDoc.frames.length === 0) {
+    if (
+      !isAvailable ||
+      !replayDoc ||
+      !Array.isArray(replayDoc.frames) ||
+      replayDoc.frames.length === 0
+    ) {
       slotElement.hidden = true;
       return;
     }
@@ -314,12 +328,19 @@ export function mountReplayView(documentRef, slotElement, options = {}) {
   }
 
   // Event handlers
-  function handleSliderInput(e) {
-    const val = Number(e.target.value);
+  /**
+   * Reads the current slider value.
+   */
+  function handleSliderInput() {
+    const val = Number(slider.value);
     applyIndex(val);
   }
 
-  function handleSliderKeydown(e) {
+  /**
+   * @param {Event} event
+   */
+  function handleSliderKeydown(event) {
+    const e = /** @type {KeyboardEvent} */ (event);
     if (e.key === "Home") {
       e.preventDefault();
       applyIndex(0);

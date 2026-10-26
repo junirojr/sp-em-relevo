@@ -38,10 +38,7 @@ test("F08-04: State deputy data file contains indexed candidate votes", () => {
 
 test("F08-05: Deputy candidate votes map to actual candidate names and not undefined", async () => {
   const raw = JSON.parse(fs.readFileSync("data/election/deputado-federal-1t.json", "utf8"));
-  const fakeFetch = async () => ({
-    ok: true,
-    json: async () => raw,
-  });
+  const fakeFetch = async () => new Response(JSON.stringify(raw));
 
   const result = await loadFirstRoundElectionData("deputado-federal", {
     fetchImpl: fakeFetch,
@@ -52,8 +49,29 @@ test("F08-05: Deputy candidate votes map to actual candidate names and not undef
   if (firstMunKey) {
     const mun = result.municipalResults[firstMunKey];
     for (const cand of mun.candidates) {
-      assert.notEqual(cand.name, "undefined", "candidate name must never be 'undefined'");
+      const definition = raw.candidates.find(
+        (/** @type {string[]} */ candidate) => candidate[0] === cand.ballotNumber,
+      );
+      assert.ok(definition, "municipal references must resolve to an actual ballot number");
+      assert.equal(cand.name, definition[1]);
+      assert.equal(cand.party, definition[2]);
       assert.notEqual(cand.party, "undefined", "candidate party must never be 'undefined'");
     }
   }
+});
+
+test("F08-06 indexed deputy state totals resolve to ballot numbers and nonzero candidate rankings", async () => {
+  const raw = JSON.parse(fs.readFileSync("data/election/deputado-federal-1t.json", "utf8"));
+  const result = await loadFirstRoundElectionData("deputado-federal", {
+    fetchImpl: async () => new Response(JSON.stringify(raw)),
+  });
+  assert.ok(result.ok);
+  for (const [ballot, votes] of result.totals.state.votes) {
+    const definition = raw.candidates.find(
+      (/** @type {string[]} */ candidate) => candidate[0] === ballot,
+    );
+    assert.ok(definition);
+    assert.ok(votes > 0);
+  }
+  assert.ok(result.candidates.some((candidate) => candidate.votes > 0));
 });

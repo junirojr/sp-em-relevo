@@ -2,9 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
+import ts from "typescript";
 
 export const STATIC_DATA_FILES = [
-  "data/mesh.topo.json",
+  "data/mesh.topo.json.gz",
   "data/municipalities.json",
   "data/regions.json",
   "data/status.json",
@@ -12,8 +13,6 @@ export const STATIC_DATA_FILES = [
 
 export const STATIC_BOOT_CEILING_BYTES = 819200;
 
-const JS_STATIC_IMPORT_PATTERN = /(?:import|export)\s+(?:[\w*\s{},]*\s+from\s+)?['"]([^'"]+)['"]/g;
-const JS_DYNAMIC_IMPORT_PATTERN = /import\(\s*['"]([^'"]+)['"]\s*\)/g;
 const CSS_IMPORT_PATTERN = /@import\s+(?:url\(['"]?([^'")]+)['"]?\)|['"]([^'"]+)['"])/g;
 const HTML_SCRIPT_PATTERN = /<script\s+[^>]*src=['"]([^'"]+)['"][^>]*>/gi;
 const HTML_LINK_PATTERN = /<link\s+[^>]*href=['"]([^'"]+)['"][^>]*>/gi;
@@ -104,13 +103,34 @@ export function measureStaticBootBytes(rootDir = process.cwd()) {
     const stat = fs.statSync(path.resolve(resolvedRoot, file));
     totalBytes += stat.size;
   }
-  const electionModules = files.filter(isElectionRuntimeArtifact);
+  const electionModules = collectRuntimeSources(files, rootDir).filter(isElectionRuntimeArtifact);
   return {
     files,
     totalBytes,
     ceilingBytes: STATIC_BOOT_CEILING_BYTES,
     electionModules,
   };
+}
+
+/** Resolve bundle inputs too, so PUB-08 cannot miss electoral code hidden in a shared chunk.
+ * @param {string[]} files
+ * @param {string} [rootDir]
+ * @returns {string[]}
+ */
+export function collectRuntimeSources(files, rootDir = process.cwd()) {
+  const manifestPath = path.resolve(rootDir, "dist/manifest.json");
+  if (!fs.existsSync(manifestPath)) return files;
+  /** @type {import("esbuild").Metafile} */
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  return [
+    ...new Set(
+      files.flatMap((file) => {
+        const output = manifest.outputs[file];
+        if (!output) return [file];
+        return Object.keys(output.inputs);
+      }),
+    ),
+  ].sort();
 }
 
 /**
@@ -206,20 +226,34 @@ function enqueueCssDependencies(filePath, rootDir, queue) {
  */
 function enqueueJsDependencies(filePath, rootDir, queue, followDynamicImports) {
   const content = fs.readFileSync(filePath, "utf-8");
-
-  for (const match of content.matchAll(JS_STATIC_IMPORT_PATTERN)) {
-    const specifier = match[1];
-    enqueueSpecifierIfRelative(specifier, filePath, rootDir, queue);
+  const source = ts.createSourceFile(
+    filePath,
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.JS,
+  );
+  /** @param {import("typescript").Node} node */
+  function visit(node) {
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
+      enqueueSpecifierIfRelative(node.moduleSpecifier.text, filePath, rootDir, queue);
+    }
+    if (
+      followDynamicImports &&
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments[0] &&
+      ts.isStringLiteral(node.arguments[0])
+    ) {
+      enqueueSpecifierIfRelative(node.arguments[0].text, filePath, rootDir, queue);
+    }
+    ts.forEachChild(node, visit);
   }
-
-  if (!followDynamicImports) {
-    return;
-  }
-
-  for (const match of content.matchAll(JS_DYNAMIC_IMPORT_PATTERN)) {
-    const specifier = match[1];
-    enqueueSpecifierIfRelative(specifier, filePath, rootDir, queue);
-  }
+  visit(source);
 }
 
 /**

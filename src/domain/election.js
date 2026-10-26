@@ -322,10 +322,7 @@ export function computeUnitElectionResult(unit, options = {}) {
   );
   const blankVotes = Math.max(0, unit.blankVotes ?? 0);
   const nullVotes = Math.max(0, unit.nullVotes ?? 0);
-  const annulledSubJudiceVotes = Math.max(
-    annulledFromCandidates,
-    unit.annulledSubJudiceVotes ?? 0,
-  );
+  const annulledSubJudiceVotes = Math.max(annulledFromCandidates, unit.annulledSubJudiceVotes ?? 0);
 
   const sectionsTotal = Math.max(0, unit.sectionsTotal ?? 0);
   const sectionsCounted = Math.max(0, unit.sectionsCounted ?? 0);
@@ -342,9 +339,7 @@ export function computeUnitElectionResult(unit, options = {}) {
     toNormalizedCandidate(cand, totalValidVotes),
   );
   const sortedByVotesRaw = sortCandidates(validCandidateInputs, totalValidVotes);
-  const candidates = sortedByVotesRaw.map((cand) =>
-    toNormalizedCandidate(cand, totalValidVotes),
-  );
+  const candidates = sortedByVotesRaw.map((cand) => toNormalizedCandidate(cand, totalValidVotes));
 
   const selectedInspection = resolveSelectedCandidateInspection(
     candidatesByBallot,

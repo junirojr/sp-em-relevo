@@ -4,7 +4,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-
+import { computeDeputyBoundsCertificate } from "../../src/domain/election.js";
 import {
   buildDeputyTopTen,
   buildFirstRound,
@@ -16,13 +16,12 @@ import {
   streamTseCsv,
 } from "./build-first-round.mjs";
 import {
-  EXPECTED_MUNICIPALITY_COUNT,
-  MAX_FILE_SIZE_BYTES,
   checkFileSizeCeiling,
   checkMunicipalityCoverage,
+  EXPECTED_MUNICIPALITY_COUNT,
   hydrateUnitFromRow,
+  MAX_FILE_SIZE_BYTES,
 } from "./first-round-checks.js";
-import { computeDeputyBoundsCertificate } from "../../src/domain/election.js";
 import { runOracleVerification } from "./oracle-first-round.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -57,6 +56,9 @@ test("TUR-01 streamTseCsv streams Latin-1 encoded content with semicolon delimit
   );
 
   const stream = Readable.from(latin1Buffer);
+  /**
+   * @type {unknown[][]}
+   */
   const rows = [];
   const count = await streamTseCsv({
     stream,
@@ -113,6 +115,7 @@ test("TUR-01 loadMunicipalitiesCatalog maps 645 municipalities and verifies dive
 });
 
 test("TUR-03 buildDeputyTopTen retains top 10 candidates, exact remainder demais, and tenthPlaceVotes", () => {
+  /** @type {import("./build-first-round.mjs").VotePair[]} */
   const candidatePool = [
     ["1010", 5000],
     ["2020", 4000],
@@ -150,7 +153,11 @@ test("TUR-03 deputy top ten rows integrate with domain computeDeputyBoundsCertif
 
   const candidatesMeta = rawFed.candidates;
   const sampleRows = rawFed.rows.slice(0, 5);
-  const hydratedUnits = sampleRows.map((r) => hydrateUnitFromRow(r, candidatesMeta));
+  const hydratedUnits = sampleRows.map(
+    (
+      /** @type {[string, number, number, number, number, number, [string | number, number][]]} */ r,
+    ) => hydrateUnitFromRow(r, candidatesMeta),
+  );
 
   assert.equal(hydratedUnits.length, 5);
   for (const u of hydratedUnits) {
@@ -168,6 +175,7 @@ test("TUR-03 deputy top ten rows integrate with domain computeDeputyBoundsCertif
 
 test("TUR-03 buildPreaggregatedTotals pre-sums State, 16 RAs, and 43 RGs", () => {
   const catalog = loadMunicipalitiesCatalog();
+  /** @type {Parameters<typeof buildPreaggregatedTotals>[0]} */
   const sampleMunicipalities = catalog.slice(0, 10).map((m) => ({
     code: m.code,
     validVotes: 10000,

@@ -4,8 +4,6 @@
   display: flex;
   flex-direction: row;
   width: 100vw;
-  height: 100vh;
-  height: 100dvh;
   height: var(--visual-viewport-height, 100dvh);
   position: relative;
   overflow: hidden;
@@ -319,8 +317,6 @@
 #sidebar {
   width: var(--column-width);
   min-width: var(--column-width);
-  height: 100vh;
-  height: 100dvh;
   height: var(--visual-viewport-height, 100dvh);
   display: flex;
   flex-direction: column;
@@ -457,8 +453,6 @@
 
 #map-stage {
   flex: 1 1 auto;
-  height: 100vh;
-  height: 100dvh;
   height: var(--visual-viewport-height, 100dvh);
   position: relative;
   overflow: hidden;
@@ -582,8 +576,6 @@
 
   #map-stage {
     width: 100vw;
-    height: 100vh;
-    height: 100dvh;
     height: var(--visual-viewport-height, 100dvh);
   }
 
@@ -623,14 +615,10 @@
   }
 
   #sidebar[data-sheet-state="half"] {
-    height: 50vh;
-    height: var(--sheet-half-height, 50dvh);
     height: calc(var(--visual-viewport-height, 100dvh) * 0.5);
   }
 
   #sidebar[data-sheet-state="expanded"] {
-    height: 88vh;
-    height: var(--sheet-expanded-height, 88dvh);
     height: calc(var(--visual-viewport-height, 100dvh) * 0.88);
   }
 
@@ -646,19 +634,21 @@
     left: var(--space-3);
     bottom: calc(
       min(
-          var(--sheet-collapsed-height, 128px),
-          calc(var(--visual-viewport-height, 100dvh) * 0.26)
-        ) +
-        var(--space-2)
+        var(--sheet-collapsed-height, 128px),
+        calc(var(--visual-viewport-height, 100dvh) * 0.26)
+      ) +
+      var(--space-2)
     );
     width: min(var(--legend-width), calc(100vw - 2 * var(--space-3) - 48px));
     max-height: calc(
-      var(--visual-viewport-height, 100dvh) - var(--topbar-height) -
-        min(
-          var(--sheet-collapsed-height, 128px),
-          calc(var(--visual-viewport-height, 100dvh) * 0.26)
-        ) -
-        2 * var(--space-3)
+      var(--visual-viewport-height, 100dvh) -
+      var(--topbar-height) -
+      min(
+        var(--sheet-collapsed-height, 128px),
+        calc(var(--visual-viewport-height, 100dvh) * 0.26)
+      ) -
+      2 *
+      var(--space-3)
     );
   }
 }

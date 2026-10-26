@@ -13,8 +13,8 @@ const VIEWPORT = { width: 1280, height: 900 };
  * @typedef {import("@playwright/test").Page} Page
  * @typedef {import("@playwright/test").Response} Response
  * @typedef {import("@playwright/test").TestInfo} TestInfo
- * @typedef {{ path: string, rawBytes: number, gzipBytes: number }} Download
- * @typedef {{ rawBytes: number, gzipBytes: number, downloads: Download[] }} PageWeight
+ * @typedef {{ path: string, rawBytes: number, gzipBytes: number | null }} Download
+ * @typedef {{ rawBytes: number, gzipBytes: number | null, downloads: Download[] }} PageWeight
  */
 
 test("PUB-04 same-origin bytes until isSettled stay within the 800 KB ceiling", async ({
@@ -134,11 +134,18 @@ function isSameOriginSuccess(response, origin) {
  * @returns {Promise<Download>}
  */
 async function readDownload(response) {
-  const body = await response.body();
+  const sizes = await response.request().sizes();
+  if (sizes.responseBodySize < 0) throw new Error("Missing network byte measurement");
+  let gzipBytes = null;
+  try {
+    gzipBytes = zlib.gzipSync(await response.body()).length;
+  } catch {
+    // Chromium can evict a module body after consuming it; network bytes remain authoritative.
+  }
   return {
     path: new URL(response.url()).pathname,
-    rawBytes: body.length,
-    gzipBytes: zlib.gzipSync(body).length,
+    rawBytes: sizes.responseBodySize,
+    gzipBytes,
   };
 }
 
@@ -149,7 +156,7 @@ async function readDownload(response) {
 function sumDownloads(downloads) {
   return {
     rawBytes: downloads.reduce((total, download) => total + download.rawBytes, 0),
-    gzipBytes: downloads.reduce((total, download) => total + download.gzipBytes, 0),
+    gzipBytes: sumCompressedBytes(downloads),
     downloads,
   };
 }
@@ -167,4 +174,45 @@ export async function recordCompressedSize(testInfo, pageWeight) {
     body: JSON.stringify(pageWeight, null, 2),
     contentType: "application/json",
   });
+}
+
+test("PUB-09 entering election and first-round office stays within incremental code and data budgets", async ({
+  browser,
+  baseURL,
+}, testInfo) => {
+  const context = await browser.newContext({ viewport: VIEWPORT });
+  const page = await context.newPage();
+  await page.route("https://resultados.tse.jus.br/**", (route) =>
+    route.fulfill({ status: 503, body: "Unavailable" }),
+  );
+  try {
+    await page.goto("/");
+    await settle(page);
+    const recorder = recordSameOriginDownloads(page, readOrigin(baseURL));
+    await page.getByRole("button", { name: "Eleições TSE", exact: true }).click();
+    await page.locator('#mode-selector-slot input[value="first-round"]').check();
+    await expect(
+      page.locator("#election-rankings-view .candidate-ranking-item").first(),
+    ).toBeVisible();
+    await settle(page);
+    const weight = await recorder.stopAndMeasure();
+    const incremental = classifyIncrementalDownloads(weight.downloads);
+    await recordCompressedSize(testInfo, weight);
+    expect(incremental.codeBytes).toBeLessThanOrEqual(ELECTION_CODE_CEILING_BYTES);
+    expect(incremental.firstRoundOfficeBytes).toBeLessThanOrEqual(FIRST_ROUND_OFFICE_CEILING_BYTES);
+    expect(incremental.replayBytes).toBe(0);
+  } finally {
+    await context.close();
+  }
+});
+
+/** @param {Download[]} downloads
+ * @returns {number | null} */
+function sumCompressedBytes(downloads) {
+  let total = 0;
+  for (const download of downloads) {
+    if (download.gzipBytes === null) return null;
+    total += download.gzipBytes;
+  }
+  return total;
 }

@@ -108,7 +108,7 @@ test("PAIR-05: Office selection [Presidente] x 2nd round scoreboard & replay mar
       sectionsCounted: 100,
       sectionsTotal: 100,
     },
-    { mode: "second-round" },
+    { mode: "live" },
   );
 
   assert.equal(res.marginPp, 20);

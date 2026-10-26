@@ -14,28 +14,31 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import readline from "node:readline";
 import process from "node:process";
+import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 
 import {
+  checkFileSizeCeiling,
+  checkMunicipalityCoverage,
+  checkPreaggregatedTotals,
   EXPECTED_MUNICIPALITY_COUNT,
   EXPECTED_RA_CODES,
   EXPECTED_RG_CODES,
   MAX_FILE_SIZE_BYTES,
   SP_STATE_CODE,
-  checkFileSizeCeiling,
-  checkMunicipalityCoverage,
-  checkPreaggregatedTotals,
 } from "./first-round-checks.js";
-import {
-  OFFICIAL_ORACLE_TARGETS,
-  runOracleVerification,
-} from "./oracle-first-round.mjs";
+import { OFFICIAL_ORACLE_TARGETS, runOracleVerification } from "./oracle-first-round.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/**
+ * @typedef {[string | number, number]} VotePair
+ * @typedef {[string, number, number, number, number, number, VotePair[]]} ElectionRow
+ * @typedef {{validVotes: number, blankVotes: number, nullVotes: number, demais: number, votes: VotePair[]}} VoteTotals
+ * @typedef {{validVotes: number, blankVotes: number, nullVotes: number, demais: number, voteMap: Map<string | number, number>}} VoteAccumulator
+ */
 export const DEFAULT_RAW_DIR = path.resolve(__dirname, "raw");
 export const DEFAULT_OUT_DIR = path.resolve(__dirname, "../../data/election");
 export const MUNICIPALITIES_DATA_PATH = path.resolve(__dirname, "../../data/municipalities.json");
@@ -160,7 +163,7 @@ export function loadMunicipalitiesCatalog(filePath = MUNICIPALITIES_DATA_PATH) {
   const content = fs.readFileSync(filePath, "utf8");
   const data = JSON.parse(content);
   const rows = data.rows ?? [];
-  return rows.map((r) => ({
+  return rows.map((/** @type {any[]} */ r) => ({
     code: String(r[0]),
     name: String(r[1]),
     raCode: String(r[2]),
@@ -239,10 +242,10 @@ export function identifyProgressiveCluster(catalog) {
 /**
  * Builds candidate ranking for deputies, keeping top 10 + exact "demais" remainder (TUR-03).
  *
- * @param {Array<[string, number]>} candidateVotePairs
+ * @param {VotePair[]} candidateVotePairs
  * @param {number} totalValidVotes
  * @returns {{
- *   topTen: Array<[string, number]>,
+ *   topTen: VotePair[],
  *   demais: number,
  *   tenthPlaceVotes: number
  * }}
@@ -292,13 +295,13 @@ export function buildDeputyTopTen(candidateVotePairs, totalValidVotes) {
  *   blankVotes: number,
  *   nullVotes: number,
  *   demais: number,
- *   votes: Array<[string, number]>
+ *   votes: VotePair[]
  * }>} municipalRows
  * @param {Array<{ code: string, raCode: string, rgCode: string }>} catalog
  * @returns {{
- *   state: { validVotes: number, blankVotes: number, nullVotes: number, demais: number, votes: Array<[string, number]> },
- *   ra: Record<string, { validVotes: number, blankVotes: number, nullVotes: number, demais: number, votes: Array<[string, number]> }>,
- *   rg: Record<string, { validVotes: number, blankVotes: number, nullVotes: number, demais: number, votes: Array<[string, number]> }>
+ *   state: { validVotes: number, blankVotes: number, nullVotes: number, demais: number, votes: VotePair[] },
+ *   ra: Record<string, { validVotes: number, blankVotes: number, nullVotes: number, demais: number, votes: VotePair[] }>,
+ *   rg: Record<string, { validVotes: number, blankVotes: number, nullVotes: number, demais: number, votes: VotePair[] }>
  * }}
  */
 export function buildPreaggregatedTotals(municipalRows, catalog) {
@@ -313,6 +316,7 @@ export function buildPreaggregatedTotals(municipalRows, catalog) {
   let stateNull = 0;
   let stateDemais = 0;
 
+  /** @type {Record<string, VoteAccumulator>} */
   const raTotals = {};
   for (const ra of EXPECTED_RA_CODES) {
     raTotals[ra] = {
@@ -324,6 +328,7 @@ export function buildPreaggregatedTotals(municipalRows, catalog) {
     };
   }
 
+  /** @type {Record<string, VoteAccumulator>} */
   const rgTotals = {};
   for (const rg of EXPECTED_RG_CODES) {
     rgTotals[rg] = {
@@ -375,11 +380,12 @@ export function buildPreaggregatedTotals(municipalRows, catalog) {
     }
   }
 
-  const toSortedPairs = (map) =>
+  const toSortedPairs = (/** @type {Map<string | number, number>} */ map) =>
     Array.from(map.entries())
       .map(([b, v]) => /** @type {[string, number]} */ ([b, v]))
       .sort((a, b) => b[1] - a[1]);
 
+  /** @type {Record<string, VoteTotals>} */
   const finalRa = {};
   for (const ra of EXPECTED_RA_CODES) {
     const e = raTotals[ra];
@@ -392,6 +398,7 @@ export function buildPreaggregatedTotals(municipalRows, catalog) {
     };
   }
 
+  /** @type {Record<string, VoteTotals>} */
   const finalRg = {};
   for (const rg of EXPECTED_RG_CODES) {
     const e = rgTotals[rg];
@@ -421,7 +428,7 @@ export function buildPreaggregatedTotals(municipalRows, catalog) {
  * Compactly serializes payload keeping each municipality row on a single line
  * to stay strictly under the 120,000 byte ceiling (PUB-09).
  *
- * @param {Record<string, unknown>} payload
+ * @param {{schemaVersion: number, office: string, officeCode: number, electionCode: string, description: string, candidates: unknown[], columns: string[], totals?: ReturnType<typeof buildPreaggregatedTotals>, rows: ElectionRow[]}} payload
  * @returns {string}
  */
 export function formatCompactJson(payload) {
@@ -493,14 +500,6 @@ export function formatCompactJson(payload) {
  *   rgName: string,
  *   population: number
  * }>} catalog
- * @returns {{
- *   meta: Record<string, unknown>,
- *   presidente: Record<string, unknown>,
- *   governador: Record<string, unknown>,
- *   senador: Record<string, unknown>,
- *   deputadoFederal: Record<string, unknown>,
- *   deputadoEstadual: Record<string, unknown>
- * }}
  */
 export function generateAuthoritativeFirstRoundData(catalog) {
   let totalPopulation = 0;
@@ -520,6 +519,7 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     ["16", "Outros Candidatos", "OUTROS"],
   ];
 
+  /** @type {ElectionRow[]} */
   const presMunicipalRows = [];
   const presCandidateTargets = presTarget.candidates;
   let presAccumulatedValid = 0;
@@ -553,7 +553,7 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     const munNull = Math.round(presTarget.nullVotes * weight);
 
     let munFlavio = Math.round(munValid * flavioShare);
-    let munLula = Math.round(munValid * lulaShare);
+    const munLula = Math.round(munValid * lulaShare);
     const cury = Math.round(munValid * 0.0359);
     const renan = Math.round(munValid * 0.0323);
     const caiado = Math.round(munValid * 0.0233);
@@ -563,6 +563,7 @@ export function generateAuthoritativeFirstRoundData(catalog) {
       others = 0;
     }
 
+    /** @type {VotePair[]} */
     const votesPairs = [
       ["22", munFlavio],
       ["13", munLula],
@@ -624,7 +625,15 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     electionCode: "6257",
     description: "Presidente da Republica - 1o Turno 2026 (SP)",
     candidates: presCandidatesMeta,
-    columns: ["code", "validVotes", "blankVotes", "nullVotes", "demais", "tenthPlaceVotes", "votes"],
+    columns: [
+      "code",
+      "validVotes",
+      "blankVotes",
+      "nullVotes",
+      "demais",
+      "tenthPlaceVotes",
+      "votes",
+    ],
     totals: presPreagg,
     rows: presMunicipalRows,
   };
@@ -636,6 +645,7 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     ["13", "Fernando Haddad", "PT"],
     ["50", "Outros Governador", "OUTROS"],
   ];
+  /** @type {ElectionRow[]} */
   const govMunicipalRows = [];
   let govAccumValid = 0;
   let govAccumTarcisio = 0;
@@ -663,13 +673,14 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     const munNull = Math.round(govTarget.nullVotes * weight);
 
     let munTarcisio = Math.round(munValid * tarcisioShare);
-    let munHaddad = Math.round(munValid * haddadShare);
+    const munHaddad = Math.round(munValid * haddadShare);
     let others = munValid - (munTarcisio + munHaddad);
     if (others < 0) {
       munTarcisio += others;
       others = 0;
     }
 
+    /** @type {VotePair[]} */
     const votesPairs = [
       ["10", munTarcisio],
       ["13", munHaddad],
@@ -709,7 +720,15 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     electionCode: "6259",
     description: "Governador do Estado de Sao Paulo - 1o Turno 2026",
     candidates: govCandidatesMeta,
-    columns: ["code", "validVotes", "blankVotes", "nullVotes", "demais", "tenthPlaceVotes", "votes"],
+    columns: [
+      "code",
+      "validVotes",
+      "blankVotes",
+      "nullVotes",
+      "demais",
+      "tenthPlaceVotes",
+      "votes",
+    ],
     totals: govPreagg,
     rows: govMunicipalRows,
   };
@@ -723,6 +742,7 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     ["188", "Marina Silva", "REDE"],
     ["999", "Demais Senador", "OUTROS"],
   ];
+  /** @type {ElectionRow[]} */
   const senMunicipalRows = [];
   let senAccumValid = 0;
   let senAccumDerrite = 0;
@@ -758,15 +778,16 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     const munNull = Math.round(4200000 * weight);
 
     let munDerrite = Math.round(munValid * derriteShare);
-    let munAndre = Math.round(munValid * andreShare);
-    let munTebet = Math.round(munValid * tebetShare);
-    let munMarina = Math.round(munValid * marinaShare);
+    const munAndre = Math.round(munValid * andreShare);
+    const munTebet = Math.round(munValid * tebetShare);
+    const munMarina = Math.round(munValid * marinaShare);
     let others = munValid - (munDerrite + munAndre + munTebet + munMarina);
     if (others < 0) {
       munDerrite += others;
       others = 0;
     }
 
+    /** @type {VotePair[]} */
     const votesPairs = [
       ["111", munDerrite],
       ["222", munAndre],
@@ -812,7 +833,15 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     electionCode: "6259",
     description: "Senador da Republica - 1o Turno 2026 (SP, 2 vagas)",
     candidates: senCandidatesMeta,
-    columns: ["code", "validVotes", "blankVotes", "nullVotes", "demais", "tenthPlaceVotes", "votes"],
+    columns: [
+      "code",
+      "validVotes",
+      "blankVotes",
+      "nullVotes",
+      "demais",
+      "tenthPlaceVotes",
+      "votes",
+    ],
     totals: senPreagg,
     rows: senMunicipalRows,
   };
@@ -833,6 +862,7 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     ["1212", "Rosangela Moro", "UNIAO"],
   ];
   const totalFederalValid = 23800000;
+  /** @type {ElectionRow[]} */
   const fedMunicipalRows = [];
   const fedIndexMap = new Map();
   for (let cIdx = 0; cIdx < federalCandidatesMeta.length; cIdx += 1) {
@@ -847,6 +877,7 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     const munNull = Math.round(1400000 * weight);
 
     // Build raw simulated pool of candidates for this municipality
+    /** @type {VotePair[]} */
     const pool = [
       ["1010", Math.round(munValid * (0.08 + (idx % 5) * 0.01))],
       ["2222", Math.round(munValid * (0.07 + ((idx + 1) % 6) * 0.01))],
@@ -866,9 +897,9 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     const compactTopTen = deputy.topTen.map(([ballot, v]) => {
       const cIndex = fedIndexMap.get(ballot);
       if (cIndex !== undefined) {
-        return [cIndex, v];
+        return /** @type {VotePair} */ ([cIndex, v]);
       }
-      return [ballot, v];
+      return /** @type {VotePair} */ ([ballot, v]);
     });
 
     fedMunicipalRows.push([
@@ -899,7 +930,15 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     electionCode: "6257",
     description: "Deputado Federal - 1o Turno 2026 (SP, top 10 por municipio + demais)",
     candidates: federalCandidatesMeta,
-    columns: ["code", "validVotes", "blankVotes", "nullVotes", "demais", "tenthPlaceVotes", "votes"],
+    columns: [
+      "code",
+      "validVotes",
+      "blankVotes",
+      "nullVotes",
+      "demais",
+      "tenthPlaceVotes",
+      "votes",
+    ],
     totals: fedPreagg,
     rows: fedMunicipalRows,
   };
@@ -920,6 +959,7 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     ["12120", "Marina Helou", "REDE"],
   ];
   const totalEstadualValid = 23750000;
+  /** @type {ElectionRow[]} */
   const estMunicipalRows = [];
   const estIndexMap = new Map();
   for (let cIdx = 0; cIdx < estadualCandidatesMeta.length; cIdx += 1) {
@@ -933,6 +973,7 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     const munBlank = Math.round(1200000 * weight);
     const munNull = Math.round(1500000 * weight);
 
+    /** @type {VotePair[]} */
     const pool = [
       ["10100", Math.round(munValid * (0.08 + (idx % 4) * 0.01))],
       ["22222", Math.round(munValid * (0.07 + ((idx + 1) % 5) * 0.01))],
@@ -952,9 +993,9 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     const compactTopTen = deputy.topTen.map(([ballot, v]) => {
       const cIndex = estIndexMap.get(ballot);
       if (cIndex !== undefined) {
-        return [cIndex, v];
+        return /** @type {VotePair} */ ([cIndex, v]);
       }
-      return [ballot, v];
+      return /** @type {VotePair} */ ([ballot, v]);
     });
 
     estMunicipalRows.push([
@@ -985,7 +1026,15 @@ export function generateAuthoritativeFirstRoundData(catalog) {
     electionCode: "6259",
     description: "Deputado Estadual - 1o Turno 2026 (SP, top 10 por municipio + demais)",
     candidates: estadualCandidatesMeta,
-    columns: ["code", "validVotes", "blankVotes", "nullVotes", "demais", "tenthPlaceVotes", "votes"],
+    columns: [
+      "code",
+      "validVotes",
+      "blankVotes",
+      "nullVotes",
+      "demais",
+      "tenthPlaceVotes",
+      "votes",
+    ],
     totals: estPreagg,
     rows: estMunicipalRows,
   };
@@ -1098,6 +1147,7 @@ export async function buildFirstRound(options = {}) {
   ];
 
   const writtenFiles = [];
+  /** @type {Record<string, number>} */
   const byteSizes = {};
   const fileSizeProblems = [];
 

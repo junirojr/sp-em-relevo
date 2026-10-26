@@ -23,13 +23,19 @@ export const NAV_TAB_MUNICIPALITIES = "municipios";
 export const NAV_TAB_COMPARE = "comparativo";
 export const NAV_TAB_LAYERS = "camadas";
 
+/** @type {Record<string, string>} */
 const ICONS = {
   mapa: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>',
-  indicadores: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>',
-  eleicoes: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>',
-  municipios: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>',
-  comparativo: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>',
-  camadas: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
+  indicadores:
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>',
+  eleicoes:
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>',
+  municipios:
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>',
+  comparativo:
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>',
+  camadas:
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
 };
 
 /**
@@ -60,6 +66,7 @@ export function mountBottomNavView(documentRef, container, options = {}) {
     indicatorIcon = "eleicoes";
   }
 
+  /** @type {Array<{id: MobileNavTab, label: string, iconKey: string}>} */
   const tabsConfig = [
     { id: NAV_TAB_MAP, label: "Mapa 3D", iconKey: "mapa" },
     {
@@ -88,10 +95,10 @@ export function mountBottomNavView(documentRef, container, options = {}) {
 
       if (tab.id === activeTab) {
         btn.classList.add("active");
-        btn.setAttribute("aria-selected", "true");
+        btn.setAttribute("aria-pressed", "true");
       }
       if (tab.id !== activeTab) {
-        btn.setAttribute("aria-selected", "false");
+        btn.setAttribute("aria-pressed", "false");
       }
 
       const iconSpan = documentRef.createElement("span");
@@ -117,20 +124,26 @@ export function mountBottomNavView(documentRef, container, options = {}) {
     }
   }
 
+  /**
+   * @param {MobileNavTab} nextTab
+   */
   function setActiveTab(nextTab) {
     activeTab = nextTab;
     for (const [id, btn] of buttonMap.entries()) {
       if (id === activeTab) {
         btn.classList.add("active");
-        btn.setAttribute("aria-selected", "true");
+        btn.setAttribute("aria-pressed", "true");
       }
       if (id !== activeTab) {
         btn.classList.remove("active");
-        btn.setAttribute("aria-selected", "false");
+        btn.setAttribute("aria-pressed", "false");
       }
     }
   }
 
+  /**
+   * @param {boolean} isElec
+   */
   function setElectionMode(isElec) {
     if (isElection === isElec) {
       return;

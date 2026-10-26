@@ -1,7 +1,19 @@
+import { mountCountBannerView } from "../features/count/count-banner-view.js";
+import { mountCountScoreboardView } from "../features/count/count-scoreboard-view.js";
 import {
-  changeElectionTab,
-  isElectionTab,
-} from "../features/election/election-slice.js";
+  countConcluded,
+  countConnectionError,
+  countConnectionRestored,
+  countMunicipalPacketReceived,
+  countProclamationReceived,
+  countStateUpdated,
+  countTrackingUpdated,
+  createCountState,
+  reduceCount,
+} from "../features/count/count-slice.js";
+import { mountCandidateRankingsView } from "../features/election/candidate-rankings-view.js";
+import { mountElectionLegendView } from "../features/election/election-legend-view.js";
+import { changeElectionTab, isElectionTab } from "../features/election/election-slice.js";
 import {
   ELECTION_STRINGS,
   formatBrasiliaHour,
@@ -15,23 +27,13 @@ import {
   applyControlsVisibility,
   mountModeSelectorView,
 } from "../features/election/mode-selector-view.js";
-import {
-  countConcluded,
-  countConnectionError,
-  countConnectionRestored,
-  countMunicipalPacketReceived,
-  countProclamationReceived,
-  countStateUpdated,
-  countTrackingUpdated,
-  createCountState,
-  reduceCount,
-} from "../features/count/count-slice.js";
-import { mountCountBannerView } from "../features/count/count-banner-view.js";
-import { mountCountScoreboardView } from "../features/count/count-scoreboard-view.js";
 import { mountOfficeSelectorView } from "../features/election/office-selector-view.js";
-import { mountElectionLegendView } from "../features/election/election-legend-view.js";
-import { mountCandidateRankingsView } from "../features/election/candidate-rankings-view.js";
+import {
+  clearSelectionAction,
+  toggleMunicipalityAction,
+} from "../features/selection/selection-slice.js";
 import { createCountSource } from "./count-source.js";
+import { loadFirstRoundElectionData, loadSecondRoundReplayData } from "./election-data.js";
 import {
   isArtifactEnvironment,
   isElectionFeatureEnabled,
@@ -45,14 +47,9 @@ import {
   projectElectionTable,
   projectElectionToEngine,
 } from "./election-projection.js";
-import {
-  loadFirstRoundElectionData,
-  loadSecondRoundReplayData,
-} from "./election-data.js";
+import { readPalette, withColors } from "./palette.js";
 import { changeTab } from "./state.js";
 import { syncUrlState } from "./url-state.js";
-import { readPalette, withColors } from "./palette.js";
-import { clearSelectionAction } from "../features/selection/selection-slice.js";
 
 /**
  * Election feature orchestrator and wiring (N13, N15, ELE-17, ELE-18, ELE-19, ELE-20, APU-07, APU-09).
@@ -132,12 +129,14 @@ export function initElectionWiring(options) {
   }
 
   let countState = createCountState();
+  /** @type {Record<string, import("../domain/election.js").ElectionUnitResult>} */
   let currentElectionResults = {};
   let currentFirstRoundOffice = "presidente";
   const isArtifact = isArtifactEnvironment(windowRef);
 
   // 1. Mount Mode Selector into #mode-selector-slot (ELE-18)
   const modeSlot = documentRef.getElementById("mode-selector-slot");
+  /** @type {ReturnType<typeof mountModeSelectorView> | null} */
   let modeSelector = null;
   if (modeSlot) {
     modeSelector = mountModeSelectorView(documentRef, modeSlot, {
@@ -186,6 +185,7 @@ export function initElectionWiring(options) {
     }
   }
 
+  /** @type {ReturnType<typeof mountElectionLegendView> | null} */
   let electionLegendView = null;
   if (electionLegendSlot) {
     electionLegendView = mountElectionLegendView(documentRef, electionLegendSlot, {
@@ -205,6 +205,7 @@ export function initElectionWiring(options) {
     }
   }
 
+  /** @type {ReturnType<typeof mountCandidateRankingsView> | null} */
   let candidateRankingsView = null;
   if (rankingsSlot) {
     candidateRankingsView = mountCandidateRankingsView(documentRef, rankingsSlot);
@@ -225,6 +226,7 @@ export function initElectionWiring(options) {
 
   // 2. Mount Banner View into #election-banner-slot (APU-07, APU-08)
   const bannerSlot = documentRef.getElementById("election-banner-slot");
+  /** @type {ReturnType<typeof mountCountBannerView> | null} */
   let bannerView = null;
   if (bannerSlot) {
     if (isArtifact) {
@@ -243,6 +245,7 @@ export function initElectionWiring(options) {
   // 3. Mount Scoreboard View into #election-scoreboard-slot (APU-07, APU-09)
   const scoreboardSlot = documentRef.getElementById("election-scoreboard-slot");
   const sourceSlot = documentRef.getElementById("election-source-slot");
+  /** @type {ReturnType<typeof mountCountScoreboardView> | null} */
   let scoreboardView = null;
   if (scoreboardSlot) {
     scoreboardView = mountCountScoreboardView(documentRef, scoreboardSlot, {
@@ -252,6 +255,7 @@ export function initElectionWiring(options) {
   }
 
   // 4. Create Count Source polling adapter (APU-01 to APU-13)
+  /** @type {ReturnType<typeof createCountSource> | null} */
   let countSource = null;
   if (!isArtifact) {
     countSource = createCountSource({
@@ -260,10 +264,7 @@ export function initElectionWiring(options) {
       electionCode,
       host,
       onTrackingUpdate: (tracking, isPaused) => {
-        countState = reduceCount(
-          countState,
-          countTrackingUpdated(tracking, isPaused),
-        );
+        countState = reduceCount(countState, countTrackingUpdated(tracking, isPaused));
         updateViews();
       },
       onStateUpdate: (spDoc) => {
@@ -272,10 +273,7 @@ export function initElectionWiring(options) {
         reprojectToEngine();
       },
       onMunicipalUpdate: (code, munDoc) => {
-        countState = reduceCount(
-          countState,
-          countMunicipalPacketReceived(code, munDoc),
-        );
+        countState = reduceCount(countState, countMunicipalPacketReceived(code, munDoc));
         updateViews();
         reprojectToEngine();
       },
@@ -288,10 +286,7 @@ export function initElectionWiring(options) {
         updateViews();
       },
       onProclamation: (proclamation) => {
-        countState = reduceCount(
-          countState,
-          countProclamationReceived(proclamation),
-        );
+        countState = reduceCount(countState, countProclamationReceived(proclamation));
         updateViews();
       },
       onConcluded: () => {
@@ -305,14 +300,34 @@ export function initElectionWiring(options) {
     const state = store.getState();
     const isSecondRound = state.tab === "second-round";
 
+    if (isSecondRound && countState.stateResult) {
+      const result = countState.stateResult;
+      currentOfficeMeta = {
+        office: "presidente",
+        candidates: result.candidates,
+        totals: {
+          state: {
+            validVotes: result.totalValidVotes,
+            votes: result.candidates.map((candidate) => [
+              candidate.ballotNumber,
+              candidate.validVotes,
+            ]),
+          },
+        },
+        municipalResults: currentElectionResults,
+      };
+      refreshCandidateRankings(state.selection?.selectedCodes ?? []);
+      electionLegendView?.update({ candidates: result.candidates, theme: state.theme ?? "dark" });
+    }
     if (bannerView) {
       bannerView.update(countState, isSecondRound);
     }
     if (scoreboardView) {
-      scoreboardView.update(countState, isSecondRound, "dark");
+      scoreboardView.update(countState, isSecondRound, state.theme ?? "dark");
     }
   }
 
+  /** @param {import("../domain/election.js").ElectionRoundMode} [mode] */
   function applyElectionProjection(mode = "first-round") {
     if (!engine) {
       return;
@@ -320,9 +335,6 @@ export function initElectionWiring(options) {
     const state = store.getState();
     const municipalities = state.data?.municipalities ?? [];
     if (municipalities.length === 0) {
-      return;
-    }
-    if (Object.keys(currentElectionResults).length === 0) {
       return;
     }
 
@@ -334,9 +346,13 @@ export function initElectionWiring(options) {
       heightMode: state.settings?.heightMode ?? "data",
     });
 
-    if (typeof engine.setPalette === "function" && Array.isArray(projection.paletteColors) && projection.paletteColors.length > 0) {
-      const basePal = readPalette(documentRef);
-      const customPal = withColors(basePal, projection.paletteColors, { selection: null });
+    if (
+      typeof engine.setPalette === "function" &&
+      Array.isArray(projection.paletteColors) &&
+      projection.paletteColors.length > 0
+    ) {
+      const basePal = readPalette(documentRef ?? undefined);
+      const customPal = withColors(basePal, projection.paletteColors);
       engine.setPalette(customPal);
     }
     if (typeof engine.setHeightTargets === "function") {
@@ -365,9 +381,13 @@ export function initElectionWiring(options) {
     applyElectionProjection("live");
   }
 
+  /**
+   * @type {{ office: string; candidates: any[]; totals: any; municipalResults: Record<string, import("../domain/election.js").ElectionUnitResult>; } | null}
+   */
   let currentOfficeMeta = null;
   let previousSelectedCodesKey = "";
 
+  /** @param {string[] | string} [selectedCodesInput] */
   function refreshCandidateRankings(selectedCodesInput = []) {
     if (!candidateRankingsView || !currentOfficeMeta) {
       return;
@@ -375,6 +395,7 @@ export function initElectionWiring(options) {
     const state = store.getState();
     const municipalities = state.data?.municipalities ?? [];
 
+    /** @type {string[]} */
     let codes = [];
     if (Array.isArray(selectedCodesInput)) {
       codes = selectedCodesInput;
@@ -403,7 +424,7 @@ export function initElectionWiring(options) {
         selectedList.push({
           code,
           name: munName,
-          validVotes: unit.validVotes,
+          validVotes: unit.totalValidVotes,
           blankVotes: unit.blankVotes,
           nullVotes: unit.nullVotes,
           leader: unit.leader,
@@ -426,7 +447,7 @@ export function initElectionWiring(options) {
       onClearSelection: () => {
         store.dispatch(clearSelectionAction());
       },
-      onSelectMunicipality: (targetCode) => {
+      onSelectMunicipality: (/** @type {string} */ targetCode) => {
         store.dispatch(toggleMunicipalityAction(targetCode));
       },
     });
@@ -441,7 +462,9 @@ export function initElectionWiring(options) {
           if (typeof item.marginPp === "number" && item.marginPp > 0) {
             marginStr = ` • +${item.marginPp.toFixed(1).replace(".", ",")} p.p.`;
           }
-          leaderText = ` • 🏆 ${leader.name} (${Number(leader.sharePct ?? 0).toFixed(1).replace(".", ",")}%) ${marginStr}`;
+          leaderText = ` • 🏆 ${leader.name} (${Number(leader.sharePct ?? 0)
+            .toFixed(1)
+            .replace(".", ",")}%) ${marginStr}`;
         }
         stageCityPill.innerHTML = `
           <span class="stage-pill-dot animate-pulse"></span>
@@ -458,7 +481,10 @@ export function initElectionWiring(options) {
         }
       }
       if (selectedList.length > 1) {
-        const names = selectedList.map((m) => m.name).slice(0, 3).join(", ");
+        const names = selectedList
+          .map((m) => m.name)
+          .slice(0, 3)
+          .join(", ");
         let extra = "";
         if (selectedList.length > 3) {
           extra = ` (+${selectedList.length - 3})`;
@@ -484,6 +510,9 @@ export function initElectionWiring(options) {
     }
   }
 
+  /**
+   * @param {string | undefined} office
+   */
   async function switchFirstRoundOffice(office) {
     const state = store.getState();
     const theme = state.theme ?? "dark";
@@ -520,35 +549,46 @@ export function initElectionWiring(options) {
     const state = store.getState();
     const theme = state.theme ?? "dark";
     const municipalities = state.data?.municipalities ?? [];
-    const res2 = await loadSecondRoundReplayData({ fetchImpl, theme, municipalities });
-    if (res2.ok && Object.keys(res2.municipalResults).length > 0) {
-      currentElectionResults = res2.municipalResults;
-      syncGlobals();
-      applyElectionProjection("replay");
+    if (status.mode === "replay" && status.replay.available) {
+      const res2 = await loadSecondRoundReplayData({ fetchImpl, theme, municipalities });
+      if (res2.ok && Object.keys(res2.municipalResults).length > 0) {
+        currentElectionResults = res2.municipalResults;
+        syncGlobals();
+        applyElectionProjection("replay");
 
-      if (electionLegendView) {
-        electionLegendView.update({
-          officeTitle: "Presidente da República: 2º Turno (SP)",
+        if (electionLegendView) {
+          electionLegendView.update({
+            officeTitle: "Presidente da República: 2º Turno (SP)",
+            candidates: res2.candidates,
+            palette: res2.palette,
+            theme,
+          });
+        }
+
+        currentOfficeMeta = {
+          office: "presidente",
           candidates: res2.candidates,
-          palette: res2.palette,
-          theme,
-        });
+          totals: res2.summary,
+          municipalResults: res2.municipalResults,
+        };
+
+        const selCodes = state.selection?.selectedCodes ?? [];
+        refreshCandidateRankings(selCodes);
       }
 
-      currentOfficeMeta = {
-        office: "presidente",
-        candidates: res2.candidates,
-        totals: res2.totals,
-        municipalResults: res2.municipalResults,
-      };
-
-      const selCodes = state.selection?.selectedCodes ?? [];
-      refreshCandidateRankings(selCodes);
+      return;
     }
+    currentElectionResults = countState.municipalResults;
+    currentOfficeMeta = null;
+    syncGlobals();
+    applyElectionProjection("live");
+    candidateRankingsView?.update({
+      office: "presidente",
+      candidates: [],
+      municipalResults: currentElectionResults,
+    });
+    if (countSource) countSource.start();
 
-    if (countSource) {
-      countSource.start();
-    }
     updateViews();
   }
 
@@ -593,10 +633,10 @@ export function initElectionWiring(options) {
 
     // Apply engine elevation rules for election (ELE-12, ELE-15)
     applyElectionEngineSettings(engine, isNowElection);
-    applyControlsVisibility(documentRef, currentTab);
+    applyControlsVisibility(documentRef ?? document, currentTab);
 
     // Toggle election vs indicator sub-views
-    const scaleDock = documentRef.getElementById("scale-dock");
+    const scaleDock = documentRef?.getElementById("scale-dock");
 
     if (isNowFirstRound) {
       if (officeSlot) {
@@ -643,8 +683,8 @@ export function initElectionWiring(options) {
       if (scaleDock) {
         scaleDock.style.display = "";
       }
-      if (typeof engine.setPalette === "function") {
-        engine.setPalette(readPalette(documentRef));
+      if (engine && typeof engine.setPalette === "function") {
+        engine.setPalette(readPalette(documentRef ?? undefined));
       }
       if (typeof restoreIndicator === "function") {
         restoreIndicator();
@@ -682,6 +722,9 @@ export function initElectionWiring(options) {
     getCountState: () => countState,
     getElectionResults: () => currentElectionResults,
     getActiveOffice: () => currentFirstRoundOffice,
+    /**
+     * @param {readonly string[]} selectedCodes
+     */
     getSelectionProjection(selectedCodes, opts = {}) {
       const state = store.getState();
       return projectElectionSelection(selectedCodes, currentElectionResults, {
@@ -691,6 +734,9 @@ export function initElectionWiring(options) {
         ...opts,
       });
     },
+    /**
+     * @param {[{ code: string; name?: string; }, { code: string; name?: string; }]} pair
+     */
     getComparisonProjection(pair, opts = {}) {
       const state = store.getState();
       return projectElectionComparison(pair, currentElectionResults, {
@@ -700,6 +746,10 @@ export function initElectionWiring(options) {
         ...opts,
       });
     },
+    /**
+     * @param {string} query
+     * @param {any[]} entries
+     */
     getSearchProjection(query, entries, opts = {}) {
       const state = store.getState();
       return projectElectionSearch(query, entries, currentElectionResults, {
@@ -709,6 +759,9 @@ export function initElectionWiring(options) {
         ...opts,
       });
     },
+    /**
+     * @param {any[]} municipalities
+     */
     getTableProjection(municipalities, opts = {}) {
       const state = store.getState();
       return projectElectionTable(municipalities, currentElectionResults, {
@@ -751,16 +804,4 @@ export function initElectionWiring(options) {
   }
 
   return wiring;
-}
-
-// Auto-wire if loaded in browser and appStore is ready
-if (typeof window !== "undefined" && typeof document !== "undefined") {
-  const win = /** @type {any} */ (window);
-  if (win.__appStore) {
-    initElectionWiring({
-      store: win.__appStore,
-      windowRef: win,
-      documentRef: document,
-    });
-  }
 }

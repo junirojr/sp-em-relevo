@@ -17,11 +17,21 @@ test("B09-01: Rapid 10-cycle round-trip between Censo and Eleições leaves stat
 
   for (let i = 0; i < 10; i += 1) {
     state.tab = "second-round";
-    applyControlsVisibility(doc, state.tab);
+    applyControlsVisibility(
+      doc,
+      /** @type {import("../../../src/features/election/election-slice.js").ElectionTab} */ (
+        state.tab
+      ),
+    );
     assert.equal(indicatorContainer.hidden, true);
 
     state.tab = "indicators";
-    applyControlsVisibility(doc, state.tab);
+    applyControlsVisibility(
+      doc,
+      /** @type {import("../../../src/features/election/election-slice.js").ElectionTab} */ (
+        state.tab
+      ),
+    );
     assert.equal(indicatorContainer.hidden, false);
   }
 

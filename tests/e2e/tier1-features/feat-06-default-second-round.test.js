@@ -16,7 +16,7 @@ test("F06-03: Scoreboard totals compute state valid votes and candidate breakdow
   const totals = MOCK_ELECTION_2T_DATA.totals.state;
   assert.equal(totals.validVotes, 25000000);
   assert.equal(totals.votes.length, 2);
-  const totalCandidateVotes = totals.votes.reduce((acc, curr) => acc + curr[1], 0);
+  const totalCandidateVotes = totals.votes.reduce((acc, curr) => acc + Number(curr[1]), 0);
   assert.equal(totalCandidateVotes, totals.validVotes, "candidate votes must sum to valid votes");
 });
 

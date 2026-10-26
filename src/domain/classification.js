@@ -4,7 +4,7 @@
  * (2 significant digits rounding, 3 when needed to keep strictly increasing breaks
  * or avoid crossing members).
  *
- * @typedef {"municipality" | "region"} TerritorialLevel
+ * @typedef {"municipality" | "governmentRegion" | "region"} TerritorialLevel
  */
 
 export const HEAT_BAND_COUNT = 7;

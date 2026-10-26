@@ -4,12 +4,12 @@ import { describe, it } from "node:test";
 
 import {
   DEFAULT_MIN_GAP_SECONDS,
-  REPLAY_SCHEMA_VERSION,
   extractReplayTimeline,
   findReplayGaps,
   formatReplayBannerText,
   formatReplayHourBrasilia,
   formatReplayTimeBrasilia,
+  REPLAY_SCHEMA_VERSION,
   reconstructReplayFrame,
 } from "./replay.js";
 

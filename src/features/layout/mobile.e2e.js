@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { clickUnit, readCamera, readSelection, readState } from "../../../tests/support/inspector.js";
+import {
+  clickUnit,
+  readCamera,
+  readSelection,
+  readState,
+} from "../../../tests/support/inspector.js";
 import { openPage, settle } from "../../../tests/support/page.js";
 
 /**
@@ -97,7 +102,9 @@ test.describe("MOB mobile responsive slice (MOB-01 to MOB-07)", () => {
 
           const searchInfo = await readScrollInfo(page);
           expect(searchInfo.docScrollWidth).toBeLessThanOrEqual(searchInfo.docClientWidth + 1);
-          expect(searchInfo.sidebarScrollWidth).toBeLessThanOrEqual(searchInfo.sidebarClientWidth + 1);
+          expect(searchInfo.sidebarScrollWidth).toBeLessThanOrEqual(
+            searchInfo.sidebarClientWidth + 1,
+          );
 
           // Select first match by submitting search
           await searchInput.press("Enter");
@@ -116,7 +123,9 @@ test.describe("MOB mobile responsive slice (MOB-01 to MOB-07)", () => {
 
           const compareInfo = await readScrollInfo(page);
           expect(compareInfo.docScrollWidth).toBeLessThanOrEqual(compareInfo.docClientWidth + 1);
-          expect(compareInfo.sidebarScrollWidth).toBeLessThanOrEqual(compareInfo.sidebarClientWidth + 1);
+          expect(compareInfo.sidebarScrollWidth).toBeLessThanOrEqual(
+            compareInfo.sidebarClientWidth + 1,
+          );
         } finally {
           await context.close();
         }
@@ -143,7 +152,7 @@ test.describe("MOB mobile responsive slice (MOB-01 to MOB-07)", () => {
         const sidebarBox = await readBox(page, "#sidebar");
         const freeHeight = sidebarBox.y - (topbarBox.y + topbarBox.height);
         const freeShare = freeHeight / viewport.height;
-        expect(freeShare).toBeGreaterThanOrEqual(0.40);
+        expect(freeShare).toBeGreaterThanOrEqual(0.4);
 
         // Verify stage slots for election live view remain outside sidebar
         const banner = page.locator("#map-stage > #election-banner-slot");
@@ -335,7 +344,18 @@ test.describe("MOB mobile responsive slice (MOB-01 to MOB-07)", () => {
       selected = await readSelection(page);
       expect(selected).not.toContain(spCode);
 
-      // Mouse click directly selects the unit
+      // Close the inspection overlay before selecting through the map.
+      await card.getByRole("button", { name: "Isolar São Paulo no mapa 3D", exact: true }).click();
+      await settle(page);
+      await card.getByRole("button", { name: "Fechar inspeção" }).click();
+      for (
+        let step = 0;
+        step < 3 &&
+        (await page.locator("#sidebar").getAttribute("data-sheet-state")) !== "collapsed";
+        step += 1
+      ) {
+        await page.locator("#sheet-toggle").click();
+      }
       await clickUnit(page, spCode);
       selected = await readSelection(page);
       expect(selected).toContain(spCode);
@@ -604,7 +624,9 @@ test.describe("MOB mobile responsive slice (MOB-01 to MOB-07)", () => {
         const loc = page.locator(selector);
         const count = await loc.count();
         if (count > 0) {
-          const isNoOverflow = await loc.first().evaluate((el) => el.scrollWidth <= el.clientWidth + 1);
+          const isNoOverflow = await loc
+            .first()
+            .evaluate((el) => el.scrollWidth <= el.clientWidth + 1);
           expect(isNoOverflow, `${selector} does not overflow horizontally in 320x568`).toBe(true);
         }
       }

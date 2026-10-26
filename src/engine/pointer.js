@@ -415,10 +415,19 @@ function dragPan(input, drag) {
 
   if (!drag.grabPoint) {
     drag.grabPoint = pointUnderCursor;
+    if (drag.isTouch) {
+      const rect = input.canvas.getBoundingClientRect();
+      const startNdc = new THREE.Vector2(
+        ((drag.startX - rect.left) / rect.width) * 2 - 1,
+        -((drag.startY - rect.top) / rect.height) * 2 + 1,
+      );
+      drag.grabPoint = input.readGroundPoint(startNdc) ?? pointUnderCursor;
+    }
     if (!drag.hasPanStarted) {
       drag.hasPanStarted = true;
       input.onPanStart();
     }
+    if (drag.isTouch) input.onPan(drag.grabPoint.clone().sub(pointUnderCursor));
     return true;
   }
 

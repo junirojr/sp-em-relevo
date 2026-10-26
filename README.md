@@ -19,12 +19,14 @@ O projeto utiliza JavaScript nativo em módulos ES e Three.js r185 via import ma
    npm install
    ```
 
-2. Inicie o servidor local:
+2. Inicie o servidor local (gera os bundles antes de servir):
    ```bash
    npm start
    ```
 
 3. Abra `http://localhost:4173` no navegador.
+
+`npm run build` gera `dist/` a partir de `src/`, com imports dinâmicos preservados. Depois de editar o código, gere novamente os bundles antes de recarregar. Os comandos de teste também executam o build. A malha distribuída em gzip reconstrói o JSON original sem perda.
 
 Para executar a suíte completa de testes:
 ```bash

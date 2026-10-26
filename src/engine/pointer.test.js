@@ -180,7 +180,7 @@ test("MOB-05 a single-finger touch drag past the 10px threshold pans the map wit
   probe.cleanup();
 
   assert.equal(probe.panStartCount, 1);
-  assert.equal(probe.panCount, 1);
+  assert.equal(probe.panCount, 2);
   assert.equal(probe.clickCount, 0);
   assert.equal(probe.inspectCount, 0);
 });
@@ -271,7 +271,7 @@ test("MOB-05 the second finger does not overwrite the first pointer drag or jump
   probe.cleanup();
 
   assert.equal(probe.panStartCount, 1);
-  assert.equal(probe.panCount, 1);
+  assert.equal(probe.panCount, 2);
   assert.equal(probe.clickCount, 0);
   assert.equal(probe.inspectCount, 0);
 });

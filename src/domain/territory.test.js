@@ -167,7 +167,7 @@ test("RGV-02 real data: in each level the sum of groups equals total SP and grou
   const areaIdx = columns.indexOf("areaKm2");
   const gdpIdx = columns.indexOf("gdpThousandBrl");
 
-  const municipalities = rows.map((row) => ({
+  const municipalities = rows.map((/** @type {{ [x: string]: any; }} */ row) => ({
     code: String(row[codeIdx]),
     name: String(row[nameIdx]),
     regionCode: String(row[regCodeIdx]),

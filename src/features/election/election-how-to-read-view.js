@@ -282,6 +282,9 @@ export function mountElectionHowToReadView(documentRef, slotElement, options = {
     officeBoxBody.textContent = didactic.body;
   }
 
+  /**
+   * @param {boolean} expanded
+   */
   function applyExpandedState(expanded) {
     isCurrentlyExpanded = expanded;
     toggleBtn.setAttribute("aria-expanded", String(expanded));
@@ -297,6 +300,10 @@ export function mountElectionHowToReadView(documentRef, slotElement, options = {
 
   renderOfficeExplanation();
 
+  /**
+   * @param {ElectionOffice} office
+   * @param {boolean} [expanded]
+   */
   function update(office, expanded) {
     currentOffice = office;
     renderOfficeExplanation();

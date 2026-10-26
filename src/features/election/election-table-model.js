@@ -1,7 +1,4 @@
-import {
-  aggregateElectionUnits,
-  computeUnitElectionResult,
-} from "../../domain/election.js";
+import { aggregateElectionUnits, computeUnitElectionResult } from "../../domain/election.js";
 import { groupOf } from "../../domain/territory.js";
 import {
   computeDisplayedMarginPp,
@@ -41,6 +38,7 @@ import {
 
 export const WCAG_FOOTER_BADGE = "projetado para WCAG 2.2 AA";
 
+/** @type {Record<string, string>} */
 const LEVEL_LABELS = {
   municipality: "Municipio",
   governmentRegion: "Regiao de governo",
@@ -99,7 +97,7 @@ export function buildElectionTableColumns(options = {}) {
  *
  * @param {{
  *   level?: TerritorialLevel,
- *   mode?: string,
+ *   mode?: import("../table/table-model.js").ModeId,
  *   office?: string,
  *   municipalities?: MunicipalityRecord[],
  *   regions?: RegionRecord[],
@@ -177,7 +175,7 @@ export function buildElectionTableRows(options = {}) {
 
 /**
  * @param {{
- *   mode: string,
+ *   mode: import("../table/table-model.js").ModeId,
  *   officeLabel: string,
  *   municipalities: MunicipalityRecord[],
  *   regions: RegionRecord[],
@@ -211,7 +209,7 @@ function buildMunicipalityElectionRows(ctx) {
       name: mun.name,
     };
     const elecResult = computeUnitElectionResult(raw, {
-      mode: ctx.mode,
+      mode: resolveElectionRoundMode(ctx.mode),
       theme: ctx.theme,
     });
 
@@ -269,7 +267,7 @@ function buildMunicipalityElectionRows(ctx) {
 
 /**
  * @param {{
- *   mode: string,
+ *   mode: import("../table/table-model.js").ModeId,
  *   officeLabel: string,
  *   municipalities: MunicipalityRecord[],
  *   governmentRegions: RegionRecord[],
@@ -322,7 +320,7 @@ function buildGovernmentRegionElectionRows(ctx) {
     const aggResult = aggregateElectionUnits(childInputs, {
       code: gov.code,
       name: gov.label,
-      mode: ctx.mode,
+      mode: resolveElectionRoundMode(ctx.mode),
       theme: ctx.theme,
       isDeputyFreeSelection: ctx.isDeputyFreeSelection,
     });
@@ -381,7 +379,7 @@ function buildGovernmentRegionElectionRows(ctx) {
 
 /**
  * @param {{
- *   mode: string,
+ *   mode: import("../table/table-model.js").ModeId,
  *   officeLabel: string,
  *   municipalities: MunicipalityRecord[],
  *   regions: RegionRecord[],
@@ -435,7 +433,7 @@ function buildRegionElectionRows(ctx) {
     const aggResult = aggregateElectionUnits(childInputs, {
       code: reg.code,
       name: reg.label,
-      mode: ctx.mode,
+      mode: resolveElectionRoundMode(ctx.mode),
       theme: ctx.theme,
       isDeputyFreeSelection: ctx.isDeputyFreeSelection,
     });
@@ -496,7 +494,7 @@ function buildRegionElectionRows(ctx) {
  * Builds the caption for the election alternative table (ACE-03).
  *
  * @param {{
- *   mode?: string,
+ *   mode?: import("../table/table-model.js").ModeId,
  *   level?: TerritorialLevel,
  *   office?: string,
  *   totalUnits?: number,
@@ -535,7 +533,7 @@ function resolveThemeLabel(theme) {
  *
  * @param {{
  *   level?: TerritorialLevel,
- *   mode?: string,
+ *   mode?: import("../table/table-model.js").ModeId,
  *   office?: string,
  *   municipalities?: MunicipalityRecord[],
  *   regions?: RegionRecord[],
@@ -608,4 +606,11 @@ function toLookupMap(input) {
     }
   }
   return map;
+}
+
+/** @param {import("../table/table-model.js").ModeId} mode
+ * @returns {import("../../domain/election.js").ElectionRoundMode} */
+function resolveElectionRoundMode(mode) {
+  if (mode === "first-round") return mode;
+  return "live";
 }

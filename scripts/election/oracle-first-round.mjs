@@ -171,9 +171,9 @@ export function extractCandidateVotes(observedData, ballotNumber) {
   }
 
   // Direct candidate map in totals.state
-  const totals = observedData.totals;
+  const totals = /** @type {Record<string, unknown> | undefined} */ (observedData.totals);
   if (totals && typeof totals === "object") {
-    const stateObj = totals.state;
+    const stateObj = /** @type {Record<string, unknown> | undefined} */ (totals.state);
     if (stateObj && typeof stateObj === "object") {
       const votesPairs = stateObj.votes;
       if (Array.isArray(votesPairs)) {
@@ -187,7 +187,9 @@ export function extractCandidateVotes(observedData, ballotNumber) {
           }
         }
       }
-      const votesDict = stateObj.votesByBallot ?? stateObj.candidateVotes;
+      const votesDict = /** @type {Record<string, unknown> | undefined} */ (
+        stateObj.votesByBallot ?? stateObj.candidateVotes
+      );
       if (votesDict && typeof votesDict === "object") {
         const val = votesDict[ballotStr];
         if (Number.isFinite(val)) {
@@ -245,18 +247,18 @@ export function extractCandidateVotes(observedData, ballotNumber) {
  * @returns {number}
  */
 export function extractTotalValidVotes(observedData) {
-  const totals = observedData.totals;
+  const totals = /** @type {Record<string, unknown> | undefined} */ (observedData.totals);
   if (totals && typeof totals === "object") {
-    const stateObj = totals.state;
+    const stateObj = /** @type {Record<string, unknown> | undefined} */ (totals.state);
     if (stateObj && typeof stateObj === "object") {
-      const valid = stateObj.validVotes ?? stateObj.totalValidVotes;
+      const valid = Number(stateObj.validVotes ?? stateObj.totalValidVotes);
       if (Number.isFinite(valid) && valid > 0) {
         return Number(valid);
       }
     }
   }
 
-  const topValid = observedData.totalValidVotes ?? observedData.validVotes;
+  const topValid = Number(observedData.totalValidVotes ?? observedData.validVotes);
   if (Number.isFinite(topValid) && topValid > 0) {
     return Number(topValid);
   }
@@ -301,6 +303,9 @@ export function extractTotalValidVotes(observedData) {
 export function verifyCargoOracle(cargoKey, observedData, tolerance = DEFAULT_TOLERANCE_PP) {
   const target = OFFICIAL_ORACLE_TARGETS[cargoKey];
   const problems = [];
+  /**
+   * @type {{ ballotNumber: string; name: string; expectedPct: number; actualPct: number; diffPp: number; passed: boolean; }[]}
+   */
   const diffs = [];
 
   if (!target) {
@@ -388,7 +393,7 @@ export function runOracleVerification(
     senador: "senador-1t.json",
   };
 
-  const keys = Object.keys(cargoFileMap);
+  const keys = /** @type {Array<keyof typeof cargoFileMap>} */ (Object.keys(cargoFileMap));
   for (const cargoKey of keys) {
     const fileName = cargoFileMap[cargoKey];
     const filePath = path.resolve(dataDir, fileName);
@@ -456,7 +461,9 @@ function runCli() {
 
   for (const cargoKey of Object.keys(result.reports)) {
     const report = result.reports[cargoKey];
-    console.log(`\nCargo: ${cargoKey} (votos validos totais: ${report.totalValidVotes.toLocaleString("pt-BR")})`);
+    console.log(
+      `\nCargo: ${cargoKey} (votos validos totais: ${report.totalValidVotes.toLocaleString("pt-BR")})`,
+    );
     for (const d of report.diffs) {
       let statusIcon = "[FALHA]";
       if (d.passed) {
@@ -469,7 +476,9 @@ function runCli() {
   }
 
   if (result.valid) {
-    console.log("\nResultado: Todos os totais e percentuais conferem com o oraculo independente (TUR-02).");
+    console.log(
+      "\nResultado: Todos os totais e percentuais conferem com o oraculo independente (TUR-02).",
+    );
     process.exit(0);
   }
 

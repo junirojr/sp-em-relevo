@@ -6,6 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   collectRuntimeFiles,
+  collectRuntimeSources,
   collectStaticBootFiles,
   measureStaticBootBytes,
   STATIC_BOOT_CEILING_BYTES,
@@ -28,7 +29,7 @@ test("PUB-06 collectRuntimeFiles includes entrypoints and static data files", ()
   const files = collectRuntimeFiles();
 
   assert.ok(files.includes("index.html"));
-  assert.ok(files.includes("src/app/main.js"));
+  assert.ok(files.includes("dist/main.js"));
   assert.ok(files.includes("src/app/theme.css"));
 
   for (const dataFile of STATIC_DATA_FILES) {
@@ -101,12 +102,12 @@ test("PUB-08 static boot closure stays within 819200 bytes and excludes election
     `Static boot closure must not include election modules: ${report.electionModules.join(", ")}`,
   );
   assert.equal(
-    staticFiles.includes("src/features/selection/compare-view.js"),
+    collectRuntimeSources(staticFiles).includes("src/features/selection/compare-view.js"),
     false,
     "compare-view.js should be loaded on demand via dynamic import()",
   );
   assert.equal(
-    allRuntimeFiles.includes("src/features/selection/compare-view.js"),
+    collectRuntimeSources(allRuntimeFiles).includes("src/features/selection/compare-view.js"),
     true,
     "compare-view.js must still be included in full runtime closure for export-tree",
   );
@@ -114,7 +115,10 @@ test("PUB-08 static boot closure stays within 819200 bytes and excludes election
 
 test("PUB-10 public-manifest.json and collectRuntimeFiles cover data/election/** and exclude raw election corpus", () => {
   const manifest = JSON.parse(fs.readFileSync("scripts/publish/public-manifest.json", "utf8"));
-  assert.ok(manifest.include.includes("data/election/**"), "Manifest must include data/election/**");
+  assert.ok(
+    manifest.include.includes("data/election/**"),
+    "Manifest must include data/election/**",
+  );
   assert.ok(
     manifest.exclude.includes("scripts/election/raw/**"),
     "Manifest must exclude scripts/election/raw/**",

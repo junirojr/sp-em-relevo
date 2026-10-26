@@ -93,7 +93,10 @@ test("LAY-06 every accent token is at least 0.08 deltaE OKLab from heat reds and
 test("ELE-16 election mode neutralizes shell tokens to OKLab chroma at most 0.04 with double focus ring", () => {
   const cssText = fs.readFileSync(THEME_CSS_PATH, "utf-8");
   const lightElectionTokens = parseCssBlockTokens(cssText, ':root\\[data-mode="election"\\]');
-  const darkElectionTokens = parseCssBlockTokens(cssText, ':root\\[data-theme="dark"\\]\\[data-mode="election"\\]');
+  const darkElectionTokens = parseCssBlockTokens(
+    cssText,
+    ':root\\[data-theme="dark"\\]\\[data-mode="election"\\]',
+  );
 
   const checkedTokenKeys = [
     "--primary",
@@ -130,12 +133,15 @@ test("ELE-16 election mode neutralizes shell tokens to OKLab chroma at most 0.04
     }
   }
 
-  const focusRegex = /\[data-mode="election"\][^\{]*:focus-visible[^{]*\{([^}]+)\}/s;
+  const focusRegex = /\[data-mode="election"\][^{]*:focus-visible[^{]*\{([^}]+)\}/s;
   const focusMatch = cssText.match(focusRegex);
   assert.ok(focusMatch, "Election mode must define a focus-visible rule");
   const focusBody = focusMatch[1];
   assert.ok(focusBody.includes("outline:"), "Election focus rule must include outline");
-  assert.ok(focusBody.includes("box-shadow:"), "Election focus rule must include box-shadow for double ring");
+  assert.ok(
+    focusBody.includes("box-shadow:"),
+    "Election focus rule must include box-shadow for double ring",
+  );
 
   const lightDefaultTokens = parseCssBlockTokens(cssText, ":root");
   const defaultFocusLab = oklab(lightDefaultTokens["--focus"]);
@@ -162,7 +168,10 @@ test("ELE-23 LAY-06 scope restriction to indicator mode and phase 1 compatibilit
   for (const accentKey of ACCENT_KEYS) {
     const electionLab = oklab(lightElectionTokens[accentKey]);
     const chroma = Math.hypot(electionLab.a, electionLab.b);
-    assert.ok(chroma <= 0.04, `Election mode ${accentKey} is neutralized, not following LAY-06 red separation`);
+    assert.ok(
+      chroma <= 0.04,
+      `Election mode ${accentKey} is neutralized, not following LAY-06 red separation`,
+    );
   }
 });
 

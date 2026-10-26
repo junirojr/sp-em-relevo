@@ -128,6 +128,9 @@ function createFakeDocument() {
       const classes = new Set();
       const style = {};
       const dataset = {};
+      /**
+       * @type {any[]}
+       */
       const children = [];
       const element = {
         tagName: tag,
@@ -142,7 +145,7 @@ function createFakeDocument() {
           remove: (/** @type {string} */ cls) => classes.delete(cls),
           contains: (/** @type {string} */ cls) => classes.has(cls),
         },
-        append: (...nodes) => children.push(...nodes),
+        append: (/** @type {any} */ ...nodes) => children.push(...nodes),
         setAttribute: () => {},
         remove: () => {},
       };

@@ -77,6 +77,7 @@ function buildThemeButton(documentRef, option) {
   button.type = "button";
   button.className = "theme-toggle-button";
   button.dataset.theme = option.theme;
+  button.setAttribute("aria-label", option.label);
 
   const glyph = documentRef.createElement("span");
   glyph.className = "theme-toggle-glyph";

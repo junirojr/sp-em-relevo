@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { expect, test } from "@playwright/test";
 import { inspect, readSelection } from "../../../tests/support/inspector.js";
 import { openPage, settle } from "../../../tests/support/page.js";
+import { parseMunicipalities } from "../../app/data-loader.js";
 import { aggregateIndicator } from "../../domain/aggregation.js";
 import { classify } from "../../domain/classification.js";
 import { INDICATORS } from "../../domain/indicator.js";
@@ -10,9 +11,9 @@ import { INDICATORS } from "../../domain/indicator.js";
  * @typedef {import("@playwright/test").Page} Page
  * @typedef {import("@playwright/test").Locator} Locator
  * @typedef {import("@playwright/test").Browser} Browser
- * @typedef {{ code: string, name: string, regionCode: string, population: number, areaKm2: number, gdpThousandBrl: number }} MunicipalityRecord
+ * @typedef {{ code: string, name: string, regionCode: string, governmentRegionCode?: string, population: number, areaKm2: number, gdpThousandBrl: number }} MunicipalityRecord
  * @typedef {{ code: string, label: string }} RegionRecord
- * @typedef {{ kind: "municipality" | "region", code: string, name: string, codes: string[] }} SearchUnit
+ * @typedef {{ kind: "municipality" | "governmentRegion" | "region", code: string, name: string, codes: string[] }} SearchUnit
  * @typedef {{ x: number, y: number, width: number, height: number }} Box
  */
 
@@ -23,9 +24,11 @@ const RESULTS_NAME = "Resultados da busca";
 const RECENTS_NAME = "Recentes";
 
 /** @type {MunicipalityRecord[]} */
-const MUNICIPALITIES = readJson("data/municipalities.json").municipalities;
+const MUNICIPALITIES = parseMunicipalities(readJson("data/municipalities.json"));
 /** @type {RegionRecord[]} */
 const REGIONS = readJson("data/regions.json").regions;
+/** @type {RegionRecord[]} */
+const GOVERNMENT_REGIONS = readJson("data/regions.json").governmentRegions;
 
 const SAO_JOSE_DOS_CAMPOS = municipalityUnit("São José dos Campos");
 const RA_SAO_JOSE_DOS_CAMPOS = regionUnit("RA São José dos Campos");
@@ -270,7 +273,8 @@ test.describe("SEL search window (SEL-14 to SEL-16)", () => {
       const shownPopulations = shownUnits.map((unit) => populationOf(unit));
       expect(shownPopulations).toEqual([...shownPopulations].sort((left, right) => right - left));
       const mostPopulous = [...matches].sort(
-        (left, right) => populationOf(right) - populationOf(left),
+        (left, right) =>
+          populationOf(right) - populationOf(left) || left.name.localeCompare(right.name, "pt-BR"),
       )[0];
       expect(shownUnits[0]).toEqual({ kind: mostPopulous.kind, code: mostPopulous.code });
 
@@ -596,6 +600,16 @@ function countMatches(query) {
   return [
     ...municipalities.map((record) => municipalityUnit(record.name)),
     ...regions.map((region) => regionUnit(region.label)),
+    ...GOVERNMENT_REGIONS.filter((region) => foldName(region.label).includes(needle)).map(
+      (region) => ({
+        kind: /** @type {const} */ ("governmentRegion"),
+        code: region.code,
+        name: region.label,
+        codes: MUNICIPALITIES.filter((record) => record.governmentRegionCode === region.code).map(
+          (record) => record.code,
+        ),
+      }),
+    ),
   ];
 }
 
@@ -642,6 +656,10 @@ function unitCodes(unit) {
       (record) => record.code,
     );
   }
+  if (unit.kind === "governmentRegion")
+    return MUNICIPALITIES.filter((record) => record.governmentRegionCode === unit.code).map(
+      (record) => record.code,
+    );
   return [unit.code];
 }
 

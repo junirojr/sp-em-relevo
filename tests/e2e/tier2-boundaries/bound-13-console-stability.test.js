@@ -32,6 +32,9 @@ test("B13-02: Corrupted operational status object does not crash parseUrlState",
 
 test("B13-03: Rapid timer-based polling simulation can be cleanly cancelled without leak", () => {
   let tickCount = 0;
+  /**
+   * @type {string | number | NodeJS.Timeout | null | undefined}
+   */
   let timerId = null;
 
   function start() {

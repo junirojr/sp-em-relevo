@@ -35,13 +35,7 @@ export function mountStageView(documentRef, stageElement, canvasElement) {
     null,
     null,
   );
-  const sourceSlot = ensureStageSlot(
-    documentRef,
-    stageElement,
-    "election-source-slot",
-    null,
-    null,
-  );
+  const sourceSlot = ensureStageSlot(documentRef, stageElement, "election-source-slot", null, null);
 
   ensureOutsideSidebar(documentRef, stageElement, [bannerSlot, scoreboardSlot, sourceSlot]);
 

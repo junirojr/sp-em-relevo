@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-
+import { createCountSource } from "../../app/count-source.js";
+import {
+  ARTIFACT_TIMELESS_NOTICE,
+  isArtifactEnvironment,
+  isElectionFeatureEnabled,
+  renderArtifactNotice,
+  renderRetryUi,
+} from "../../app/election-loader.js";
+import { projectElectionToEngine } from "../../app/election-projection.js";
 import {
   calculateFailureBackoff,
   hasTrackingChanged,
@@ -18,15 +26,6 @@ import {
   sortCandidatesByBallotNumber,
 } from "../../domain/election.js";
 import { assignCandidateColors } from "../../domain/election-colors.js";
-import { createCountSource } from "../../app/count-source.js";
-import {
-  ARTIFACT_TIMELESS_NOTICE,
-  isArtifactEnvironment,
-  isElectionFeatureEnabled,
-  renderArtifactNotice,
-  renderRetryUi,
-} from "../../app/election-loader.js";
-import { projectElectionToEngine } from "../../app/election-projection.js";
 import {
   changeElectionTab,
   createElectionState,
@@ -43,10 +42,7 @@ import {
   formatPartialCountMessage,
   formatTseStoppedMessage,
 } from "../election/election-strings.js";
-import {
-  applyControlsVisibility,
-  mountModeSelectorView,
-} from "../election/mode-selector-view.js";
+import { applyControlsVisibility, mountModeSelectorView } from "../election/mode-selector-view.js";
 import { mountCountBannerView } from "./count-banner-view.js";
 import { mountCountScoreboardView } from "./count-scoreboard-view.js";
 import {
@@ -66,7 +62,11 @@ import {
 function createMockEnvironment() {
   const elements = new Map();
 
+  /**
+   * @param {string} tag
+   */
   function createElement(tag) {
+    /** @type {any} DOM test double. */
     const el = {
       tagName: tag.toUpperCase(),
       attributes: {},
@@ -77,12 +77,22 @@ function createMockEnvironment() {
       textContent: "",
       innerHTML: "",
       parentNode: null,
+      /**
+       * @param {string | number} name
+       * @param {any} val
+       */
       setAttribute(name, val) {
         el.attributes[name] = String(val);
       },
+      /**
+       * @param {string | number} name
+       */
       getAttribute(name) {
         return el.attributes[name] ?? null;
       },
+      /**
+       * @param {any[]} items
+       */
       append(...items) {
         for (const item of items) {
           if (typeof item === "string") {
@@ -93,20 +103,38 @@ function createMockEnvironment() {
           el.children.push(item);
         }
       },
+      /**
+       * @param {any} _selector
+       */
       querySelector(_selector) {
         return null;
       },
+      /**
+       * @param {any} _selector
+       */
       querySelectorAll(_selector) {
         return [];
       },
+      /**
+       * @param {any} _ev
+       * @param {any} _cb
+       */
       addEventListener(_ev, _cb) {},
+      /**
+       * @param {any} _ev
+       * @param {any} _cb
+       */
       removeEventListener(_ev, _cb) {},
     };
     return el;
   }
 
+  /** @type {any} DOM test double. */
   const documentRef = {
     createElement,
+    /**
+     * @param {string} id
+     */
     getElementById(id) {
       if (!elements.has(id)) {
         const el = createElement("div");
@@ -115,9 +143,15 @@ function createMockEnvironment() {
       }
       return elements.get(id);
     },
+    /**
+     * @param {any} _selector
+     */
     querySelector(_selector) {
       return null;
     },
+    /**
+     * @param {any} _selector
+     */
     querySelectorAll(_selector) {
       return [];
     },
@@ -126,11 +160,20 @@ function createMockEnvironment() {
       style: {},
     },
     head: createElement("head"),
+    /**
+     * @param {any} _ev
+     * @param {any} _cb
+     */
     addEventListener(_ev, _cb) {},
+    /**
+     * @param {any} _ev
+     * @param {any} _cb
+     */
     removeEventListener(_ev, _cb) {},
     hidden: false,
   };
 
+  /** @type {any} Window test double. */
   const windowRef = {
     location: {
       protocol: "https:",
@@ -140,7 +183,15 @@ function createMockEnvironment() {
     history: {
       replaceState: () => {},
     },
+    /**
+     * @param {any} _ev
+     * @param {any} _cb
+     */
     addEventListener(_ev, _cb) {},
+    /**
+     * @param {any} _ev
+     * @param {any} _cb
+     */
     removeEventListener(_ev, _cb) {},
   };
 
@@ -176,7 +227,10 @@ describe("N13 live election counting unit tests", () => {
     assert.equal(ELECTION_STRINGS.noResultReasons.noSections, "Nenhuma secao apurada");
     assert.equal(ELECTION_STRINGS.noResultReasons.reading, "Ainda lendo");
     assert.equal(ELECTION_STRINGS.noResultReasons.failed, "Leitura falhou");
-    assert.equal(ELECTION_STRINGS.noResultReasons.insufficientSections, "Secoes insuficientes (< 50%)");
+    assert.equal(
+      ELECTION_STRINGS.noResultReasons.insufficientSections,
+      "Secoes insuficientes (< 50%)",
+    );
 
     const belowThreshold = isBelowSectionsThreshold({
       sectionsCounted: 49,
@@ -210,8 +264,24 @@ describe("N13 live election counting unit tests", () => {
 
   it("ELE-11 candidate listings are deterministically sorted strictly by ballot number across views", () => {
     const candidates = [
-      { ballotNumber: "22", name: "B", validVotes: 300, numericBallot: 22, sharePct: 30, votes: 300, party: "PL" },
-      { ballotNumber: "13", name: "A", validVotes: 700, numericBallot: 13, sharePct: 70, votes: 700, party: "PT" },
+      {
+        ballotNumber: "22",
+        name: "B",
+        validVotes: 300,
+        numericBallot: 22,
+        sharePct: 30,
+        votes: 300,
+        party: "PL",
+      },
+      {
+        ballotNumber: "13",
+        name: "A",
+        validVotes: 700,
+        numericBallot: 13,
+        sharePct: 70,
+        votes: 700,
+        party: "PT",
+      },
     ];
     const sorted = sortCandidatesByBallotNumber(candidates);
     assert.equal(sorted[0].ballotNumber, "13");
@@ -300,8 +370,8 @@ describe("N13 live election counting unit tests", () => {
         { cd: "35002", elet: 500000, st: 20 },
       ],
       municipalConfigMap: {
-        "35001": { cd: "35001", elet: 5000, nm: "Mun A" },
-        "35002": { cd: "35002", elet: 500000, nm: "Mun B" },
+        35001: { cd: "35001", elet: 5000, nm: "Mun A" },
+        35002: { cd: "35002", elet: 500000, nm: "Mun B" },
       },
     });
 
@@ -324,12 +394,7 @@ describe("N13 live election counting unit tests", () => {
     let fetchCount = 0;
     const fakeFetch = async () => {
       fetchCount += 1;
-      return {
-        ok: true,
-        status: 200,
-        headers: new Map(),
-        text: async () => JSON.stringify({ dg: "25/10/2026", hg: "17:00", abr: [] }),
-      };
+      return new Response(JSON.stringify({ dg: "25/10/2026", hg: "17:00", abr: [] }));
     };
 
     const source = createCountSource({

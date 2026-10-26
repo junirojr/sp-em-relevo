@@ -31,6 +31,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { gzipSync } from "node:zlib";
 import {
   checkGovernmentRegionLabels,
   checkGovernmentRegionMembership,
@@ -99,10 +100,14 @@ export async function buildData({
   }
   const texts = {
     [MESH_FILE]: meshTexts[quality],
-    [MUNICIPALITIES_FILE]: serializeCompact(documents[MUNICIPALITIES_FILE]),
+    [MUNICIPALITIES_FILE]: serializeCompact({
+      ...documents[MUNICIPALITIES_FILE],
+      municipalities: undefined,
+    }),
     [REGIONS_FILE]: serializeCompact(documents[REGIONS_FILE]),
   };
   await writeOutputs(outDir, texts);
+  await writeFile(path.join(outDir, "mesh.topo.json.gz"), gzipSync(texts[MESH_FILE], { level: 9 }));
   return {
     quality,
     warnings: findNameMismatches(inputs),

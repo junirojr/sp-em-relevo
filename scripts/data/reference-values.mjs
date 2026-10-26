@@ -381,9 +381,7 @@ function parseGovernmentRegionMembership(dbfBuffer) {
     /** @type {Record<string, string>} */
     const record = {};
     for (const field of fields) {
-      record[field.name] = dbfBuffer
-        .toString("utf8", fieldOffset, fieldOffset + field.len)
-        .trim();
+      record[field.name] = dbfBuffer.toString("utf8", fieldOffset, fieldOffset + field.len).trim();
       fieldOffset += field.len;
     }
 

@@ -95,15 +95,21 @@ export function createCountSource(options = {}) {
   /** @type {Map<string, Record<string, unknown>>} */
   const retainedMunicipalData = new Map();
   /** @type {Record<string, { cd?: string, cdi?: string, nm?: string, elet?: number }>} */
-  let municipalConfigMap = {};
+  const municipalConfigMap = {};
   let municipalConfigLoaded = false;
 
   let isPolling = false;
   let isPausedByVisibility = false;
   let isConcludedFlag = false;
   let isCycleInFlight = false;
+  /**
+   * @type {string | number | NodeJS.Timeout | null | undefined}
+   */
   let activeTimeoutId = null;
   let consecutiveFailures = 0;
+  /**
+   * @type {{ dg?: string; hg?: string; etag?: string; } | null | undefined}
+   */
   let previousTracking = null;
   let lastSuccessfulHour = "";
   let proclamationAnnounced = false;
@@ -126,6 +132,9 @@ export function createCountSource(options = {}) {
     }, delayMs);
   }
 
+  /**
+   * @param {string} url
+   */
   async function fetchWith404Handling(url) {
     if (!fetchImpl) {
       return { ok: false, status: 0, data: null };
@@ -189,7 +198,9 @@ export function createCountSource(options = {}) {
         const muList = /** @type {any} */ (item).mu;
         if (Array.isArray(muList)) {
           for (const mu of muList) {
-            const cd = String(mu.cd ?? "").trim().padStart(5, "0");
+            const cd = String(mu.cd ?? "")
+              .trim()
+              .padStart(5, "0");
             if (cd) {
               municipalConfigMap[cd] = {
                 cd,

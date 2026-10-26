@@ -254,6 +254,7 @@ function toPanelUnit(entry, territory) {
     return { kind: "region", code: entry.code, name: entry.label, codes };
   }
   if (entry.kind === "governmentRegion") {
+    /** @type {string[]} */
     let codes = [];
     if (typeof territory.municipalitiesInGovernmentRegion === "function") {
       codes = territory.municipalitiesInGovernmentRegion(entry.code).map((record) => record.code);

@@ -106,8 +106,13 @@
 
 .mode-selector-radio {
   position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
   opacity: 0;
-  pointer-events: none;
+  z-index: 1;
+  cursor: pointer;
 }
 
 .mode-selector-label-text {
@@ -510,7 +515,9 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(251, 191, 36, 0.55);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.7), 0 0 16px rgba(251, 191, 36, 0.2);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.7),
+    0 0 16px rgba(251, 191, 36, 0.2);
   border-radius: 9999px;
   padding: 6px 14px;
   color: #eceef4;
@@ -650,5 +657,3 @@
   text-align: right;
   white-space: nowrap;
 }
-
-

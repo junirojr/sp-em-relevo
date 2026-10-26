@@ -32,7 +32,8 @@
  *
  * @typedef {{
  *   element: HTMLElement,
- *   update: (width: number, height: number) => LabelPlacement[],
+ *   update: (width: number, height: number, options?: { occlusionBoxes?: BoundingBox[], useShortLabel?: boolean, hoverOnly?: boolean }) => LabelPlacement[],
+ *   setPointedRegion: (code: string | null) => void,
  *   getPlacements: () => LabelPlacement[],
  *   getLabels: () => HTMLElement[],
  *   destroy: () => void
@@ -49,20 +50,48 @@
 export const REGION_LABEL_DEFINITIONS = [
   { code: "1", label: "RM São Paulo", shortLabel: "RM São Paulo", x: 0.79, y: 0.76, priority: 1 },
   { code: "6", label: "RA Campinas", shortLabel: "Campinas", x: 0.71, y: 0.51, priority: 2 },
-  { code: "7", label: "RA Ribeirão Preto", shortLabel: "Ribeirão Preto", x: 0.60, y: 0.19, priority: 3 },
+  {
+    code: "7",
+    label: "RA Ribeirão Preto",
+    shortLabel: "Ribeirão Preto",
+    x: 0.6,
+    y: 0.19,
+    priority: 3,
+  },
   { code: "3", label: "RA Santos", shortLabel: "Santos", x: 0.81, y: 0.86, priority: 4 },
-  { code: "4", label: "RA São José dos Campos", shortLabel: "São José dos Campos", x: 0.96, y: 0.62, priority: 5 },
+  {
+    code: "4",
+    label: "RA São José dos Campos",
+    shortLabel: "São José dos Campos",
+    x: 0.96,
+    y: 0.62,
+    priority: 5,
+  },
   { code: "5", label: "RA Sorocaba", shortLabel: "Sorocaba", x: 0.57, y: 0.69, priority: 6 },
   { code: "8", label: "RA Bauru", shortLabel: "Bauru", x: 0.38, y: 0.41, priority: 7 },
-  { code: "2", label: "RA Registro", shortLabel: "Registro", x: 0.60, y: 0.98, priority: 8 },
-  { code: "9", label: "RA São José do Rio Preto", shortLabel: "São José do Rio Preto", x: 0.26, y: 0.05, priority: 9 },
-  { code: "11", label: "RA Presidente Prudente", shortLabel: "Presidente Prudente", x: 0.05, y: 0.36, priority: 10 },
+  { code: "2", label: "RA Registro", shortLabel: "Registro", x: 0.6, y: 0.98, priority: 8 },
+  {
+    code: "9",
+    label: "RA São José do Rio Preto",
+    shortLabel: "São José do Rio Preto",
+    x: 0.26,
+    y: 0.05,
+    priority: 9,
+  },
+  {
+    code: "11",
+    label: "RA Presidente Prudente",
+    shortLabel: "Presidente Prudente",
+    x: 0.05,
+    y: 0.36,
+    priority: 10,
+  },
   { code: "10", label: "RA Araçatuba", shortLabel: "Araçatuba", x: 0.14, y: 0.15, priority: 11 },
   { code: "12", label: "RA Marília", shortLabel: "Marília", x: 0.22, y: 0.49, priority: 12 },
   { code: "13", label: "RA Central", shortLabel: "Central", x: 0.52, y: 0.31, priority: 13 },
   { code: "14", label: "RA Barretos", shortLabel: "Barretos", x: 0.46, y: 0.08, priority: 14 },
   { code: "15", label: "RA Franca", shortLabel: "Franca", x: 0.62, y: 0.03, priority: 15 },
-  { code: "16", label: "RA Itapeva", shortLabel: "Itapeva", x: 0.40, y: 0.84, priority: 16 },
+  { code: "16", label: "RA Itapeva", shortLabel: "Itapeva", x: 0.4, y: 0.84, priority: 16 },
 ];
 
 export const DEFAULT_LABEL_HEIGHT = 22;
@@ -81,19 +110,13 @@ export const DEFAULT_MARGIN_PX = 12;
  *   padding?: number,
  *   margin?: number,
  *   estimateWidth?: (text: string) => number,
- *   labelHeight?: number
  *   labelHeight?: number,
  *   occlusionBoxes?: BoundingBox[],
  *   useShortLabel?: boolean
  * }} [options]
  * @returns {LabelPlacement[]}
  */
-export function computeLabelCollisions(
-  definitions,
-  stageWidth,
-  stageHeight,
-  options = {},
-) {
+export function computeLabelCollisions(definitions, stageWidth, stageHeight, options = {}) {
   const padding = options.padding ?? DEFAULT_PADDING_PX;
   const margin = options.margin ?? DEFAULT_MARGIN_PX;
   const labelHeight = options.labelHeight ?? DEFAULT_LABEL_HEIGHT;
@@ -332,6 +355,7 @@ export function mountRegionLabelsView(documentRef, container, options = {}) {
     return currentPlacements;
   }
 
+  /** @param {string | null} regionCode */
   function setPointedRegion(regionCode) {
     for (let i = 0; i < elements.length; i += 1) {
       const el = elements[i];

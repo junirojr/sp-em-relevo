@@ -179,6 +179,7 @@ function isElectionAllowed(status) {
  * @returns {Array<{ id: ElectionTab, label: string }>}
  */
 function getAvailableTabs(status) {
+  /** @type {Array<{id: ElectionTab, label: string}>} */
   const tabs = [
     { id: /** @type {ElectionTab} */ ("indicators"), label: ELECTION_STRINGS.mode.indicators },
     { id: /** @type {ElectionTab} */ ("first-round"), label: ELECTION_STRINGS.mode.firstRound },
@@ -213,11 +214,15 @@ export function applyControlsVisibility(documentRef, tab) {
   const appearanceContainer = documentRef.getElementById("appearance-container");
   if (appearanceContainer) {
     appearanceContainer.hidden = isElection;
-    const colorGroup = appearanceContainer.querySelector(".appearance-group-color");
+    const colorGroup = appearanceContainer.querySelector(
+      /** @type {"div"} */ (".appearance-group-color"),
+    );
     if (colorGroup) {
       colorGroup.hidden = isElection;
     }
-    const stepOption = appearanceContainer.querySelector(".height-mode-option-step");
+    const stepOption = appearanceContainer.querySelector(
+      /** @type {"div"} */ (".height-mode-option-step"),
+    );
     if (stepOption) {
       stepOption.hidden = isElection;
     }
@@ -243,12 +248,12 @@ export function applyControlsVisibility(documentRef, tab) {
     pointedPill.hidden = isElection;
   }
 
-  const stageBanner = documentRef.querySelector(".stage-banner");
+  const stageBanner = documentRef.querySelector(/** @type {"div"} */ (".stage-banner"));
   if (stageBanner) {
     stageBanner.hidden = isElection;
   }
 
-  const demoNotice = documentRef.querySelector(".indicator-notice");
+  const demoNotice = documentRef.querySelector(/** @type {"div"} */ (".indicator-notice"));
   if (demoNotice) {
     demoNotice.hidden = isElection;
   }

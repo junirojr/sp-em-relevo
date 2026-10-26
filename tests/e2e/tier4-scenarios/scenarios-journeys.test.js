@@ -54,6 +54,7 @@ test("SCEN-02: Journey 2 - Voter explores 1º Turno across all 5 offices", () =>
   const slot = doc.createElement("div");
   doc.body.append(slot);
 
+  /** @type {import("../../../src/features/election/office-selector-view.js").ElectionOffice} */
   let activeOffice = "presidente";
   const view = mountOfficeSelectorView(doc, slot, {
     office: activeOffice,
@@ -161,17 +162,32 @@ test("SCEN-05: Journey 5 - Full mode round-trip (IBGE -> TSE 2T -> TSE 1T -> IBG
 
   // Step 1: Switch to TSE 2T
   state.tab = "second-round";
-  applyControlsVisibility(doc, state.tab);
+  applyControlsVisibility(
+    doc,
+    /** @type {import("../../../src/features/election/election-slice.js").ElectionTab} */ (
+      state.tab
+    ),
+  );
   assert.equal(indicatorContainer.hidden, true);
 
   // Step 2: Switch to TSE 1T
   state.tab = "first-round";
-  applyControlsVisibility(doc, state.tab);
+  applyControlsVisibility(
+    doc,
+    /** @type {import("../../../src/features/election/election-slice.js").ElectionTab} */ (
+      state.tab
+    ),
+  );
   assert.equal(indicatorContainer.hidden, true);
 
   // Step 3: Switch back to IBGE
   state.tab = "indicators";
-  applyControlsVisibility(doc, state.tab);
+  applyControlsVisibility(
+    doc,
+    /** @type {import("../../../src/features/election/election-slice.js").ElectionTab} */ (
+      state.tab
+    ),
+  );
   assert.equal(indicatorContainer.hidden, false);
   assert.equal(state.selectedCode, "3550308", "selected city must be retained");
   assert.equal(state.indicatorId, "gdpPerCapita", "indicator must be retained");

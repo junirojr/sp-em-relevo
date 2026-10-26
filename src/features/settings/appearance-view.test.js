@@ -44,9 +44,7 @@ test("REG-01 color group has region card with value 'region' dispatching changeC
   const regionRadio = radios.find((r) => r.value === "region");
   assert.ok(regionRadio);
   regionRadio.fire("change");
-  assert.deepEqual(dispatched, [
-    { type: "settings/changed", name: "colorMode", value: "region" },
-  ]);
+  assert.deepEqual(dispatched, [{ type: "settings/changed", name: "colorMode", value: "region" }]);
 });
 
 test("LAY-10 height group is a fieldset with 3 cards: Plana, Degrau and Proporcional", () => {

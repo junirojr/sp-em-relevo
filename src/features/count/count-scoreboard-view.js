@@ -1,5 +1,5 @@
-import { assignCandidateColors } from "../../domain/election-colors.js";
 import { sortCandidatesByBallotNumber } from "../../domain/election.js";
+import { assignCandidateColors } from "../../domain/election-colors.js";
 
 /**
  * Statewide count scoreboard view component (APU-07, APU-09, ELE-10, ELE-11, ELE-21, MOB-02).
@@ -33,7 +33,8 @@ import { sortCandidatesByBallotNumber } from "../../domain/election.js";
  * }}
  */
 export function mountCountScoreboardView(documentRef, slotElement, options = {}) {
-  const sourceSlot = options.sourceSlotElement ?? documentRef.getElementById("election-source-slot");
+  const sourceSlot =
+    options.sourceSlotElement ?? documentRef.getElementById("election-source-slot");
   let currentTheme = options.theme ?? "dark";
 
   slotElement.className = "count-scoreboard-slot";
@@ -47,6 +48,9 @@ export function mountCountScoreboardView(documentRef, slotElement, options = {})
     sourceSlot.textContent = "Fonte: TSE";
   }
 
+  /**
+   * @param {{ bannerState?: "replay" | "nao-iniciada" | "em-apuracao" | "apuracao-pausada" | "matematicamente-definida" | "apuracao-concluida" | "sem-conexao"; bannerAlias?: "replay" | "matematicamente-definida" | "sem-conexao" | "aguardando" | "parcial" | "tse-sem-novidade" | "encerrada"; bannerLabel?: string; isPaused?: boolean; hasConnectionError?: boolean; lastUpdateHour?: string; lastTracking?: { dg?: string; hg?: string; etag?: string; } | null; sectionsCounted?: number; sectionsTotal?: number; sectionsPct: any; readCount?: number; totalMunicipalities?: number; stateResult: any; municipalResults?: Record<string, import("../../domain/election.js").ElectionUnitResult>; proclamation?: { announced: boolean; candidate: { ballotNumber: string; name: string; party: string; status: string; elected: boolean; } | null; announcementText: string | null; } | null; accessibilityMilestone?: string | null; isConcluded?: boolean; consecutiveFailures?: number; }} state
+   */
   function render(state) {
     container.innerHTML = "";
 
@@ -76,7 +80,9 @@ export function mountCountScoreboardView(documentRef, slotElement, options = {})
     }
 
     // Always sort candidates strictly by ballot number (ELE-11, E34)
-    const sortedByBallot = sortCandidatesByBallotNumber(rawCandidates);
+    const sortedByBallot = [...rawCandidates].sort(
+      (a, b) => Number(a.ballotNumber) - Number(b.ballotNumber),
+    );
 
     // Assign categorical candidate colors with lightness parity (ELE-09, ELE-10)
     const colorAssignment = assignCandidateColors(

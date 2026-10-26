@@ -252,6 +252,9 @@ export function mountOfficeSelectorView(documentRef, slotElement, options = {}) 
 
   slotElement.append(fieldset);
 
+  /**
+   * @param {ElectionOffice} office
+   */
   function update(office) {
     if (office === currentOffice) {
       return;

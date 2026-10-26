@@ -305,6 +305,7 @@ test("RGV-03 and RGV-04 compare two government regions with custom title and RM 
     ],
   });
 
+  /** @type {import("./compare.js").ComparedPair} */
   const pair = [
     {
       kind: /** @type {const} */ ("governmentRegion"),

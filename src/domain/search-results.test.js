@@ -241,8 +241,18 @@ test("RGV-03 findSearchResults and filter support governmentRegion entries", () 
   });
 
   const govEntries = [
-    { kind: /** @type {const} */ ("governmentRegion"), code: "rg-1", label: "RG de Adamantina", key: "rg de adamantina" },
-    { kind: /** @type {const} */ ("municipality"), code: "3500001", label: "Adamantina", key: "adamantina" },
+    {
+      kind: /** @type {const} */ ("governmentRegion"),
+      code: "rg-1",
+      label: "RG de Adamantina",
+      key: "rg de adamantina",
+    },
+    {
+      kind: /** @type {const} */ ("municipality"),
+      code: "3500001",
+      label: "Adamantina",
+      key: "adamantina",
+    },
   ];
 
   const govContext = {

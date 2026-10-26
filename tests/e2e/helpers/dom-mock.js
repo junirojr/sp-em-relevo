@@ -4,21 +4,24 @@
  * class lists, datasets, and history/location mocks.
  */
 
-export class MockElement {
+class MockElementImpl {
   /**
    * @param {string} tagName
-   * @param {MockDocument} documentRef
+   * @param {MockDocumentImpl} documentRef
    */
   constructor(tagName, documentRef) {
     this.tagName = tagName.toUpperCase();
     this.nodeName = this.tagName;
     this.ownerDocument = documentRef;
+    /** @type {MockElementImpl[]} */
     this.children = [];
+    /** @type {MockElementImpl | null} */
     this.parentNode = null;
     this.attributes = new Map();
     this.listeners = new Map();
     this._textContent = "";
     this._innerHTML = "";
+    /** @type {Record<string, string>} */
     this.dataset = {};
     this.style = {};
     this.hidden = false;
@@ -55,6 +58,7 @@ export class MockElement {
     }
   }
 
+  /** @returns {string} */
   get textContent() {
     if (this.children.length === 0) {
       return this._textContent;
@@ -68,6 +72,7 @@ export class MockElement {
     this._innerHTML = escapeHtml(this._textContent);
   }
 
+  /** @returns {string} */
   get innerHTML() {
     if (this._innerHTML) {
       return this._innerHTML;
@@ -83,6 +88,7 @@ export class MockElement {
     }
   }
 
+  /** @returns {string} */
   get outerHTML() {
     const attrs = [];
     for (const [k, v] of this.attributes.entries()) {
@@ -95,6 +101,9 @@ export class MockElement {
   get classList() {
     const self = this;
     return {
+      /**
+       * @param {any[]} classes
+       */
       add(...classes) {
         const current = new Set(self.className.split(/\s+/).filter(Boolean));
         for (const c of classes) {
@@ -102,6 +111,9 @@ export class MockElement {
         }
         self.className = Array.from(current).join(" ");
       },
+      /**
+       * @param {any[]} classes
+       */
       remove(...classes) {
         const current = new Set(self.className.split(/\s+/).filter(Boolean));
         for (const c of classes) {
@@ -109,10 +121,17 @@ export class MockElement {
         }
         self.className = Array.from(current).join(" ");
       },
+      /**
+       * @param {any} cls
+       */
       contains(cls) {
         const current = new Set(self.className.split(/\s+/).filter(Boolean));
         return current.has(cls);
       },
+      /**
+       * @param {any} cls
+       * @param {undefined} force
+       */
       toggle(cls, force) {
         const current = new Set(self.className.split(/\s+/).filter(Boolean));
         const shouldAdd = force !== undefined ? Boolean(force) : !current.has(cls);
@@ -127,6 +146,10 @@ export class MockElement {
     };
   }
 
+  /**
+   * @param {string} name
+   * @param {any} value
+   */
   setAttribute(name, value) {
     const val = String(value);
     this.attributes.set(name, val);
@@ -140,7 +163,9 @@ export class MockElement {
       this.name = val;
     }
     if (name.startsWith("data-")) {
-      const dataKey = name.slice(5).replace(/-([a-z])/g, (_, g) => g.toUpperCase());
+      const dataKey = name
+        .slice(5)
+        .replace(/-([a-z])/g, (/** @type {any} */ _, /** @type {string} */ g) => g.toUpperCase());
       this.dataset[dataKey] = val;
     }
     if (name === "id") {
@@ -148,6 +173,9 @@ export class MockElement {
     }
   }
 
+  /**
+   * @param {string} name
+   */
   getAttribute(name) {
     if (this.attributes.has(name)) {
       return this.attributes.get(name);
@@ -164,21 +192,32 @@ export class MockElement {
     return null;
   }
 
+  /**
+   * @param {string} name
+   */
   hasAttribute(name) {
     return this.attributes.has(name) || (name === "type" && Boolean(this.type));
   }
 
+  /**
+   * @param {string} name
+   */
   removeAttribute(name) {
     this.attributes.delete(name);
     if (name === "type") {
       this.type = "";
     }
     if (name.startsWith("data-")) {
-      const dataKey = name.slice(5).replace(/-([a-z])/g, (_, g) => g.toUpperCase());
+      const dataKey = name
+        .slice(5)
+        .replace(/-([a-z])/g, (/** @type {any} */ _, /** @type {string} */ g) => g.toUpperCase());
       delete this.dataset[dataKey];
     }
   }
 
+  /**
+   * @param {MockElement[]} nodes
+   */
   append(...nodes) {
     for (const node of nodes) {
       if (typeof node === "string") {
@@ -186,7 +225,7 @@ export class MockElement {
         textNode._textContent = node;
         this.children.push(textNode);
       } else if (node instanceof MockElement) {
-        node.parentNode = this;
+        node.parentNode = /** @type {MockElement} */ (/** @type {unknown} */ (this));
         this.children.push(node);
         if (node.id) {
           this.ownerDocument._elementsById.set(node.id, node);
@@ -195,11 +234,17 @@ export class MockElement {
     }
   }
 
+  /**
+   * @param {any} node
+   */
   appendChild(node) {
     this.append(node);
     return node;
   }
 
+  /**
+   * @param {MockElementImpl} child
+   */
   removeChild(child) {
     const idx = this.children.indexOf(child);
     if (idx !== -1) {
@@ -209,6 +254,10 @@ export class MockElement {
     return child;
   }
 
+  /**
+   * @param {any} type
+   * @param {any} listener
+   */
   addEventListener(type, listener) {
     if (!this.listeners.has(type)) {
       this.listeners.set(type, []);
@@ -216,6 +265,10 @@ export class MockElement {
     this.listeners.get(type).push(listener);
   }
 
+  /**
+   * @param {any} type
+   * @param {any} listener
+   */
   removeEventListener(type, listener) {
     const list = this.listeners.get(type);
     if (list) {
@@ -226,6 +279,9 @@ export class MockElement {
     }
   }
 
+  /**
+   * @param {{ type: any; target?: any; bubbles: any; defaultPrevented?: any; preventDefault?: () => void; key?: string; code?: string; }} event
+   */
   dispatchEvent(event) {
     event.target = this;
     const list = this.listeners.get(event.type) || [];
@@ -284,14 +340,26 @@ export class MockElement {
     this.dispatchEvent({ type: "blur", target: this, bubbles: false });
   }
 
+  /**
+   * @param {string} selector
+   */
   querySelector(selector) {
     const all = this.querySelectorAll(selector);
     return all.length > 0 ? all[0] : null;
   }
 
+  /**
+   * @param {string} selector
+   */
   querySelectorAll(selector) {
+    /**
+     * @type {any[]}
+     */
     const results = [];
     const matchFn = createMatcher(selector);
+    /**
+     * @param {MockElementImpl} el
+     */
     function traverse(el) {
       for (const child of el.children) {
         if (child.tagName !== "#TEXT" && matchFn(child)) {
@@ -305,20 +373,27 @@ export class MockElement {
   }
 }
 
-export class MockDocument {
+class MockDocumentImpl {
   constructor() {
     this.documentElement = new MockElement("HTML", this);
     this.head = new MockElement("HEAD", this);
     this.body = new MockElement("BODY", this);
     this.documentElement.append(this.head, this.body);
+    /** @type {MockElementImpl | null} */
     this.activeElement = null;
     this._elementsById = new Map();
   }
 
+  /**
+   * @param {string} tagName
+   */
   createElement(tagName) {
     return new MockElement(tagName, this);
   }
 
+  /**
+   * @param {any} id
+   */
   getElementById(id) {
     if (this._elementsById.has(id)) {
       return this._elementsById.get(id);
@@ -326,10 +401,16 @@ export class MockDocument {
     return this.querySelector(`#${id}`);
   }
 
+  /**
+   * @param {string} selector
+   */
   querySelector(selector) {
     return this.documentElement.querySelector(selector);
   }
 
+  /**
+   * @param {string} selector
+   */
   querySelectorAll(selector) {
     return this.documentElement.querySelectorAll(selector);
   }
@@ -338,6 +419,9 @@ export class MockDocument {
 export function createMockWindow(initialUrl = "http://localhost:4173/") {
   const documentRef = new MockDocument();
   let currentUrl = new URL(initialUrl);
+  /**
+   * @type {any[]}
+   */
   const popstateListeners = [];
 
   const windowRef = {
@@ -361,14 +445,27 @@ export function createMockWindow(initialUrl = "http://localhost:4173/") {
     },
     history: {
       length: 1,
+      /**
+       * @param {any} _state
+       * @param {any} _title
+       * @param {string | URL} url
+       */
       replaceState(_state, _title, url) {
         currentUrl = new URL(url, currentUrl.href);
       },
+      /**
+       * @param {any} _state
+       * @param {any} _title
+       * @param {string | URL} url
+       */
       pushState(_state, _title, url) {
         currentUrl = new URL(url, currentUrl.href);
         this.length += 1;
       },
     },
+    /**
+     * @param {string | string[]} query
+     */
     matchMedia(query) {
       const isDark = query.includes("dark");
       return {
@@ -378,11 +475,19 @@ export function createMockWindow(initialUrl = "http://localhost:4173/") {
         removeEventListener() {},
       };
     },
+    /**
+     * @param {string} type
+     * @param {any} listener
+     */
     addEventListener(type, listener) {
       if (type === "popstate") {
         popstateListeners.push(listener);
       }
     },
+    /**
+     * @param {string} type
+     * @param {any} listener
+     */
     removeEventListener(type, listener) {
       if (type === "popstate") {
         const idx = popstateListeners.indexOf(listener);
@@ -399,9 +504,15 @@ export function createMockWindow(initialUrl = "http://localhost:4173/") {
     },
   };
 
-  return { windowRef, documentRef };
+  return {
+    windowRef: /** @type {typeof windowRef & Window} */ (/** @type {unknown} */ (windowRef)),
+    documentRef,
+  };
 }
 
+/**
+ * @param {string} str
+ */
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -410,14 +521,18 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+/**
+ * @param {string} trimmed
+ */
 function createSingleMatcher(trimmed) {
   if (trimmed.startsWith("#")) {
     const id = trimmed.slice(1);
-    return (el) => el.id === id;
+    return (/** @type {{ id: any; }} */ el) => el.id === id;
   }
   if (trimmed.startsWith(".")) {
     const cls = trimmed.slice(1);
-    return (el) => el.classList.contains(cls);
+    return (/** @type {{ classList: { contains: (arg0: any) => any; }; }} */ el) =>
+      el.classList.contains(cls);
   }
   if (trimmed.includes("[") && trimmed.includes("]")) {
     const tag = trimmed.slice(0, trimmed.indexOf("[")).toUpperCase();
@@ -428,7 +543,9 @@ function createSingleMatcher(trimmed) {
       if (attrVal !== undefined) {
         attrVal = attrVal.trim().replace(/^['"]|['"]$/g, "");
       }
-      return (el) => {
+      return (
+        /** @type {{ tagName: any; hasAttribute: (arg0: any) => any; getAttribute: (arg0: any) => any; }} */ el,
+      ) => {
         if (tag && el.tagName !== tag) {
           return false;
         }
@@ -440,7 +557,7 @@ function createSingleMatcher(trimmed) {
     }
   }
   const tagUpper = trimmed.toUpperCase();
-  return (el) => el.tagName === tagUpper;
+  return (/** @type {{ tagName: any; }} */ el) => el.tagName === tagUpper;
 }
 
 /**
@@ -486,12 +603,29 @@ function splitSelectorList(selector) {
   return parts;
 }
 
+/**
+ * @param {string} selector
+ */
 function createMatcher(selector) {
   const trimmed = selector.trim();
   const parts = splitSelectorList(trimmed);
   if (parts.length > 1) {
     const subMatchers = parts.map(createSingleMatcher);
-    return (el) => subMatchers.some((matcher) => matcher(el));
+    return (/** @type {any} */ el) => subMatchers.some((matcher) => matcher(el));
   }
   return createSingleMatcher(trimmed);
 }
+
+/** Test doubles implement the browser surface used by the views; casts live at this boundary.
+ * @typedef {MockElementImpl & HTMLElement} MockElement
+ * @typedef {MockDocumentImpl & Document} MockDocument
+ */
+/** @type {new (tagName: string, documentRef: MockDocumentImpl) => MockElement} */
+export const MockElement =
+  /** @type {new (tagName: string, documentRef: MockDocumentImpl) => MockElement} */ (
+    /** @type {unknown} */ (MockElementImpl)
+  );
+/** @type {new () => MockDocument} */
+export const MockDocument = /** @type {new () => MockDocument} */ (
+  /** @type {unknown} */ (MockDocumentImpl)
+);

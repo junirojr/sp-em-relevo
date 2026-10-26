@@ -618,10 +618,7 @@ function normalizeCandidateInput(input) {
     numericBallot = parsedBallot;
   }
   const votes = Math.max(0, input.votes ?? input.validVotes ?? input.stateVotes ?? 0);
-  const ledMunicipalities = Math.max(
-    0,
-    input.ledMunicipalities ?? input.municipalitiesLed ?? 0,
-  );
+  const ledMunicipalities = Math.max(0, input.ledMunicipalities ?? input.municipalitiesLed ?? 0);
   return {
     ballotNumber: rawBallot,
     numericBallot,

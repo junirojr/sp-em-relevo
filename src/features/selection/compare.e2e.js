@@ -9,6 +9,7 @@ import {
   readState,
 } from "../../../tests/support/inspector.js";
 import { openPage, settle } from "../../../tests/support/page.js";
+import { parseMunicipalities } from "../../app/data-loader.js";
 import { aggregateIndicator } from "../../domain/aggregation.js";
 import { classify } from "../../domain/classification.js";
 import { INDICATORS } from "../../domain/indicator.js";
@@ -35,7 +36,7 @@ const COMPARED_INDICATORS = [
 ];
 
 /** @type {MunicipalityRecord[]} */
-const MUNICIPALITIES = readJson("data/municipalities.json").municipalities;
+const MUNICIPALITIES = parseMunicipalities(readJson("data/municipalities.json"));
 /** @type {RegionRecord[]} */
 const REGIONS = readJson("data/regions.json").regions;
 

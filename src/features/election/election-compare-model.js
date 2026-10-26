@@ -83,8 +83,10 @@ import { groupOf } from "../../domain/territory.js";
 
 export const BASE_CALCULATION_VALID_VOTES = "Votos nominais validos";
 export const BASE_CALCULATION_SENATE = "Votos nominais validos (dois votos por eleitor no senado)";
-export const UNCERTAIN_LEADER_MESSAGE = "Nao e possivel afirmar o lider (intervalo sobreposto fora do top-10 municipal)";
+export const UNCERTAIN_LEADER_MESSAGE =
+  "Nao e possivel afirmar o lider (intervalo sobreposto fora do top-10 municipal)";
 
+/** @type {Record<string, string>} */
 const OFFICE_LABELS = {
   presidente: "Presidente",
   governador: "Governador",
@@ -115,7 +117,9 @@ export function resolveOfficeLabel(office) {
  * @returns {string}
  */
 export function resolveCalculationBase(office) {
-  const key = String(office ?? "").toLowerCase().trim();
+  const key = String(office ?? "")
+    .toLowerCase()
+    .trim();
   if (key === "senador" || key === "senado") {
     return BASE_CALCULATION_SENATE;
   }
@@ -134,7 +138,11 @@ export function computeDisplayedMarginPp(leaderSharePct, runnerUpSharePct) {
   if (leaderSharePct === null || leaderSharePct === undefined || !Number.isFinite(leaderSharePct)) {
     return 0;
   }
-  if (runnerUpSharePct === null || runnerUpSharePct === undefined || !Number.isFinite(runnerUpSharePct)) {
+  if (
+    runnerUpSharePct === null ||
+    runnerUpSharePct === undefined ||
+    !Number.isFinite(runnerUpSharePct)
+  ) {
     return 0;
   }
   const p1 = Number(leaderSharePct.toFixed(2));
@@ -199,7 +207,10 @@ export function resolveColorText(party = "", status = "") {
     return "Cinza outros";
   }
 
-  const normalized = String(party || "").toUpperCase().trim();
+  const normalized = String(party || "")
+    .toUpperCase()
+    .trim();
+  /** @type {Record<string, string>} */
   const partyColors = {
     PT: "Vermelho",
     PL: "Azul escuro",
@@ -446,7 +457,12 @@ function buildComparisonMetrics(sideA, sideB) {
     id: "totalValidVotes",
     label: "Total de votos validos",
     values: [sideA.formattedTotalValidVotes, sideB.formattedTotalValidVotes],
-    difference: computeNumericDifferenceText(sideA.totalValidVotes, sideB.totalValidVotes, sideA.name, sideB.name),
+    difference: computeNumericDifferenceText(
+      sideA.totalValidVotes,
+      sideB.totalValidVotes,
+      sideA.name,
+      sideB.name,
+    ),
   });
 
   // Metric 2: Sections totalized
@@ -454,7 +470,12 @@ function buildComparisonMetrics(sideA, sideB) {
     id: "sectionsPct",
     label: "Secoes apuradas",
     values: [sideA.formattedSectionsPct, sideB.formattedSectionsPct],
-    difference: computePercentagePointDifferenceText(sideA.sectionsPct, sideB.sectionsPct, sideA.name, sideB.name),
+    difference: computePercentagePointDifferenceText(
+      sideA.sectionsPct,
+      sideB.sectionsPct,
+      sideA.name,
+      sideB.name,
+    ),
   });
 
   // Metric 3: Leader margin
@@ -462,7 +483,12 @@ function buildComparisonMetrics(sideA, sideB) {
     id: "marginPp",
     label: "Margem do lider",
     values: [sideA.formattedMargin, sideB.formattedMargin],
-    difference: computePercentagePointDifferenceText(sideA.marginPp, sideB.marginPp, sideA.name, sideB.name),
+    difference: computePercentagePointDifferenceText(
+      sideA.marginPp,
+      sideB.marginPp,
+      sideA.name,
+      sideB.name,
+    ),
   });
 
   return metrics;

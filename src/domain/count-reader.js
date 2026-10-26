@@ -150,7 +150,7 @@ export function markHttp404(blocklist, codeOrUrl) {
 /**
  * Checks whether a code or URL is blocked due to a prior 404 (APU-01).
  *
- * @param {Set<string>} [blocklist]
+ * @param {Set<string> | null} [blocklist]
  * @param {string} [codeOrUrl]
  * @returns {boolean}
  */
@@ -178,7 +178,9 @@ export function isBlocked404(blocklist, codeOrUrl) {
  */
 export function buildTotalizationUrl(options = {}) {
   const electionCode = options.electionCode ?? DEFAULT_ELECTION_CODE;
-  const rawScope = String(options.scope ?? "sp").toLowerCase().trim();
+  const rawScope = String(options.scope ?? "sp")
+    .toLowerCase()
+    .trim();
   const prefix = resolveHostPrefix(options.host);
   const padded = padElectionCode(electionCode);
   const blockedSet = options.blocked404Set ?? null;
@@ -378,14 +380,19 @@ export function planMunicipalQueue(options = {}) {
   const configMap = options.municipalConfigMap ?? {};
   const processedMap = options.processedMap ?? {};
   const blockedSet = options.blocked404Set ?? null;
-  const targetRate = Math.min(MAX_RECOMMENDED_RATE_PER_SECOND, Math.max(1, options.maxRatePerSecond ?? MAX_RECOMMENDED_RATE_PER_SECOND));
+  const targetRate = Math.min(
+    MAX_RECOMMENDED_RATE_PER_SECOND,
+    Math.max(1, options.maxRatePerSecond ?? MAX_RECOMMENDED_RATE_PER_SECOND),
+  );
   const intervalMs = Math.ceil(1000 / targetRate);
 
   /** @type {Array<{ cd: string, cdi: string, name: string, electorate: number, sectionsCounted: number, dg: string, hg: string }>} */
   const pending = [];
 
   for (const item of trackingList) {
-    const cd = String(item.cd ?? "").trim().padStart(5, "0");
+    const cd = String(item.cd ?? "")
+      .trim()
+      .padStart(5, "0");
     if (!cd || cd === "00000") {
       continue;
     }
@@ -407,7 +414,11 @@ export function planMunicipalQueue(options = {}) {
         continue;
       }
       const processedCounted = Number(processed.st ?? processed.sectionsCounted ?? 0);
-      if (sectionsCounted <= processedCounted && dg === String(processed.dg ?? "") && hg === String(processed.hg ?? "")) {
+      if (
+        sectionsCounted <= processedCounted &&
+        dg === String(processed.dg ?? "") &&
+        hg === String(processed.hg ?? "")
+      ) {
         continue;
       }
     }
@@ -507,7 +518,7 @@ export function parseTseJson(rawText) {
  */
 function extractPresidentialCandidates(doc) {
   /** @type {Array<Record<string, unknown>>} */
-  let rawCandidates = [];
+  const rawCandidates = [];
 
   const cargArray = asArray(doc.carg);
   for (const carg of cargArray) {
@@ -746,7 +757,8 @@ export function resolveBannerState(input = {}) {
   const tf = String(input.tf ?? "").toLowerCase();
   const andStatus = String(input.and ?? "").toLowerCase();
 
-  const isTotalized = tf === "s" || andStatus === "f" || (sectionsTotal > 0 && sectionsCounted >= sectionsTotal);
+  const isTotalized =
+    tf === "s" || andStatus === "f" || (sectionsTotal > 0 && sectionsCounted >= sectionsTotal);
   if (isTotalized) {
     return {
       state: "apuracao-concluida",
@@ -809,7 +821,9 @@ export function detectElectedCandidate(tseData) {
     return { announced: false, candidate: null, announcementText: null };
   }
 
-  const scope = String(tseData.tpabr ?? tseData.scope ?? "").toLowerCase().trim();
+  const scope = String(tseData.tpabr ?? tseData.scope ?? "")
+    .toLowerCase()
+    .trim();
   if (scope !== "br") {
     return { announced: false, candidate: null, announcementText: null };
   }

@@ -32,7 +32,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "node scripts/dev/serve.mjs --port 4173",
+    command: "npm start",
     url: baseURL,
     reuseExistingServer: true,
   },

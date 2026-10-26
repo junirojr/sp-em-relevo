@@ -125,10 +125,7 @@ function resolveInitialLevelId(requestedLevelId, status) {
   if (requestedLevelId === "region") {
     return "region";
   }
-  if (
-    requestedLevelId === "governmentRegion" &&
-    status.features.levelGovernmentRegion !== false
-  ) {
+  if (requestedLevelId === "governmentRegion" && status.features.levelGovernmentRegion !== false) {
     return /** @type {LevelId} */ ("governmentRegion");
   }
   return "municipality";

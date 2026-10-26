@@ -21,19 +21,20 @@ import {
 import { mountIndicatorView } from "../features/indicator/indicator-view.js";
 import { mountPillView } from "../features/indicator/pill-view.js";
 import { mountSourceView } from "../features/indicator/source-view.js";
-import { mountLayoutToggle } from "../features/layout/layout-view.js";
 import {
   mountBottomNavView,
-  NAV_TAB_MAP,
-  NAV_TAB_INDICATORS,
-  NAV_TAB_MUNICIPALITIES,
   NAV_TAB_COMPARE,
+  NAV_TAB_INDICATORS,
   NAV_TAB_LAYERS,
+  NAV_TAB_MAP,
+  NAV_TAB_MUNICIPALITIES,
 } from "../features/layout/bottom-nav-view.js";
+import { mountLayoutToggle } from "../features/layout/layout-view.js";
 import { mountModeToggle } from "../features/layout/mode-toggle-view.js";
 import { mountThemeToggle } from "../features/layout/theme-toggle-view.js";
 import { changeLevel } from "../features/level/level-slice.js";
 import { mountLevelView } from "../features/level/level-view.js";
+import { mountRegionLabelsView } from "../features/region-labels/region-labels-view.js";
 import { mountHowToReadView } from "../features/scale/how-to-read-view.js";
 import { mountLegendView } from "../features/scale/legend-view.js";
 import {
@@ -53,8 +54,6 @@ import {
   toggleMunicipalityAction,
   toggleRegionAction,
 } from "../features/selection/selection-slice.js";
-import { mountTableFeature } from "../features/table/table-slice.js";
-import { mountRegionLabelsView } from "../features/region-labels/region-labels-view.js";
 import {
   buildAppearanceViewModel,
   createAppearanceView,
@@ -66,8 +65,9 @@ import {
   selectLightSettings,
 } from "../features/settings/settings-slice.js";
 import { createSettingsView } from "../features/settings/settings-view.js";
+import { mountTableFeature } from "../features/table/table-slice.js";
 import { loadData, loadStatus } from "./data-loader.js";
-import { isElectionFeatureEnabled } from "./election-loader.js";
+import { isElectionFeatureEnabled, loadElectionModules } from "./election-loader.js";
 import { buildHeaderStats, buildMapMetrics, mountHeaderStats } from "./header-stats.js";
 import { projectPaletteForMode, readPalette } from "./palette.js";
 import {
@@ -415,7 +415,7 @@ export async function bootApplication(documentRef = document, windowRef = window
       onPointUnit: (code) => {
         store.dispatch(changePointedUnit(code));
       },
-      onFocusUnit: (code) => {
+      onFocusUnit: (/** @type {string} */ code) => {
         const indexes = readGeometryIndexes([code], geometryIndexByCode);
         if (indexes.length > 0) {
           engine.frameNow(indexes);
@@ -649,10 +649,10 @@ export async function bootApplication(documentRef = document, windowRef = window
         const currentLevel = store.getState().level?.id;
         const currentColorMode = store.getState().settings?.colorMode;
         if (currentLevel === "region" || currentColorMode === "region") {
-          name = mun.regionName || name;
+          name = mun.governmentRegionName || name;
         }
         if (currentLevel === "governmentRegion") {
-          name = mun.governmentRegionName || mun.regionName || name;
+          name = mun.governmentRegionName || name;
         }
         value = def.computeValue(mun);
       }
@@ -664,7 +664,8 @@ export async function bootApplication(documentRef = document, windowRef = window
       });
       if (regionLabelsView) {
         const state = store.getState();
-        const isRegionActive = state.level?.id === "region" || state.settings?.colorMode === "region";
+        const isRegionActive =
+          state.level?.id === "region" || state.settings?.colorMode === "region";
         if (isRegionActive && regionCode) {
           regionLabelsView.setPointedRegion(regionCode);
         }
@@ -716,7 +717,8 @@ export async function bootApplication(documentRef = document, windowRef = window
       }
       sourceView.update(def);
       if (periodBadge) {
-        const isElectionTabActive = store.getState().tab === "first-round" || store.getState().tab === "second-round";
+        const isElectionTabActive =
+          store.getState().tab === "first-round" || store.getState().tab === "second-round";
         if (isElectionTabActive) {
           periodBadge.textContent = "ELEIÇÕES 2026";
         }
@@ -901,7 +903,15 @@ export async function bootApplication(documentRef = document, windowRef = window
 
   const selectionBinding = bindToChange(
     selectSelectionInputs,
-    ({ selectedCodes, selectedClassIndex, retentionNotice, def, records, levelId, inspectedCode }) => {
+    ({
+      selectedCodes,
+      selectedClassIndex,
+      retentionNotice,
+      def,
+      records,
+      levelId,
+      inspectedCode,
+    }) => {
       if (clearView) {
         clearView.update(store.getState().selection);
       }
@@ -1031,23 +1041,36 @@ export async function bootApplication(documentRef = document, windowRef = window
   attachProjection(store, project);
   mountTableFeature(documentRef, { store, territory, data });
 
-  import("./election-wiring.js")
-    .then(({ initElectionWiring }) => {
-      initElectionWiring({
-        store,
-        engine,
-        documentRef,
-        windowRef,
-        status,
-        fetchImpl: fetch,
-        restoreIndicator: () => {
-          project(store.getState());
-        },
-      });
-    })
-    .catch((error) => {
-      console.warn("Failed to initialize election wiring:", error);
-    });
+  if (isElectionEnabled) {
+    let electionLoading = false;
+    const ensureElection = () => {
+      const tab = store.getState().tab;
+      if (electionLoading || tab === "indicators") return;
+      electionLoading = true;
+      loadElectionModules({ documentRef, windowRef, rawStatus: status })
+        .then((result) => {
+          if (!result.ok) throw result.error;
+          return import("./election-wiring.js");
+        })
+        .then(({ initElectionWiring }) =>
+          initElectionWiring({
+            store,
+            engine,
+            documentRef,
+            windowRef,
+            status,
+            fetchImpl: fetch,
+            restoreIndicator: () => project(store.getState()),
+          }),
+        )
+        .catch((error) => {
+          electionLoading = false;
+          console.warn("Failed to initialize election wiring:", error);
+        });
+    };
+    store.subscribe(ensureElection);
+    ensureElection();
+  }
 
   installTestHooks({
     windowRef,
@@ -1082,15 +1105,19 @@ export async function bootApplication(documentRef = document, windowRef = window
       };
     },
     readLimits: () => {
-      const isRegion = store.getState().level.id === "region";
+      const level = store.getState().level.id;
+      const isRegion = level === "region" || level === "governmentRegion";
       let borderOpacity = 1;
       if (isRegion) {
         borderOpacity = 0.3;
       }
+      let activeArcs = limitArcs;
+      if (level === "governmentRegion")
+        activeArcs = readSharedArcs(data.mesh, (code) => territory.groupOf(level, code));
       return {
         visible: isRegion,
         borderOpacity,
-        arcCount: limitArcs.length,
+        arcCount: activeArcs.length,
       };
     },
     readLegend: () => {
@@ -1269,7 +1296,7 @@ function applyMotionPreferences(engine, store, windowRef) {
  * @param {Document} documentRef
  * @param {HTMLElement} stageElement
  * @param {(action: any) => void} dispatch
- * @param {{ onFocusUnits?: (codes: readonly string[]) => void }} options
+ * @param {{ onFocusUnits: (codes: string[]) => void }} options
  * @returns {{ update: (comparison: any) => void }}
  */
 function createLazyCompareController(documentRef, stageElement, dispatch, options) {

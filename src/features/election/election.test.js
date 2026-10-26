@@ -1,10 +1,17 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { assignCandidateColors, getElectionNeutrals } from "../../domain/election-colors.js";
 import {
-  assignCandidateColors,
-  getElectionNeutrals,
-} from "../../domain/election-colors.js";
+  getSenateExplanationText,
+  mountElectionHowToReadView,
+  resolveOfficeDidacticContent,
+} from "./election-how-to-read-view.js";
+import {
+  formatPercentageValue,
+  isUnitInOthers,
+  mountElectionLegendView,
+} from "./election-legend-view.js";
 import {
   changeElectionOffice,
   changeElectionTab,
@@ -20,22 +27,12 @@ import {
   TAB_INDICATORS,
   TAB_SECOND_ROUND,
 } from "./election-slice.js";
+import { ELECTION_STRINGS } from "./election-strings.js";
 import {
   FIRST_ROUND_OFFICES,
   mountOfficeSelectorView,
   resolveOfficeLabel,
 } from "./office-selector-view.js";
-import {
-  formatPercentageValue,
-  isUnitInOthers,
-  mountElectionLegendView,
-} from "./election-legend-view.js";
-import {
-  getSenateExplanationText,
-  mountElectionHowToReadView,
-  resolveOfficeDidacticContent,
-} from "./election-how-to-read-view.js";
-import { ELECTION_STRINGS } from "./election-strings.js";
 
 /**
  * Creates a minimal DOM mock environment for headless testing.
@@ -45,7 +42,11 @@ import { ELECTION_STRINGS } from "./election-strings.js";
 function createMockDom() {
   const elements = new Map();
 
+  /**
+   * @param {string} tag
+   */
   function createElement(tag) {
+    /** @type {any} DOM test double. */
     const el = {
       tagName: tag.toUpperCase(),
       attributes: {},
@@ -64,9 +65,16 @@ function createMockDom() {
       name: "",
       listeners: new Map(),
 
+      /**
+       * @param {string | number} name
+       * @param {any} val
+       */
       setAttribute(name, val) {
         el.attributes[name] = String(val);
       },
+      /**
+       * @param {string | number} name
+       */
       getAttribute(name) {
         const val = el.attributes[name];
         if (val !== undefined) {
@@ -74,9 +82,15 @@ function createMockDom() {
         }
         return null;
       },
+      /**
+       * @param {string | number} name
+       */
       removeAttribute(name) {
         delete el.attributes[name];
       },
+      /**
+       * @param {any[]} items
+       */
       append(...items) {
         for (const item of items) {
           if (typeof item === "string") {
@@ -87,19 +101,30 @@ function createMockDom() {
           el.children.push(item);
         }
       },
+      /**
+       * @param {any} event
+       * @param {any} cb
+       */
       addEventListener(event, cb) {
         if (!el.listeners.has(event)) {
           el.listeners.set(event, []);
         }
         el.listeners.get(event).push(cb);
       },
+      /**
+       * @param {any} event
+       * @param {any} cb
+       */
       removeEventListener(event, cb) {
         if (!el.listeners.has(event)) {
           return;
         }
-        const filtered = el.listeners.get(event).filter((fn) => fn !== cb);
+        const filtered = el.listeners.get(event).filter((/** @type {any} */ fn) => fn !== cb);
         el.listeners.set(event, filtered);
       },
+      /**
+       * @param {{ type: any; }} eventObj
+       */
       dispatchEvent(eventObj) {
         const type = eventObj.type;
         const cbs = el.listeners.get(type) ?? [];
@@ -107,9 +132,15 @@ function createMockDom() {
           cb(eventObj);
         }
       },
+      /**
+       * @param {any} _sel
+       */
       querySelector(_sel) {
         return null;
       },
+      /**
+       * @param {any} _sel
+       */
       querySelectorAll(_sel) {
         return [];
       },
@@ -125,6 +156,9 @@ function createMockDom() {
       dataset: {},
       style: {},
     },
+    /**
+     * @param {string} id
+     */
     getElementById(id) {
       if (!elements.has(id)) {
         const el = createElement("div");
@@ -151,21 +185,83 @@ describe("N15 First round tab suite: office selector, legend, and how to read", 
   it("TUR-05 assigns up to 8 candidate colors deterministically with remaining relegated to others", () => {
     // 10 candidates with varied municipality leadership counts
     const candidates = [
-      { ballotNumber: "10", name: "Cand 10", party: "PART10", ledMunicipalities: 100, votes: 500000 },
-      { ballotNumber: "20", name: "Cand 20", party: "PART20", ledMunicipalities: 90, votes: 450000 },
-      { ballotNumber: "30", name: "Cand 30", party: "PART30", ledMunicipalities: 80, votes: 400000 },
-      { ballotNumber: "40", name: "Cand 40", party: "PART40", ledMunicipalities: 70, votes: 350000 },
-      { ballotNumber: "50", name: "Cand 50", party: "PART50", ledMunicipalities: 60, votes: 300000 },
-      { ballotNumber: "60", name: "Cand 60", party: "PART60", ledMunicipalities: 50, votes: 250000 },
-      { ballotNumber: "70", name: "Cand 70", party: "PART70", ledMunicipalities: 40, votes: 200000 },
-      { ballotNumber: "80", name: "Cand 80", party: "PART80", ledMunicipalities: 30, votes: 150000 },
-      { ballotNumber: "90", name: "Cand 90", party: "PART90", ledMunicipalities: 20, votes: 100000 },
+      {
+        ballotNumber: "10",
+        name: "Cand 10",
+        party: "PART10",
+        ledMunicipalities: 100,
+        votes: 500000,
+      },
+      {
+        ballotNumber: "20",
+        name: "Cand 20",
+        party: "PART20",
+        ledMunicipalities: 90,
+        votes: 450000,
+      },
+      {
+        ballotNumber: "30",
+        name: "Cand 30",
+        party: "PART30",
+        ledMunicipalities: 80,
+        votes: 400000,
+      },
+      {
+        ballotNumber: "40",
+        name: "Cand 40",
+        party: "PART40",
+        ledMunicipalities: 70,
+        votes: 350000,
+      },
+      {
+        ballotNumber: "50",
+        name: "Cand 50",
+        party: "PART50",
+        ledMunicipalities: 60,
+        votes: 300000,
+      },
+      {
+        ballotNumber: "60",
+        name: "Cand 60",
+        party: "PART60",
+        ledMunicipalities: 50,
+        votes: 250000,
+      },
+      {
+        ballotNumber: "70",
+        name: "Cand 70",
+        party: "PART70",
+        ledMunicipalities: 40,
+        votes: 200000,
+      },
+      {
+        ballotNumber: "80",
+        name: "Cand 80",
+        party: "PART80",
+        ledMunicipalities: 30,
+        votes: 150000,
+      },
+      {
+        ballotNumber: "90",
+        name: "Cand 90",
+        party: "PART90",
+        ledMunicipalities: 20,
+        votes: 100000,
+      },
       { ballotNumber: "95", name: "Cand 95", party: "PART95", ledMunicipalities: 10, votes: 50000 },
     ];
 
     const palette = assignCandidateColors(candidates, "dark");
-    assert.equal(palette.coloredCandidates.length, 8, "Must assign color to exactly 8 top candidates");
-    assert.equal(palette.othersCandidates.length, 2, "Must relegate remaining 2 candidates to others");
+    assert.equal(
+      palette.coloredCandidates.length,
+      8,
+      "Must assign color to exactly 8 top candidates",
+    );
+    assert.equal(
+      palette.othersCandidates.length,
+      2,
+      "Must relegate remaining 2 candidates to others",
+    );
 
     // Check others fraction calculation
     assert.ok(palette.othersFraction > 0, "Others fraction must be greater than zero");
@@ -195,7 +291,13 @@ describe("N15 First round tab suite: office selector, legend, and how to read", 
     // Mount legend with only "tie" and "others", "noResult" is 0
     const legend = mountElectionLegendView(document, slot, {
       candidates: [
-        { ballotNumber: "22", name: "Candidato A", party: "PL", ledMunicipalities: 400, votes: 1000000 },
+        {
+          ballotNumber: "22",
+          name: "Candidato A",
+          party: "PL",
+          ledMunicipalities: 400,
+          votes: 1000000,
+        },
       ],
       neutralCounts: {
         noResult: 0,
@@ -205,20 +307,23 @@ describe("N15 First round tab suite: office selector, legend, and how to read", 
       theme: "dark",
     });
 
-    const neutralsContainer = legend.element.children.find(
-      (c) => c.className === "election-legend-neutrals",
+    const neutralsContainer = Array.from(legend.element.children).find(
+      (/** @type {{ className: string; }} */ c) => c.className === "election-legend-neutrals",
     );
     assert.ok(neutralsContainer, "Neutrals container must exist");
 
     // Must show tie and others, but NOT noResult (omitted when 0)
-    const tieItem = neutralsContainer.children.find(
-      (c) => c.className && c.className.includes("election-legend-neutral-tie"),
+    const tieItem = Array.from(neutralsContainer.children).find(
+      (/** @type {{ className: string | string[]; }} */ c) =>
+        c.className && c.className.includes("election-legend-neutral-tie"),
     );
-    const noResultItem = neutralsContainer.children.find(
-      (c) => c.className && c.className.includes("election-legend-neutral-no-result"),
+    const noResultItem = Array.from(neutralsContainer.children).find(
+      (/** @type {{ className: string | string[]; }} */ c) =>
+        c.className && c.className.includes("election-legend-neutral-no-result"),
     );
-    const othersItem = neutralsContainer.children.find(
-      (c) => c.className && c.className.includes("election-legend-neutral-others"),
+    const othersItem = Array.from(neutralsContainer.children).find(
+      (/** @type {{ className: string | string[]; }} */ c) =>
+        c.className && c.className.includes("election-legend-neutral-others"),
     );
 
     assert.ok(tieItem, "Tie item must be present when count > 0");
@@ -232,7 +337,13 @@ describe("N15 First round tab suite: office selector, legend, and how to read", 
 
     const legend = mountElectionLegendView(document, slot, {
       candidates: [
-        { ballotNumber: "22", name: "Flavio Bolsonaro", party: "PL", ledMunicipalities: 450, votes: 12000000 },
+        {
+          ballotNumber: "22",
+          name: "Flavio Bolsonaro",
+          party: "PL",
+          ledMunicipalities: 450,
+          votes: 12000000,
+        },
         { ballotNumber: "13", name: "Lula", party: "PT", ledMunicipalities: 195, votes: 9500000 },
       ],
       neutralCounts: {
@@ -243,8 +354,8 @@ describe("N15 First round tab suite: office selector, legend, and how to read", 
     });
 
     // Verify official credit (TUR-06)
-    const footer = legend.element.children.find(
-      (c) => c.className === "election-legend-footer",
+    const footer = Array.from(legend.element.children).find(
+      (/** @type {{ className: string; }} */ c) => c.className === "election-legend-footer",
     );
     assert.ok(footer, "Legend footer must exist");
     assert.equal(
@@ -262,10 +373,15 @@ describe("N15 First round tab suite: office selector, legend, and how to read", 
       leaderName: "Flavio Bolsonaro",
     });
 
-    const othersContainer = legend.element.children.find(
-      (c) => c.className === "election-legend-others-container",
+    const othersContainer = Array.from(legend.element.children).find(
+      (/** @type {{ className: string; }} */ c) =>
+        c.className === "election-legend-others-container",
     );
-    assert.equal(othersContainer.hidden, true, "Callout must be hidden when inspected unit is not in others");
+    assert.equal(
+      /** @type {HTMLElement} */ (othersContainer).hidden,
+      true,
+      "Callout must be hidden when inspected unit is not in others",
+    );
 
     // Inspect unit in others (TUR-06)
     legend.inspectUnit({
@@ -280,14 +396,24 @@ describe("N15 First round tab suite: office selector, legend, and how to read", 
       leaderSharePct: 35.5,
     });
 
-    assert.equal(othersContainer.hidden, false, "Callout must be visible when unit is in others");
+    assert.ok(othersContainer);
+    assert.equal(
+      /** @type {HTMLElement} */ (othersContainer).hidden,
+      false,
+      "Callout must be visible when unit is in others",
+    );
     const card = othersContainer.children[0];
     assert.ok(card, "Callout card must be rendered");
 
-    const leaderText = card.children.find(
-      (c) => c.className === "election-legend-others-leader",
+    const leaderText = Array.from(card.children).find(
+      (/** @type {{ className: string; }} */ c) => c.className === "election-legend-others-leader",
     );
-    assert.ok(leaderText.textContent.includes("Candidato Local"), "Must state local candidate name");
+    assert.ok(leaderText);
+    assert.ok(
+      leaderText.textContent.includes("Candidato Local"),
+      "Must state local candidate name",
+    );
+    assert.ok(leaderText);
     assert.ok(leaderText.textContent.includes("SOLIDARIEDADE"), "Must state local candidate party");
     assert.ok(leaderText.textContent.includes("77"), "Must state local candidate ballot number");
   });
@@ -348,7 +474,13 @@ describe("N15 First round tab suite: office selector, legend, and how to read", 
     const legendView = mountElectionLegendView(document, legendSlot, {
       officeTitle: "Presidente",
       candidates: [
-        { ballotNumber: "22", name: "Flavio Bolsonaro", party: "PL", ledMunicipalities: 400, votes: 12000000 },
+        {
+          ballotNumber: "22",
+          name: "Flavio Bolsonaro",
+          party: "PL",
+          ledMunicipalities: 400,
+          votes: 12000000,
+        },
         { ballotNumber: "13", name: "Lula", party: "PT", ledMunicipalities: 245, votes: 9500000 },
       ],
       theme: "dark",
@@ -360,6 +492,7 @@ describe("N15 First round tab suite: office selector, legend, and how to read", 
     });
 
     // Cycle through all 5 offices in the offline artifact without throwing
+    /** @type {import("./office-selector-view.js").ElectionOffice[]} */
     const allOffices = [
       OFFICE_PRESIDENT,
       OFFICE_GOVERNOR,

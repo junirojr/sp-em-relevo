@@ -267,11 +267,7 @@ export function checkMetropolitanRegionCoincidence(geoseadeRows, seadeRows) {
   const rmSpCodes = new Set(
     seadeRows.filter((row) => row.regionCode === "1").map((row) => row.code),
   );
-  const rgSpCodes = new Set(
-    geoseadeRows
-      .filter((row) => isRgSaoPaulo(row))
-      .map((row) => row.code),
-  );
+  const rgSpCodes = new Set(geoseadeRows.filter((row) => isRgSaoPaulo(row)).map((row) => row.code));
 
   const missingInRg = [...rmSpCodes].filter((code) => !rgSpCodes.has(code));
   const extraInRg = [...rgSpCodes].filter((code) => !rmSpCodes.has(code));

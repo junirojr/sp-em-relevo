@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { expect, test } from "@playwright/test";
 import { clickUnit, inspect, readSelection } from "../../../tests/support/inspector.js";
 import { openPage, settle } from "../../../tests/support/page.js";
+import { parseMunicipalities } from "../../app/data-loader.js";
 
 /**
  * @typedef {import("@playwright/test").Browser} Browser
@@ -261,7 +262,9 @@ function expectExactlyOneWholeRegion(selectedCodes) {
  * @returns {Map<string, string>} municipality code to region code.
  */
 function readRegionCodeByMunicipality() {
-  const { municipalities } = JSON.parse(fs.readFileSync("data/municipalities.json", "utf8"));
+  const municipalities = parseMunicipalities(
+    JSON.parse(fs.readFileSync("data/municipalities.json", "utf8")),
+  );
   return new Map(
     municipalities.map((/** @type {{ code: string, regionCode: string }} */ m) => [
       m.code,

@@ -26,13 +26,10 @@ test.describe("Alternative Data Table and WCAG 2.2 AA (ACE-01, ACE-02, ACE-03, A
       await expect(openLink).toHaveText("Abrir tabela de dados");
 
       // Ensure table feature controller is attached to page
-      await page.evaluate(async () => {
-        const { mountTableFeature } = await import("/src/features/table/table-slice.js");
-        mountTableFeature(document);
-      });
 
       // Activate open table link
-      await openLink.click();
+      await openLink.focus();
+      await openLink.press("Enter");
 
       // Check slot is revealed
       const slot = page.locator("#alt-table-slot");
@@ -52,7 +49,7 @@ test.describe("Alternative Data Table and WCAG 2.2 AA (ACE-01, ACE-02, ACE-03, A
       expect(captionText?.includes("\u2014")).toBe(false);
 
       // Verify rows and compare against inspect() (ACE-02)
-      const saoPauloRow = slot.locator('tr:has-text("São Paulo")');
+      const saoPauloRow = slot.locator('tr:has(input[data-code="3550308"])');
       await expect(saoPauloRow.first()).toBeVisible();
 
       const inspectedSaoPaulo = await inspect(page, "3550308");
@@ -79,11 +76,6 @@ test.describe("Alternative Data Table and WCAG 2.2 AA (ACE-01, ACE-02, ACE-03, A
     try {
       await settle(page);
 
-      await page.evaluate(async () => {
-        const { mountTableFeature } = await import("/src/features/table/table-slice.js");
-        mountTableFeature(document);
-      });
-
       // Tab navigation to open-table-link (ACE-03)
       await page.keyboard.press("Tab");
       await page.keyboard.press("Tab");
@@ -101,6 +93,7 @@ test.describe("Alternative Data Table and WCAG 2.2 AA (ACE-01, ACE-02, ACE-03, A
 
       // Check target size of close button and checkboxes (ACE-04: minimum 24x24 px)
       const closeBtn = slot.locator(".alt-table-close-btn");
+      await expect(closeBtn).toBeVisible();
       const closeBox = await closeBtn.boundingBox();
       expect(closeBox).not.toBeNull();
       if (closeBox) {
@@ -135,20 +128,17 @@ test.describe("Alternative Data Table and WCAG 2.2 AA (ACE-01, ACE-02, ACE-03, A
     }
   });
 
-  test("ACE-01 automated WCAG 2.2 AA audit: Desktop 1366x768 (Dark Theme)", async ({
-    browser,
-  }) => {
+  test("ACE-01 automated WCAG 2.2 AA audit: Desktop 1366x768 (Dark Theme)", async ({ browser }) => {
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_DESKTOP });
     try {
       await settle(page);
 
       await page.evaluate(async () => {
         document.documentElement.setAttribute("data-theme", "dark");
-        const { mountTableFeature } = await import("/src/features/table/table-slice.js");
-        mountTableFeature(document);
       });
 
-      await page.locator("#open-table-link").click();
+      await page.locator("#open-table-link").focus();
+      await page.locator("#open-table-link").press("Enter");
       await expect(page.locator("#alt-table-slot")).toBeVisible();
 
       const axeResults = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
@@ -168,11 +158,10 @@ test.describe("Alternative Data Table and WCAG 2.2 AA (ACE-01, ACE-02, ACE-03, A
 
       await page.evaluate(async () => {
         document.documentElement.setAttribute("data-theme", "light");
-        const { mountTableFeature } = await import("/src/features/table/table-slice.js");
-        mountTableFeature(document);
       });
 
-      await page.locator("#open-table-link").click();
+      await page.locator("#open-table-link").focus();
+      await page.locator("#open-table-link").press("Enter");
       await expect(page.locator("#alt-table-slot")).toBeVisible();
 
       const axeResults = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
@@ -183,20 +172,17 @@ test.describe("Alternative Data Table and WCAG 2.2 AA (ACE-01, ACE-02, ACE-03, A
     }
   });
 
-  test("ACE-01 automated WCAG 2.2 AA audit: Mobile 390x844 (Dark Theme)", async ({
-    browser,
-  }) => {
+  test("ACE-01 automated WCAG 2.2 AA audit: Mobile 390x844 (Dark Theme)", async ({ browser }) => {
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_MOBILE });
     try {
       await settle(page);
 
       await page.evaluate(async () => {
         document.documentElement.setAttribute("data-theme", "dark");
-        const { mountTableFeature } = await import("/src/features/table/table-slice.js");
-        mountTableFeature(document);
       });
 
-      await page.locator("#open-table-link").click();
+      await page.locator("#open-table-link").focus();
+      await page.locator("#open-table-link").press("Enter");
       await expect(page.locator("#alt-table-slot")).toBeVisible();
 
       const axeResults = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
@@ -207,20 +193,17 @@ test.describe("Alternative Data Table and WCAG 2.2 AA (ACE-01, ACE-02, ACE-03, A
     }
   });
 
-  test("ACE-01 automated WCAG 2.2 AA audit: Mobile 390x844 (Light Theme)", async ({
-    browser,
-  }) => {
+  test("ACE-01 automated WCAG 2.2 AA audit: Mobile 390x844 (Light Theme)", async ({ browser }) => {
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_MOBILE });
     try {
       await settle(page);
 
       await page.evaluate(async () => {
         document.documentElement.setAttribute("data-theme", "light");
-        const { mountTableFeature } = await import("/src/features/table/table-slice.js");
-        mountTableFeature(document);
       });
 
-      await page.locator("#open-table-link").click();
+      await page.locator("#open-table-link").focus();
+      await page.locator("#open-table-link").press("Enter");
       await expect(page.locator("#alt-table-slot")).toBeVisible();
 
       const axeResults = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();

@@ -1,3 +1,7 @@
+/**
+ * @typedef {{ts: number, iso: string, isState: boolean, code: string, data: Record<string, unknown>}} ElectoralEvent
+ * @typedef {{t: number, iso: string, sp: [string, number, number, number, number], muns: Record<string, [string, number, number]>, gap_before_seconds?: number, is_gap?: boolean}} ReplayFrame
+ */
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -91,6 +95,9 @@ export function parseCliArgs(args) {
  * @returns {Array<Record<string, unknown>>}
  */
 export function parseNdjson(content) {
+  /**
+   * @type {string[]}
+   */
   let lines = [];
   if (Array.isArray(content)) {
     lines = content;
@@ -303,7 +310,7 @@ export function extractElectoralEvents(records) {
  *   gapThresholdSeconds?: number
  * }} [options]
  * @returns {{
- *   frames: Array<Record<string, unknown>>,
+ *   frames: ReplayFrame[],
  *   candidates: Array<{ ballotNumber: string, name: string, party: string }>,
  *   summary: Record<string, unknown>,
  *   startTime: string,
@@ -334,10 +341,11 @@ export function buildReplayFrames(events, options = {}) {
   /** @type {Record<string, [string, number, number]>} */
   const runningMuns = {};
   /** @type {[string, number, number, number, number]} */
-  let runningSp = ["", 0, 0, 0, 0];
+  const runningSp = ["", 0, 0, 0, 0];
 
   const frames = [];
   let totalGaps = 0;
+  /** @type {Record<string, [string, number, number]>} */
   let previousFrameMuns = {};
   let previousEventTs = startMs;
 
@@ -451,7 +459,7 @@ export function buildReplayFrames(events, options = {}) {
  * Creates a single frame snapshot with delta encoding relative to previous frame.
  *
  * @param {{
- *   bucketEvents: Array<{ event: Record<string, unknown>, isGap: boolean, gapDurationSeconds: number }>,
+ *   bucketEvents: Array<{ event: ElectoralEvent, isGap: boolean, gapDurationSeconds: number }>,
  *   startMs: number,
  *   runningMuns: Record<string, [string, number, number]>,
  *   runningSp: [string, number, number, number, number],
@@ -459,7 +467,7 @@ export function buildReplayFrames(events, options = {}) {
  *   isGap: boolean,
  *   gapDurationSeconds: number
  * }} params
- * @returns {Record<string, unknown> | null}
+ * @returns {ReplayFrame | null}
  */
 function createFrameFromBucket(params) {
   const {
@@ -502,6 +510,7 @@ function createFrameFromBucket(params) {
   }
 
   // Calculate delta: only municipalities that differ from previousFrameMuns
+  /** @type {Record<string, [string, number, number]>} */
   const deltas = {};
   let deltaCount = 0;
   const isFirstFrame = Object.keys(previousFrameMuns).length === 0;
@@ -520,9 +529,7 @@ function createFrameFromBucket(params) {
       continue;
     }
     const hasChanged =
-      prevVal[0] !== currentVal[0] ||
-      prevVal[1] !== currentVal[1] ||
-      prevVal[2] !== currentVal[2];
+      prevVal[0] !== currentVal[0] || prevVal[1] !== currentVal[1] || prevVal[2] !== currentVal[2];
     if (hasChanged) {
       deltas[cd] = currentVal;
       deltaCount += 1;
@@ -535,6 +542,7 @@ function createFrameFromBucket(params) {
   }
 
   const elapsedSeconds = Math.max(0, Math.floor((latestTs - startMs) / 1000));
+  /** @type {ReplayFrame} */
   const frame = {
     t: elapsedSeconds,
     iso: new Date(latestTs).toISOString(),
@@ -559,9 +567,11 @@ function createFrameFromBucket(params) {
  *   samplingIntervalSeconds?: number,
  *   gapThresholdSeconds?: number
  * }} [options]
- * @returns {Record<string, unknown>}
  */
 export function compactReplayLog(inputData, options = {}) {
+  /**
+   * @type {Record<string, unknown>[]}
+   */
   let records = [];
   if (Array.isArray(inputData)) {
     records = inputData;
@@ -638,7 +648,9 @@ Options:
   console.log(`Size: ${byteSize} bytes (${(byteSize / 1024).toFixed(2)} KB, budget <= 300 KB)`);
 
   if (byteSize > MAX_REPLAY_SIZE_BYTES) {
-    console.warn(`[WARNING] Replay size exceeds 300 KB budget! (${byteSize} > ${MAX_REPLAY_SIZE_BYTES})`);
+    console.warn(
+      `[WARNING] Replay size exceeds 300 KB budget! (${byteSize} > ${MAX_REPLAY_SIZE_BYTES})`,
+    );
   }
 }
 

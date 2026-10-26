@@ -65,9 +65,7 @@ test.describe("REG region labels slice (REG-03, BAS-04, BAS-09)", () => {
     }
   });
 
-  test("REG-03 visible region labels do not overlap in 390x844 (mobile)", async ({
-    browser,
-  }) => {
+  test("REG-03 visible region labels do not overlap in 390x844 (mobile)", async ({ browser }) => {
     const { context, page } = await openPage(browser, {
       viewport: VIEWPORT_390_844,
     });

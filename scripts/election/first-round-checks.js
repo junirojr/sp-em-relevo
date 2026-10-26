@@ -222,9 +222,7 @@ export function checkPreaggregatedTotals(totals) {
     }
   }
   if (Math.abs(raSum - stateVotes) > 1) {
-    problems.push(
-      `TUR-03: Soma das RAs (${raSum}) diverge do total estadual (${stateVotes}).`,
-    );
+    problems.push(`TUR-03: Soma das RAs (${raSum}) diverge do total estadual (${stateVotes}).`);
   }
 
   const rgMap = totals.rg ?? {};
@@ -243,9 +241,7 @@ export function checkPreaggregatedTotals(totals) {
     }
   }
   if (Math.abs(rgSum - stateVotes) > 1) {
-    problems.push(
-      `TUR-03: Soma das RGs (${rgSum}) diverge do total estadual (${stateVotes}).`,
-    );
+    problems.push(`TUR-03: Soma das RGs (${rgSum}) diverge do total estadual (${stateVotes}).`);
   }
 
   return problems;
@@ -320,7 +316,7 @@ export function checkCandidateOraclePercentage(
  * where votesPairs is [[ballotNumber, votes], ...]
  *
  * @param {[string, number, number, number, number, number, Array<[string | number, number]>]} row
- * @param {Record<string, { name: string, party: string }>} [candidatesMap]
+ * @param {Array<[string, string, string] | {ballotNumber: string, name: string, party: string}> | Record<string, {name: string, party: string}>} [candidatesCatalog]
  * @returns {import("../../src/domain/election.js").ElectionUnitInput}
  */
 export function hydrateUnitFromRow(row, candidatesCatalog = []) {

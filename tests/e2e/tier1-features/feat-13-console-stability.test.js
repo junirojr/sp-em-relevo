@@ -31,11 +31,22 @@ test("F13-02: Repeated state updates do not accumulate memory leaks in listeners
   const slot = doc.createElement("div");
   doc.body.append(slot);
 
+  /**
+   * @type {{ type: any; fn: any; }[]}
+   */
   const listeners = [];
   const fakeElement = {
+    /**
+     * @param {string} type
+     * @param {() => void} fn
+     */
     addEventListener(type, fn) {
       listeners.push({ type, fn });
     },
+    /**
+     * @param {string} type
+     * @param {() => void} fn
+     */
     removeEventListener(type, fn) {
       const idx = listeners.findIndex((l) => l.type === type && l.fn === fn);
       if (idx !== -1) listeners.splice(idx, 1);

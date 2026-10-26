@@ -1,24 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "three";
+import { DARK_PALETTE, LIGHT_PALETTE } from "../app/palette.js";
+import { ELECTION_NEUTRALS, PARTY_COLOR_TABLE } from "../domain/election-colors.js";
+import { createEngine } from "./engine.js";
 import {
+  buildSelectionGeometry,
   computeContrastRatio,
   computeRelativeLuminance,
   computeSelectionArcs,
   createSelectionOutline,
-  buildSelectionGeometry,
-  satisfiesOutlineContrast,
-  updateSelectionOutlineHeights,
   MIN_CONTRAST_RATIO,
   OUTLINE_DARK_TONE,
-  OUTLINE_LIGHT_TONE,
   OUTLINE_INNER_WIDTH,
+  OUTLINE_LIGHT_TONE,
   OUTLINE_OUTER_WIDTH,
   SELECTION_OUTLINE_OFFSET,
+  satisfiesOutlineContrast,
+  updateSelectionOutlineHeights,
 } from "./selection-outline.js";
-import { ELECTION_NEUTRALS, PARTY_COLOR_TABLE } from "../domain/election-colors.js";
-import { LIGHT_PALETTE, DARK_PALETTE } from "../app/palette.js";
-import { createEngine } from "./engine.js";
 
 if (typeof globalThis.requestAnimationFrame === "undefined") {
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 16);
@@ -124,12 +124,18 @@ function createMockGeometry(codes) {
   const colors = new Map();
   const matrices = new Map();
 
-  const plate = new THREE.Object3D();
+  const plate =
+    /** @type {THREE.Object3D & {instanceCount: number, setColorAt: (id: number, color: THREE.Color) => void, getColorAt: (id: number, target: THREE.Color) => void, setMatrixAt: (id: number, matrix: THREE.Matrix4) => void, getMatrixAt: (id: number, target: THREE.Matrix4) => void}} */ (
+      /** @type {unknown} */ (new THREE.Object3D())
+    );
   plate.instanceCount = codes.length;
-  plate.setColorAt = (id, color) => {
+  plate.setColorAt = (/** @type {any} */ id, /** @type {{ clone: () => any; }} */ color) => {
     colors.set(id, color.clone());
   };
-  plate.getColorAt = (id, target) => {
+  plate.getColorAt = (
+    /** @type {any} */ id,
+    /** @type {{ copy: (arg0: any) => void; setHex: (arg0: number) => void; }} */ target,
+  ) => {
     const c = colors.get(id);
     if (c) {
       target.copy(c);
@@ -137,10 +143,13 @@ function createMockGeometry(codes) {
     }
     target.setHex(0xffffff);
   };
-  plate.setMatrixAt = (id, matrix) => {
+  plate.setMatrixAt = (/** @type {any} */ id, /** @type {{ clone: () => any; }} */ matrix) => {
     matrices.set(id, matrix.clone());
   };
-  plate.getMatrixAt = (id, target) => {
+  plate.getMatrixAt = (
+    /** @type {any} */ id,
+    /** @type {{ copy: (arg0: any) => void; identity: () => void; }} */ target,
+  ) => {
     const m = matrices.get(id);
     if (m) {
       target.copy(m);
@@ -151,7 +160,7 @@ function createMockGeometry(codes) {
 
   return {
     municipalities,
-    plate,
+    plate: /** @type {THREE.BatchedMesh} */ (/** @type {unknown} */ (plate)),
     mapCenter: new THREE.Vector2(5, 5),
   };
 }
@@ -290,7 +299,9 @@ test("ELE-14 buildSelectionGeometry assigns owner index and updates heights duri
   const heightCurrent = new Float32Array([1.5, 2.0, 0.5, 0.8]);
   updateSelectionOutlineHeights(outline, heightCurrent);
 
-  const instanceStart = geometry.attributes.instanceStart;
+  const instanceStart = /** @type {THREE.InterleavedBufferAttribute} */ (
+    geometry.attributes.instanceStart
+  );
   const positions = instanceStart.data.array;
 
   // Verify that z positions follow the owning block height plus offset
@@ -346,7 +357,7 @@ test("ELE-12 hover and selection give 0 elevation in election mode and use disti
   };
 
   const engine = createEngine({
-    canvas,
+    canvas: /** @type {HTMLCanvasElement} */ (/** @type {unknown} */ (canvas)),
     geometry,
     palette,
     mode: "election",
@@ -354,6 +365,7 @@ test("ELE-12 hover and selection give 0 elevation in election mode and use disti
   });
 
   // Verify mode is election
+  assert.ok(engine.readMode);
   assert.equal(engine.readMode(), "election");
 
   // In election mode, selecting a unit must give liftTarget = 0 (ELE-12)
@@ -361,6 +373,8 @@ test("ELE-12 hover and selection give 0 elevation in election mode and use disti
 
   const inspectionPointed = engine.inspect(0);
   const inspectionSelected = engine.inspect(1);
+  assert.ok(inspectionPointed);
+  assert.ok(inspectionSelected);
 
   assert.equal(inspectionPointed.liftTarget, 0);
   assert.equal(inspectionSelected.liftTarget, 0);
@@ -398,7 +412,7 @@ test("ELE-15 inspect preserves party color and selection outline adds 2 draw cal
   };
 
   const engine = createEngine({
-    canvas,
+    canvas: /** @type {HTMLCanvasElement} */ (/** @type {unknown} */ (canvas)),
     geometry,
     palette,
     mode: "election",
@@ -413,6 +427,7 @@ test("ELE-15 inspect preserves party color and selection outline adds 2 draw cal
 
   // In election mode, inspect must preserve party color and NOT turn into selection blue (#2f4bff) (ELE-15)
   const inspection = engine.inspect(1);
+  assert.ok(inspection);
   assert.equal(inspection.color, "#33ff33");
   assert.notEqual(inspection.color, "#2f4bff");
 

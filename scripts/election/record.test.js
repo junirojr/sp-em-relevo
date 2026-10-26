@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 
 import {
-  ElectionRecorder,
   appendNdjsonRecord,
   buildRecordSignature,
+  ElectionRecorder,
   parseCliArgs,
   recoverNdjsonLog,
 } from "./record.mjs";
@@ -208,8 +208,11 @@ test("GRV-02 rate limit <= 10 req/s ensures minimum inter-request interval >= 10
   const tempDir = createTempTestDir();
   const filePath = path.join(tempDir, "rate-limit.ndjson");
 
+  /**
+   * @type {number[]}
+   */
   const requestTimestamps = [];
-  const fakeFetch = async (url) => {
+  const fakeFetch = async (/** @type {string | string[]} */ url) => {
     requestTimestamps.push(Date.now());
     const isConfig = url.includes("mun-e");
     if (isConfig) {
@@ -263,7 +266,10 @@ test("GRV-02 rate limit <= 10 req/s ensures minimum inter-request interval >= 10
             st: 210,
             ts: 500,
             vv: 1000,
-            cand: [{ n: "22", vap: 600 }, { n: "13", vap: 400 }],
+            cand: [
+              { n: "22", vap: 600 },
+              { n: "13", vap: 400 },
+            ],
           }),
       };
     }
@@ -278,7 +284,10 @@ test("GRV-02 rate limit <= 10 req/s ensures minimum inter-request interval >= 10
           st: 50,
           ts: 100,
           vv: 500,
-          cand: [{ n: "22", vap: 300 }, { n: "13", vap: 200 }],
+          cand: [
+            { n: "22", vap: 300 },
+            { n: "13", vap: 200 },
+          ],
         }),
     };
   };
@@ -287,7 +296,10 @@ test("GRV-02 rate limit <= 10 req/s ensures minimum inter-request interval >= 10
     const recorder = new ElectionRecorder({
       outPath: filePath,
       rateLimit: 10, // 10 req/s -> 100ms interval
-      customFetch: fakeFetch,
+      customFetch: async (input, init) => {
+        const stub = await fakeFetch(String(input));
+        return new Response(await stub.text(), { status: stub.status, headers: stub.headers });
+      },
     });
 
     await recorder.init();
@@ -380,6 +392,9 @@ test("3-minute silence warning alert triggers when no success occurs within 180 
     let simulatedCurrentTime = 1000000;
     const mockClock = { now: () => simulatedCurrentTime };
 
+    /**
+     * @type {{type: string, durationMs: number, timestamp: string}[]}
+     */
     const alertsReceived = [];
     const recorder = new ElectionRecorder({
       outPath: filePath,

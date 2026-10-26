@@ -1,0 +1,1 @@
+import{a,b,c,d,e,f,g,h}from"./chunk-I73A4VCR.js";export{a as ELECTION_STRINGS,h as formatAccessibilityMilestone,b as formatBrasiliaHour,f as formatCandidateLeadMessage,g as formatElectedAnnouncement,d as formatNoConnectionMessage,e as formatPartialCountMessage,c as formatTseStoppedMessage};

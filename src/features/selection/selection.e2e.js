@@ -2,12 +2,13 @@ import fs from "node:fs";
 import { expect, test } from "@playwright/test";
 import { aimAt, clickUnit, inspect, readSelection } from "../../../tests/support/inspector.js";
 import { openPage, settle } from "../../../tests/support/page.js";
+import { parseMunicipalities } from "../../app/data-loader.js";
 
 const VIEWPORT_1280_900 = { width: 1280, height: 900 };
 
-const municipalitiesData = JSON.parse(
-  fs.readFileSync("data/municipalities.json", "utf8"),
-).municipalities;
+const municipalitiesData = parseMunicipalities(
+  JSON.parse(fs.readFileSync("data/municipalities.json", "utf8")),
+);
 
 test.describe("SEL selection slice (SEL-01 to SEL-03, SEL-06, SEL-08, SEL-10)", () => {
   test("SEL-01 click toggles municipality on municipality level and region on region level", async ({
@@ -469,6 +470,17 @@ test.describe("SEL selection slice (SEL-01 to SEL-03, SEL-06, SEL-08, SEL-10)", 
       selected = await readSelection(page);
       expect(selected).not.toContain(spCode);
 
+      await card.getByRole("button", { name: "Isolar São Paulo no mapa 3D", exact: true }).click();
+      await settle(page);
+      await card.getByRole("button", { name: "Fechar inspeção" }).click();
+      for (
+        let step = 0;
+        step < 3 &&
+        (await page.locator("#sidebar").getAttribute("data-sheet-state")) !== "collapsed";
+        step += 1
+      ) {
+        await page.locator("#sheet-toggle").click();
+      }
       await clickUnit(page, spCode);
       selected = await readSelection(page);
       expect(selected).toContain(spCode);
@@ -587,4 +599,3 @@ test.describe("SEL selection slice (SEL-01 to SEL-03, SEL-06, SEL-08, SEL-10)", 
     }
   });
 });
-

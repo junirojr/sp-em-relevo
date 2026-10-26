@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { groupOf } from "../domain/territory.js";
 import {
   accumulateWheelZoom,
   clampPanVector,
@@ -10,6 +11,7 @@ import {
   readSelectionFraming,
   readSteppedZoom,
 } from "./camera.js";
+import { WORLD_UNITS_PER_SVG_UNIT } from "./constants.js";
 import {
   buildIndexByCode,
   createMapMotion,
@@ -34,7 +36,6 @@ import {
   createLimitLines,
   updateLimitHeights,
 } from "./limits.js";
-import { groupOf } from "../domain/territory.js";
 import { createPointTracker, pickMunicipalityIndex, readGroundPoint } from "./picking.js";
 import { setupContextHandlers, setupPointerHandlers } from "./pointer.js";
 import {
@@ -49,7 +50,6 @@ import {
   createSelectionOutline,
   updateSelectionOutlineHeights,
 } from "./selection-outline.js";
-import { WORLD_UNITS_PER_SVG_UNIT } from "./constants.js";
 
 const DEFAULT_VIEW_ANGLE_DEGREES = 55;
 const MAX_PIXEL_RATIO = 2;
@@ -72,6 +72,7 @@ const OUTLINE_LIFT_SHARE = 1;
 /**
  * @typedef {{
  *   canvas: HTMLCanvasElement;
+ *   renderer?: THREE.WebGLRenderer;
  *   geometry: {
  *     municipalities: MapMunicipality[];
  *     plate: THREE.BatchedMesh;
@@ -156,9 +157,10 @@ const OUTLINE_LIFT_SHARE = 1;
  *   setPalette: (palette: EnginePalette) => void;
  *   readPalette: () => EnginePalette;
  *   setCameraOptions: (options: CameraOptions) => void;
+ *   setTiltTarget: (x: number, y: number) => void;
  *   setMode?: (mode: "indicator" | "election") => void;
  *   readMode?: () => "indicator" | "election";
- *   readSelectionOutline?: () => any;
+ *   readSelectionOutline: () => any;
  *   frame: (indexes: number[]) => void;
  *   frameNow: (indexes: number[]) => void;
  *   zoomStep: (direction: number, screenPoint?: { x: number; y: number }) => void;
@@ -275,7 +277,7 @@ export function createEngine(options) {
     }),
     frame: (indexes) => frameSelection(ctx, indexes),
     frameNow: (indexes) => frameIndexes(ctx, indexes),
-    setTiltTarget: (x, y) => {
+    setTiltTarget: (/** @type {number} */ x, /** @type {number} */ y) => {
       ctx.tiltTarget.set(x, y);
       requestFrame(ctx);
     },
@@ -462,7 +464,8 @@ function setLimits(ctx, limits) {
     }
   }
 
-  const isGroupLevel = level === "region" || level === "governmentRegion" || level === "administrativeRegion";
+  const isGroupLevel =
+    level === "region" || level === "governmentRegion" || level === "administrativeRegion";
   if (!limits.limitArcs && isGroupLevel) {
     let cached = ctx.limitGeometriesByLevel.get(level);
     if (!cached && topology) {
@@ -863,16 +866,13 @@ function rebuildRaisedOutline(ctx) {
     if (ctx.raise.pointedIndexes instanceof Set) {
       raisedIndexes = [...ctx.raise.pointedIndexes];
     }
-    if (raisedIndexes.length === 0 && ctx.raise.pointed !== null && ctx.raise.pointed !== undefined) {
+    if (
+      raisedIndexes.length === 0 &&
+      ctx.raise.pointed !== null &&
+      ctx.raise.pointed !== undefined
+    ) {
       if (typeof ctx.raise.pointed === "number") {
         raisedIndexes = [ctx.raise.pointed];
-      }
-    }
-    if (ctx.raise.selected instanceof Set) {
-      for (const idx of ctx.raise.selected) {
-        if (!raisedIndexes.includes(idx)) {
-          raisedIndexes.push(idx);
-        }
       }
     }
   }

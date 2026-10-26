@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   DEFAULT_TOLERANCE_PP,
-  OFFICIAL_ORACLE_TARGETS,
   extractCandidateVotes,
   extractTotalValidVotes,
+  OFFICIAL_ORACLE_TARGETS,
   verifyCargoOracle,
 } from "./oracle-first-round.mjs";
 
@@ -113,8 +113,30 @@ test("extractCandidateVotes and extractTotalValidVotes support multiple payload 
   // Representation 1: compact row format
   const compactPayload = {
     rows: [
-      ["3500105", 1000, 10, 20, 0, 0, [["22", 600], ["13", 400]]],
-      ["3500204", 2000, 20, 30, 0, 0, [["22", 1100], ["13", 900]]],
+      [
+        "3500105",
+        1000,
+        10,
+        20,
+        0,
+        0,
+        [
+          ["22", 600],
+          ["13", 400],
+        ],
+      ],
+      [
+        "3500204",
+        2000,
+        20,
+        30,
+        0,
+        0,
+        [
+          ["22", 1100],
+          ["13", 900],
+        ],
+      ],
     ],
   };
 

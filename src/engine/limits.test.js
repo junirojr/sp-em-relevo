@@ -150,7 +150,7 @@ test("NIV-07 and RGV-03 readLimitStyle returns visible limits and 0.3 opacity fo
 
 test("NIV-06, NIV-07 and RGV-03 computeLimitArcs finds shared arcs separating distinct government regions", () => {
   const topology = createTopologyFixture();
-  const groupOfMock = (level, code) => {
+  const groupOfMock = (/** @type {string} */ level, /** @type {string} */ code) => {
     if (level === "governmentRegion") {
       if (code === "35001") {
         return "rg-1";

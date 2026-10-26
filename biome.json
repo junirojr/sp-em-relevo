@@ -4,11 +4,14 @@
     "includes": [
       "**",
       "!data",
+      "!dist",
       "!scripts/data/raw",
       "!test-results",
       "!playwright-report",
       "!node_modules",
       "!.claude",
+      "!.agents",
+      "!.codex",
       "!scripts/dev/fixtures"
     ]
   },

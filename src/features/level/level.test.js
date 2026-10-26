@@ -89,9 +89,17 @@ test("RGV-04 level view explains RM São Paulo is equal to administrative region
 
   const dispatched = [];
   const fakeDoc = {
+    /**
+     * @param {any} tag
+     */
     createElement(tag) {
+      /**
+       * @type {any[]}
+       */
       const children = [];
+      /** @type {Record<string, string>} */
       const attrs = {};
+      /** @type {Record<string, () => void>} */
       const listeners = {};
       return {
         tag,
@@ -102,15 +110,29 @@ test("RGV-04 level view explains RM São Paulo is equal to administrative region
         name: "",
         value: "",
         checked: false,
+        /**
+         * @param {any[]} nodes
+         */
         append(...nodes) {
           children.push(...nodes);
         },
+        /**
+         * @param {string | number} k
+         * @param {any} v
+         */
         setAttribute(k, v) {
           attrs[k] = v;
         },
+        /**
+         * @param {string | number} event
+         * @param {any} fn
+         */
         addEventListener(event, fn) {
           listeners[event] = fn;
         },
+        /**
+         * @param {string | number} event
+         */
         trigger(event) {
           if (listeners[event]) {
             listeners[event]();
@@ -120,6 +142,9 @@ test("RGV-04 level view explains RM São Paulo is equal to administrative region
         attrs,
       };
     },
+    /**
+     * @param {any} text
+     */
     createTextNode(text) {
       return { text };
     },

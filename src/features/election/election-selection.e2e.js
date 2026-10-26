@@ -11,14 +11,13 @@ test.describe("N16 Election selection, compare, search and table suite (ELE-22, 
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_1366_768 });
     try {
       const result = await page.evaluate(async () => {
-        const {
-          buildElectionCompareModel,
-          describeElectionCompareSide,
-          resolveCalculationBase,
-        } = await import("./election-compare-model.js");
+        const { buildElectionCompareModel, describeElectionCompareSide, resolveCalculationBase } =
+          await import(
+            new URL("/src/features/election/election-compare-model.js", window.location.href).href
+          );
 
         const mockUnits = {
-          "3550308": {
+          3550308: {
             code: "3550308",
             name: "Sao Paulo",
             totalValidVotes: 100000,
@@ -29,7 +28,7 @@ test.describe("N16 Election selection, compare, search and table suite (ELE-22, 
               { ballotNumber: 22, name: "Candidato B", party: "PL", validVotes: 38204 },
             ],
           },
-          "3509502": {
+          3509502: {
             code: "3509502",
             name: "Campinas",
             totalValidVotes: 50000,
@@ -96,8 +95,12 @@ test.describe("N16 Election selection, compare, search and table suite (ELE-22, 
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_390_844 });
     try {
       const result = await page.evaluate(async () => {
-        const { createTerritory } = await import("../../domain/territory.js");
-        const { buildElectionTableRows } = await import("./election-table-model.js");
+        const { createTerritory } = await import(
+          new URL("/src/domain/territory.js", window.location.href).href
+        );
+        const { buildElectionTableRows } = await import(
+          new URL("/src/features/election/election-table-model.js", window.location.href).href
+        );
 
         const municipalities = [
           {
@@ -147,7 +150,7 @@ test.describe("N16 Election selection, compare, search and table suite (ELE-22, 
         const territory = createTerritory({ municipalities, regions, governmentRegions });
 
         const mockUnits = {
-          "3509502": {
+          3509502: {
             code: "3509502",
             name: "Campinas",
             totalValidVotes: 5000,
@@ -156,7 +159,7 @@ test.describe("N16 Election selection, compare, search and table suite (ELE-22, 
               { ballotNumber: 13, name: "Cand A", party: "PT", validVotes: 1500 },
             ],
           },
-          "3549904": {
+          3549904: {
             code: "3549904",
             name: "Sao Jose dos Campos",
             totalValidVotes: 2000,
@@ -165,7 +168,7 @@ test.describe("N16 Election selection, compare, search and table suite (ELE-22, 
               { ballotNumber: 22, name: "Cand B", party: "PL", validVotes: 800 },
             ],
           },
-          "3550308": {
+          3550308: {
             code: "3550308",
             name: "Sao Paulo",
             totalValidVotes: 10000,
@@ -209,10 +212,18 @@ test.describe("N16 Election selection, compare, search and table suite (ELE-22, 
           munCount: munRows.length,
           govCount: govRows.length,
           regCount: regRows.length,
-          rg11Leader: govRows.find((r) => r.code === "rg-11")?.leader,
-          rg11Margin: govRows.find((r) => r.code === "rg-11")?.margin,
-          ra1Leader: regRows.find((r) => r.code === "1")?.leader,
-          ra1Margin: regRows.find((r) => r.code === "1")?.margin,
+          rg11Leader: govRows.find(
+            (/** @type {import("../table/table-model.js").TableRow} */ r) => r.code === "rg-11",
+          )?.leader,
+          rg11Margin: govRows.find(
+            (/** @type {import("../table/table-model.js").TableRow} */ r) => r.code === "rg-11",
+          )?.margin,
+          ra1Leader: regRows.find(
+            (/** @type {import("../table/table-model.js").TableRow} */ r) => r.code === "1",
+          )?.leader,
+          ra1Margin: regRows.find(
+            (/** @type {import("../table/table-model.js").TableRow} */ r) => r.code === "1",
+          )?.margin,
         };
       });
 
@@ -234,7 +245,9 @@ test.describe("N16 Election selection, compare, search and table suite (ELE-22, 
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_1366_768 });
     try {
       const result = await page.evaluate(async () => {
-        const { buildElectionTableModel } = await import("./election-table-model.js");
+        const { buildElectionTableModel } = await import(
+          new URL("/src/features/election/election-table-model.js", window.location.href).href
+        );
 
         const municipalities = [
           {
@@ -250,7 +263,7 @@ test.describe("N16 Election selection, compare, search and table suite (ELE-22, 
         ];
 
         const mockUnits = {
-          "3550308": {
+          3550308: {
             code: "3550308",
             name: "Sao Paulo",
             totalValidVotes: 10000,
@@ -276,7 +289,9 @@ test.describe("N16 Election selection, compare, search and table suite (ELE-22, 
         return {
           caption: tableModel.caption,
           footerText: tableModel.footerText,
-          columns: tableModel.columns.map((c) => c.key),
+          columns: tableModel.columns.map(
+            (/** @type {import("../table/table-model.js").TableColumn} */ c) => c.key,
+          ),
           rowName: row.name,
           rowOffice: row.office,
           rowLeader: row.leader,
@@ -316,8 +331,12 @@ test.describe("N16 Election selection, compare, search and table suite (ELE-22, 
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_1366_768 });
     try {
       const result = await page.evaluate(async () => {
-        const { createTerritory } = await import("../../domain/territory.js");
-        const { describeElectionCompareSide } = await import("./election-compare-model.js");
+        const { createTerritory } = await import(
+          new URL("/src/domain/territory.js", window.location.href).href
+        );
+        const { describeElectionCompareSide } = await import(
+          new URL("/src/features/election/election-compare-model.js", window.location.href).href
+        );
 
         const mun1 = {
           code: "mun1",
@@ -343,8 +362,22 @@ test.describe("N16 Election selection, compare, search and table suite (ELE-22, 
 
         const territory = createTerritory({
           municipalities: [
-            { code: "mun1", name: "Mun 1", regionCode: "reg1" },
-            { code: "mun2", name: "Mun 2", regionCode: "reg1" },
+            {
+              population: 0,
+              areaKm2: 0,
+              gdpThousandBrl: 0,
+              code: "mun1",
+              name: "Mun 1",
+              regionCode: "reg1",
+            },
+            {
+              population: 0,
+              areaKm2: 0,
+              gdpThousandBrl: 0,
+              code: "mun2",
+              name: "Mun 2",
+              regionCode: "reg1",
+            },
           ],
           regions: [{ code: "reg1", label: "Regiao 1" }],
         });
@@ -355,8 +388,22 @@ test.describe("N16 Election selection, compare, search and table suite (ELE-22, 
           {
             level: "region",
             municipalities: [
-              { code: "mun1", name: "Mun 1", regionCode: "reg1" },
-              { code: "mun2", name: "Mun 2", regionCode: "reg1" },
+              {
+                population: 0,
+                areaKm2: 0,
+                gdpThousandBrl: 0,
+                code: "mun1",
+                name: "Mun 1",
+                regionCode: "reg1",
+              },
+              {
+                population: 0,
+                areaKm2: 0,
+                gdpThousandBrl: 0,
+                code: "mun2",
+                name: "Mun 2",
+                regionCode: "reg1",
+              },
             ],
             territory,
             office: "deputado-federal",

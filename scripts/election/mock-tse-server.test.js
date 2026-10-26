@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import http from "node:http";
 import { test } from "node:test";
-import {
-  MAX_ALLOWED_DELAY_SECONDS,
-  STAGE_KEYS,
-  createMockTseServer,
-} from "./mock-tse-server.mjs";
+import { createMockTseServer, MAX_ALLOWED_DELAY_SECONDS, STAGE_KEYS } from "./mock-tse-server.mjs";
 
 /**
  * Performs a simple HTTP GET request and returns status, headers, and text body.
@@ -183,9 +179,7 @@ test("FIX-01 mock server fixtures use only fictitious candidate names, numbers, 
   const server = createMockTseServer();
   const { baseUrl } = await server.start();
   try {
-    const res = await fetchHttp(
-      `${baseUrl}/oficial/ele2026/6258/dados/br/br-c0001-e006258-u.json`,
-    );
+    const res = await fetchHttp(`${baseUrl}/oficial/ele2026/6258/dados/br/br-c0001-e006258-u.json`);
     const body = res.body;
 
     // Check strict neutrality and fictitious identities

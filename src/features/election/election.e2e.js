@@ -12,7 +12,7 @@ test.describe("N15 Election 1st round browser suite (TUR, ELE)", () => {
     try {
       await page.evaluate(async () => {
         const { mountElectionLegendView } = await import(
-          "../../src/features/election/election-legend-view.js"
+          new URL("/src/features/election/election-legend-view.js", window.location.href).href
         );
 
         let slot = document.getElementById("test-legend-slot");
@@ -23,10 +23,28 @@ test.describe("N15 Election 1st round browser suite (TUR, ELE)", () => {
         }
 
         const candidates = [
-          { ballotNumber: "22", name: "Flavio Bolsonaro", party: "PL", ledMunicipalities: 430, votes: 12900000 },
+          {
+            ballotNumber: "22",
+            name: "Flavio Bolsonaro",
+            party: "PL",
+            ledMunicipalities: 430,
+            votes: 12900000,
+          },
           { ballotNumber: "13", name: "Lula", party: "PT", ledMunicipalities: 200, votes: 9500000 },
-          { ballotNumber: "30", name: "Felipe d'Avila", party: "NOVO", ledMunicipalities: 10, votes: 890000 },
-          { ballotNumber: "44", name: "Renan Santos", party: "UNIAO", ledMunicipalities: 5, votes: 800000 },
+          {
+            ballotNumber: "30",
+            name: "Felipe d'Avila",
+            party: "NOVO",
+            ledMunicipalities: 10,
+            votes: 890000,
+          },
+          {
+            ballotNumber: "44",
+            name: "Renan Santos",
+            party: "UNIAO",
+            ledMunicipalities: 5,
+            votes: 800000,
+          },
         ];
 
         mountElectionLegendView(document, slot, {
@@ -58,15 +76,14 @@ test.describe("N15 Election 1st round browser suite (TUR, ELE)", () => {
     }
   });
 
-  it_e2e_ELE07:
-  test("ELE-07 categorical legend displays only active neutral states with municipal counts", async ({
+  it_e2e_ELE07: test("ELE-07 categorical legend displays only active neutral states with municipal counts", async ({
     browser,
   }) => {
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_1366_768 });
     try {
       await page.evaluate(async () => {
         const { mountElectionLegendView } = await import(
-          "../../src/features/election/election-legend-view.js"
+          new URL("/src/features/election/election-legend-view.js", window.location.href).href
         );
 
         let slot = document.getElementById("test-legend-slot-ele07");
@@ -79,7 +96,13 @@ test.describe("N15 Election 1st round browser suite (TUR, ELE)", () => {
         mountElectionLegendView(document, slot, {
           officeTitle: "Governador",
           candidates: [
-            { ballotNumber: "10", name: "Tarcisio", party: "REPUBLICANOS", ledMunicipalities: 500, votes: 14000000 },
+            {
+              ballotNumber: "10",
+              name: "Tarcisio",
+              party: "REPUBLICANOS",
+              ledMunicipalities: 500,
+              votes: 14000000,
+            },
           ],
           neutralCounts: {
             noResult: 2,
@@ -116,7 +139,7 @@ test.describe("N15 Election 1st round browser suite (TUR, ELE)", () => {
     try {
       await page.evaluate(async () => {
         const { mountElectionLegendView } = await import(
-          "../../src/features/election/election-legend-view.js"
+          new URL("/src/features/election/election-legend-view.js", window.location.href).href
         );
 
         let slot = document.getElementById("test-legend-others-callout");
@@ -128,7 +151,13 @@ test.describe("N15 Election 1st round browser suite (TUR, ELE)", () => {
 
         const legend = mountElectionLegendView(document, slot, {
           candidates: [
-            { ballotNumber: "22", name: "Flavio Bolsonaro", party: "PL", ledMunicipalities: 400, votes: 12000000 },
+            {
+              ballotNumber: "22",
+              name: "Flavio Bolsonaro",
+              party: "PL",
+              ledMunicipalities: 400,
+              votes: 12000000,
+            },
           ],
           theme: "dark",
         });
@@ -177,7 +206,7 @@ test.describe("N15 Election 1st round browser suite (TUR, ELE)", () => {
     try {
       await page.evaluate(async () => {
         const { mountElectionHowToReadView } = await import(
-          "../../src/features/election/election-how-to-read-view.js"
+          new URL("/src/features/election/election-how-to-read-view.js", window.location.href).href
         );
 
         let slot = document.getElementById("test-how-to-read-slot");
@@ -238,13 +267,13 @@ test.describe("N15 Election 1st round browser suite (TUR, ELE)", () => {
 
       await page.evaluate(async () => {
         const { mountOfficeSelectorView, FIRST_ROUND_OFFICES } = await import(
-          "../../src/features/election/office-selector-view.js"
+          new URL("/src/features/election/office-selector-view.js", window.location.href).href
         );
         const { mountElectionLegendView } = await import(
-          "../../src/features/election/election-legend-view.js"
+          new URL("/src/features/election/election-legend-view.js", window.location.href).href
         );
         const { mountElectionHowToReadView } = await import(
-          "../../src/features/election/election-how-to-read-view.js"
+          new URL("/src/features/election/election-how-to-read-view.js", window.location.href).href
         );
 
         let slot = document.getElementById("test-first-round-container");
@@ -267,8 +296,20 @@ test.describe("N15 Election 1st round browser suite (TUR, ELE)", () => {
         const legend = mountElectionLegendView(document, legendDiv, {
           officeTitle: "Presidente",
           candidates: [
-            { ballotNumber: "22", name: "Flavio", party: "PL", ledMunicipalities: 400, votes: 12000000 },
-            { ballotNumber: "13", name: "Lula", party: "PT", ledMunicipalities: 245, votes: 9500000 },
+            {
+              ballotNumber: "22",
+              name: "Flavio",
+              party: "PL",
+              ledMunicipalities: 400,
+              votes: 12000000,
+            },
+            {
+              ballotNumber: "13",
+              name: "Lula",
+              party: "PT",
+              ledMunicipalities: 245,
+              votes: 9500000,
+            },
           ],
         });
 

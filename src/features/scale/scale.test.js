@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { test } from "node:test";
+import { parseMunicipalities } from "../../app/data-loader.js";
 import { classify } from "../../domain/classification.js";
 import { computeStepHeight } from "../../domain/height.js";
 import { INDICATORS } from "../../domain/indicator.js";
@@ -98,7 +99,7 @@ function createMockDocument() {
 
 function loadRealMunicipalities() {
   const content = fs.readFileSync("data/municipalities.json", "utf8");
-  return JSON.parse(content).municipalities;
+  return parseMunicipalities(JSON.parse(content));
 }
 
 test("ESC-05 shared class function between legend and scene across 20 municipalities", () => {

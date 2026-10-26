@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import test, { describe } from "node:test";
 import {
   mountBottomNavView,
-  NAV_TAB_MAP,
-  NAV_TAB_INDICATORS,
-  NAV_TAB_MUNICIPALITIES,
   NAV_TAB_COMPARE,
+  NAV_TAB_INDICATORS,
   NAV_TAB_LAYERS,
+  NAV_TAB_MAP,
+  NAV_TAB_MUNICIPALITIES,
 } from "./bottom-nav-view.js";
 
 /**
@@ -16,6 +16,9 @@ import {
  * @returns {any}
  */
 function createFakeElement(tag) {
+  /**
+   * @type {any[]}
+   */
   const children = [];
   const attributes = new Map();
   const listeners = new Map();
@@ -28,7 +31,12 @@ function createFakeElement(tag) {
     },
     set className(val) {
       classListSet.clear();
-      val.split(" ").filter(Boolean).forEach((c) => classListSet.add(c));
+      val
+        .split(" ")
+        .filter(Boolean)
+        .forEach((c) => {
+          classListSet.add(c);
+        });
     },
     set innerHTML(val) {
       if (val === "") {
@@ -45,22 +53,42 @@ function createFakeElement(tag) {
     children,
     type: "button",
     classList: {
+      /**
+       * @param {any} cls
+       */
       add(cls) {
         classListSet.add(cls);
       },
+      /**
+       * @param {any} cls
+       */
       remove(cls) {
         classListSet.delete(cls);
       },
+      /**
+       * @param {any} cls
+       */
       contains(cls) {
         return classListSet.has(cls);
       },
     },
+    /**
+     * @param {any} name
+     * @param {any} val
+     */
     setAttribute(name, val) {
       attributes.set(name, String(val));
     },
+    /**
+     * @param {any} name
+     */
     getAttribute(name) {
       return attributes.get(name) ?? null;
     },
+    /**
+     * @param {any} evt
+     * @param {any} handler
+     */
     addEventListener(evt, handler) {
       if (!listeners.has(evt)) {
         listeners.set(evt, []);
@@ -73,11 +101,17 @@ function createFakeElement(tag) {
         handlers[i]({ target: element });
       }
     },
+    /**
+     * @param {any[]} nodes
+     */
     append(...nodes) {
       for (let i = 0; i < nodes.length; i += 1) {
         children.push(nodes[i]);
       }
     },
+    /**
+     * @param {string} selector
+     */
     querySelector(selector) {
       if (selector.startsWith('[data-nav-tab="')) {
         const targetTab = selector.slice(15, -2);
@@ -85,6 +119,9 @@ function createFakeElement(tag) {
       }
       return null;
     },
+    /**
+     * @param {string} selector
+     */
     querySelectorAll(selector) {
       if (selector === ".bottom-nav-item") {
         return children.filter((c) => c.classList.contains("bottom-nav-item"));
@@ -100,9 +137,9 @@ describe("Mobile bottom nav view component", () => {
   function createTestDom() {
     const container = createFakeElement("nav");
     const doc = {
-      createElement: (tag) => createFakeElement(tag),
+      createElement: (/** @type {string} */ tag) => createFakeElement(tag),
     };
-    return { doc, container };
+    return { doc: /** @type {Document} */ (/** @type {unknown} */ (doc)), container };
   }
 
   test("mounts 5 tabs with correct initial states", () => {
@@ -118,12 +155,12 @@ describe("Mobile bottom nav view component", () => {
 
     const mapBtn = container.querySelector('[data-nav-tab="mapa"]');
     assert.ok(mapBtn);
-    assert.equal(mapBtn.getAttribute("aria-selected"), "true");
+    assert.equal(mapBtn.getAttribute("aria-pressed"), "true");
     assert.ok(mapBtn.classList.contains("active"));
 
     const indBtn = container.querySelector('[data-nav-tab="indicadores"]');
     assert.ok(indBtn);
-    assert.equal(indBtn.getAttribute("aria-selected"), "false");
+    assert.equal(indBtn.getAttribute("aria-pressed"), "false");
 
     view.destroy();
     assert.equal(container.innerHTML, "");
@@ -145,16 +182,16 @@ describe("Mobile bottom nav view component", () => {
     compBtn.click();
 
     assert.equal(selectedTab, NAV_TAB_COMPARE);
-    assert.equal(compBtn.getAttribute("aria-selected"), "true");
+    assert.equal(compBtn.getAttribute("aria-pressed"), "true");
 
     const mapBtn = container.querySelector('[data-nav-tab="mapa"]');
     assert.ok(mapBtn);
-    assert.equal(mapBtn.getAttribute("aria-selected"), "false");
+    assert.equal(mapBtn.getAttribute("aria-pressed"), "false");
 
     view.setActiveTab(NAV_TAB_MUNICIPALITIES);
     const munBtn = container.querySelector('[data-nav-tab="municipios"]');
     assert.ok(munBtn);
-    assert.equal(munBtn.getAttribute("aria-selected"), "true");
+    assert.equal(munBtn.getAttribute("aria-pressed"), "true");
   });
 
   test("toggles election mode label dynamically", () => {

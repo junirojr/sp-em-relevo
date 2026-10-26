@@ -18,7 +18,9 @@ test.describe("N17 Replay view browser suite (RPL-01, RPL-03, RPL-04, RPL-05, AC
       });
 
       await page.evaluate(async () => {
-        const { mountReplayView } = await import("../../src/features/count/replay-view.js");
+        const { mountReplayView } = await import(
+          new URL("/src/features/count/replay-view.js", window.location.href).href
+        );
         const slot = document.getElementById("election-replay-slot");
         if (!slot) {
           return;
@@ -45,7 +47,9 @@ test.describe("N17 Replay view browser suite (RPL-01, RPL-03, RPL-04, RPL-05, AC
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_1366_768 });
     try {
       await page.evaluate(async () => {
-        const { mountReplayView } = await import("../../src/features/count/replay-view.js");
+        const { mountReplayView } = await import(
+          new URL("/src/features/count/replay-view.js", window.location.href).href
+        );
         const res = await fetch("data/election/replay-presidente-2t.json");
         const replayDoc = await res.json();
 
@@ -88,7 +92,9 @@ test.describe("N17 Replay view browser suite (RPL-01, RPL-03, RPL-04, RPL-05, AC
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_1366_768 });
     try {
       await page.evaluate(async () => {
-        const { mountReplayView } = await import("../../src/features/count/replay-view.js");
+        const { mountReplayView } = await import(
+          new URL("/src/features/count/replay-view.js", window.location.href).href
+        );
         const res = await fetch("data/election/replay-presidente-2t.json");
         const replayDoc = await res.json();
 
@@ -112,7 +118,7 @@ test.describe("N17 Replay view browser suite (RPL-01, RPL-03, RPL-04, RPL-05, AC
       await expect(slider).toHaveAttribute("min", "0");
       await expect(slider).toHaveAttribute("max", "14");
       await expect(slider).toHaveAttribute("step", "1");
-      await expect(slider).toHaveAttribute("value", "14");
+      await expect(slider).toHaveValue("14");
 
       // Accessibility attributes
       await expect(slider).toHaveAttribute("aria-label", "Controle de tempo do replay");
@@ -156,7 +162,9 @@ test.describe("N17 Replay view browser suite (RPL-01, RPL-03, RPL-04, RPL-05, AC
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_1366_768 });
     try {
       await page.evaluate(async () => {
-        const { mountReplayView } = await import("../../src/features/count/replay-view.js");
+        const { mountReplayView } = await import(
+          new URL("/src/features/count/replay-view.js", window.location.href).href
+        );
         const res = await fetch("data/election/replay-presidente-2t.json");
         const replayDoc = await res.json();
 
@@ -190,7 +198,9 @@ test.describe("N17 Replay view browser suite (RPL-01, RPL-03, RPL-04, RPL-05, AC
       await settle(page);
 
       await expect(gapNotice).toBeVisible();
-      await expect(gapNotice).toContainText("Lacuna de transmissao de 7 minutos preservada sem interpolacao");
+      await expect(gapNotice).toContainText(
+        "Lacuna de transmissao de 7 minutos preservada sem interpolacao",
+      );
 
       // Jump to frame 5 (prior to gap)
       await page.evaluate(() => {
@@ -211,7 +221,9 @@ test.describe("N17 Replay view browser suite (RPL-01, RPL-03, RPL-04, RPL-05, AC
     const { context, page } = await openPage(browser, { viewport: VIEWPORT_390_844 });
     try {
       await page.evaluate(async () => {
-        const { mountReplayView } = await import("../../src/features/count/replay-view.js");
+        const { mountReplayView } = await import(
+          new URL("/src/features/count/replay-view.js", window.location.href).href
+        );
         const res = await fetch("data/election/replay-presidente-2t.json");
         const replayDoc = await res.json();
 

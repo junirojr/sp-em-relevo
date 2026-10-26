@@ -12,12 +12,12 @@ import {
   getRegionColor,
   HEAT_BAND_COUNT,
   oklabChroma,
-  readLogPosition,
   REGION_BAND_SIZES,
   REGION_COLOR_COUNT,
   REGION_COLORS_DARK,
   REGION_COLORS_LIGHT,
   REGION_PALETTES,
+  readLogPosition,
   roundSignificant,
   simulateColorblind,
 } from "./classification.js";
@@ -168,7 +168,7 @@ test("REG-02 the 16 region colors have low OKLab chroma (< 0.10) in both light a
   assert.equal(REGION_PALETTES.light, REGION_COLORS_LIGHT);
   assert.equal(REGION_PALETTES.dark, REGION_COLORS_DARK);
 
-  const candidateMinChroma = 0.10;
+  const candidateMinChroma = 0.1;
 
   for (let i = 0; i < REGION_COLOR_COUNT; i += 1) {
     const lightColor = REGION_COLORS_LIGHT[i];
@@ -199,7 +199,7 @@ test("REG-02 the 16 region colors maintain perceptual distance under normal visi
   const themes = ["light", "dark"];
 
   for (const theme of themes) {
-    const colors = REGION_PALETTES[theme];
+    const colors = REGION_PALETTES[/** @type {"light" | "dark"} */ (theme)];
     let minNormalDistance = Number.POSITIVE_INFINITY;
     let minProtanDistance = Number.POSITIVE_INFINITY;
     let minDeutanDistance = Number.POSITIVE_INFINITY;
