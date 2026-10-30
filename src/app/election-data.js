@@ -1,5 +1,5 @@
 import { computeUnitElectionResult } from "../domain/election.js";
-import { assignCandidateColors, getElectionNeutrals } from "../domain/election-colors.js";
+import { assignCandidateColors } from "../domain/election-colors.js";
 
 /**
  * Election data loader and processor for 1st and 2nd round data.
@@ -28,20 +28,64 @@ const firstRoundCache = new Map();
 let secondRoundCache = null;
 
 /**
- * Resolves the relative path for a first-round office file.
+ * Checks whether the given UF scope represents the national overview (27 UFs).
+ *
+ * @param {string | null | undefined} activeUf
+ * @returns {boolean}
+ */
+export function isNationalScope(activeUf) {
+  if (activeUf === null) {
+    return true;
+  }
+  if (activeUf === undefined) {
+    return false;
+  }
+  const normalized = String(activeUf).trim().toLowerCase();
+  if (normalized === "" || normalized === "br" || normalized === "brasil") {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Resolves the relative path for a first-round or consolidated office file.
  *
  * @param {string} office
+ * @param {string | null} [activeUf]
  * @returns {string}
  */
-export function getFirstRoundOfficePath(office) {
+export function getFirstRoundOfficePath(office, activeUf) {
+  const isNational = isNationalScope(activeUf);
+  if (isNational) {
+    if (office === "presidente-2t") {
+      return "./data/national/election-president-2t.json";
+    }
+    return "./data/national/election-president-1t.json";
+  }
+
+  const normalizedUf = String(activeUf).trim().toLowerCase();
+  const isSp = normalizedUf === "35" || normalizedUf === "sp";
+  if (isSp) {
+    if (office === "presidente-2t") {
+      return "./data/election/presidente-2t.json";
+    }
+    const allowed = [
+      "presidente",
+      "governador",
+      "senador",
+      "deputado-federal",
+      "deputado-estadual",
+    ];
+    if (allowed.includes(office)) {
+      return `./data/election/${office}-1t.json`;
+    }
+    return "./data/election/presidente-1t.json";
+  }
+
   if (office === "presidente-2t") {
-    return "./data/election/presidente-2t.json";
+    return `./data/ufs/${normalizedUf}/election-president-2t.json`;
   }
-  const allowed = ["presidente", "governador", "senador", "deputado-federal", "deputado-estadual"];
-  if (allowed.includes(office)) {
-    return `./data/election/${office}-1t.json`;
-  }
-  return "./data/election/presidente-1t.json";
+  return `./data/ufs/${normalizedUf}/election-president-1t.json`;
 }
 
 /**
@@ -51,6 +95,7 @@ export function getFirstRoundOfficePath(office) {
  * @param {{
  *   fetchImpl?: typeof fetch,
  *   theme?: ThemeMode,
+ *   activeUf?: string | null,
  *   municipalities?: readonly import("../domain/territory.js").MunicipalityRecord[]
  * }} [options={}]
  * @returns {Promise<{
@@ -71,7 +116,8 @@ export async function loadFirstRoundElectionData(office = "presidente", options 
   }
   const fetchImpl = options.fetchImpl ?? defaultFetch;
   const theme = options.theme ?? "dark";
-  const path = getFirstRoundOfficePath(office);
+  const activeUf = options.activeUf;
+  const path = getFirstRoundOfficePath(office, activeUf);
 
   if (!fetchImpl) {
     return {
@@ -256,11 +302,30 @@ export async function loadFirstRoundElectionData(office = "presidente", options 
  * @param {{
  *   fetchImpl?: typeof fetch,
  *   theme?: ThemeMode,
+ *   activeUf?: string | null,
  *   municipalities?: readonly import("../domain/territory.js").MunicipalityRecord[]
  * }} [options={}]
  */
 export async function loadSecondRoundElectionData(options = {}) {
   return loadFirstRoundElectionData("presidente-2t", options);
+}
+
+/**
+ * Loads national presidential election data for the 27 Brazilian UFs.
+ *
+ * @param {"first-round" | "second-round"} [roundMode="first-round"]
+ * @param {{
+ *   fetchImpl?: typeof fetch,
+ *   theme?: ThemeMode,
+ *   municipalities?: readonly import("../domain/territory.js").MunicipalityRecord[]
+ * }} [options={}]
+ */
+export async function loadNationalElectionData(roundMode = "first-round", options = {}) {
+  let office = "presidente";
+  if (roundMode === "second-round") {
+    office = "presidente-2t";
+  }
+  return loadFirstRoundElectionData(office, { ...options, activeUf: null });
 }
 
 /**
@@ -395,7 +460,7 @@ export async function loadSecondRoundReplayData(options = {}) {
     const munData = accumulatedMuns[code];
     // munData format: [leaderBallot, marginPp, pctCounted]
     const leaderBallot = String(munData[0] ?? colorCandidates[0].ballotNumber);
-    const marginPp = Number(munData[1] ?? 5.0);
+    const _marginPp = Number(munData[1] ?? 5.0);
     const pctCounted = Number(munData[2] ?? 100);
 
     const isFirstLeader = leaderBallot === colorCandidates[0].ballotNumber;

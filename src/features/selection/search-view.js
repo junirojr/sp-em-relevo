@@ -6,6 +6,7 @@ import {
   formatFoundCount,
   rememberRecent,
 } from "../../domain/search-results.js";
+import { UF_CODE_TO_SIGLA } from "../../domain/territory-constants.js";
 import {
   addGovernmentRegionAction,
   addRegionAction,
@@ -22,9 +23,27 @@ import {
  * @typedef {{ type: string }} Action
  *
  * @typedef {{
+ *   code: string,
+ *   name?: string,
+ *   label?: string,
+ *   targetUf?: string | null,
+ *   uf?: string | null,
+ *   ufSigla?: string | null,
+ *   destinationUf?: string | null,
+ *   activeUf?: string | null,
+ *   entry?: SearchEntry
+ * }} MunicipalitySelectionPayload
+ *
+ * @typedef {{
  *   territory: TerritoryIndex,
  *   context: CompareContext,
- *   readSelectedCodes: () => readonly string[]
+ *   readSelectedCodes: () => readonly string[],
+ *   activeUf?: string | null,
+ *   readActiveUf?: () => string | null,
+ *   onSelectMunicipality?: (payload: MunicipalitySelectionPayload, destinationUf?: string | null) => void,
+ *   entries?: SearchEntry[],
+ *   additionalEntries?: SearchEntry[],
+ *   nationalEntries?: SearchEntry[]
  * }} SearchViewOptions
  *   `context` feeds the position, value and band of each result; `updateContext` replaces it.
  *
@@ -128,7 +147,7 @@ const INITIAL_LOCAL_STATE = Object.freeze({
  * @param {SearchViewOptions} options
  */
 export function mountSearchView(documentRef, dispatch, options) {
-  const entries = buildSearchEntries(options.territory);
+  let entries = readInitialEntries(options);
   const parts = buildSearchParts(documentRef);
   /** @type {SearchLocalState} */
   let local = { ...INITIAL_LOCAL_STATE, context: options.context };
@@ -156,7 +175,7 @@ export function mountSearchView(documentRef, dispatch, options) {
     if (!entry) {
       return;
     }
-    dispatchAddition(dispatch, entry, options);
+    handleEntrySelection(dispatch, entry, options);
     parts.input.value = "";
     show({ ...local, query: "", isOpen: false, recents: rememberRecent(local.recents, entry) });
   };
@@ -186,6 +205,28 @@ export function mountSearchView(documentRef, dispatch, options) {
     element: parts.container,
     updateContext: (/** @type {CompareContext} */ context) => {
       local = { ...local, context };
+      if (content.mode === "closed") {
+        return;
+      }
+      show(local);
+    },
+    updateTerritory: (/** @type {TerritoryIndex} */ nextTerritory) => {
+      options.territory = nextTerritory;
+      entries = readInitialEntries(options);
+      if (content.mode === "closed") {
+        return;
+      }
+      show(local);
+    },
+    setEntries: (/** @type {SearchEntry[]} */ nextEntries) => {
+      entries = nextEntries;
+      if (content.mode === "closed") {
+        return;
+      }
+      show(local);
+    },
+    addEntries: (/** @type {SearchEntry[]} */ newEntries) => {
+      entries = mergeEntries(entries, newEntries);
       if (content.mode === "closed") {
         return;
       }
@@ -270,14 +311,11 @@ function stepActiveIndex(activeIndex, step, optionCount) {
 }
 
 /**
- * A region adds every municipality of it; a municipality already in the selection stays there,
- * so the search only adds (SEL-02).
- *
  * @param {(action: Action) => void} dispatch
  * @param {SearchEntry} entry
  * @param {SearchViewOptions} options
  */
-function dispatchAddition(dispatch, entry, options) {
+function handleEntrySelection(dispatch, entry, options) {
   if (entry.kind === "region") {
     dispatch(addRegionAction(entry.code, options.territory));
     return;
@@ -286,11 +324,197 @@ function dispatchAddition(dispatch, entry, options) {
     dispatch(addGovernmentRegionAction(entry.code, options.territory));
     return;
   }
+  handleMunicipalityPick(dispatch, entry, options);
+}
+
+/**
+ * Handles municipality selection. When the selected municipality belongs to another UF,
+ * fires the onSelectMunicipality callback with destination UF info instead of modifying
+ * local selection state.
+ *
+ * @param {(action: Action) => void} dispatch
+ * @param {SearchEntry} entry
+ * @param {SearchViewOptions} options
+ */
+function handleMunicipalityPick(dispatch, entry, options) {
+  const activeUf = readActiveUf(options);
+  const destinationUf = readEntryUf(entry, options.territory);
+  const isDifferentUf = isUfDifferent(destinationUf, activeUf);
+
+  if (isDifferentUf) {
+    if (typeof options.onSelectMunicipality === "function") {
+      const payload = buildSelectionPayload(entry, destinationUf, activeUf);
+      options.onSelectMunicipality(payload, destinationUf);
+    }
+    return;
+  }
+
   const isAlreadySelected = options.readSelectedCodes().includes(entry.code);
   if (isAlreadySelected) {
     return;
   }
   dispatch(toggleMunicipalityAction(entry.code));
+}
+
+/**
+ * @param {SearchViewOptions} options
+ * @returns {SearchEntry[]}
+ */
+function readInitialEntries(options) {
+  if (Array.isArray(options.entries)) {
+    return options.entries;
+  }
+  /** @type {SearchEntry[]} */
+  let baseEntries = [];
+  if (options.territory) {
+    baseEntries = buildSearchEntries(options.territory);
+  }
+  /** @type {SearchEntry[]} */
+  let extraEntries = [];
+  if (Array.isArray(options.additionalEntries)) {
+    extraEntries = [...extraEntries, ...options.additionalEntries];
+  }
+  if (Array.isArray(options.nationalEntries)) {
+    extraEntries = [...extraEntries, ...options.nationalEntries];
+  }
+  if (extraEntries.length === 0) {
+    return baseEntries;
+  }
+  return mergeEntries(baseEntries, extraEntries);
+}
+
+/**
+ * Merges two search entry arrays without duplicate code+kind entries.
+ *
+ * @param {SearchEntry[]} primary
+ * @param {SearchEntry[]} secondary
+ * @returns {SearchEntry[]}
+ */
+function mergeEntries(primary, secondary) {
+  const seen = new Set();
+  const merged = [];
+  for (let i = 0; i < primary.length; i += 1) {
+    const entry = primary[i];
+    const key = `${entry.kind}:${entry.code}`;
+    seen.add(key);
+    merged.push(entry);
+  }
+  for (let i = 0; i < secondary.length; i += 1) {
+    const entry = secondary[i];
+    const key = `${entry.kind}:${entry.code}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(entry);
+    }
+  }
+  return merged;
+}
+
+/**
+ * @param {SearchViewOptions} options
+ * @returns {string | null}
+ */
+function readActiveUf(options) {
+  if (typeof options.readActiveUf === "function") {
+    const raw = options.readActiveUf();
+    if (raw) {
+      return normalizeUfSigla(raw);
+    }
+  }
+  if (typeof options.activeUf === "string" && options.activeUf.trim() !== "") {
+    return normalizeUfSigla(options.activeUf);
+  }
+  return "SP";
+}
+
+/**
+ * Normalizes UF abbreviation or code into a 2-letter uppercase abbreviation.
+ *
+ * @param {string} raw
+ * @returns {string}
+ */
+function normalizeUfSigla(raw) {
+  const clean = String(raw).trim().toUpperCase();
+  const fromCode = UF_CODE_TO_SIGLA.get(clean);
+  if (fromCode) {
+    return fromCode;
+  }
+  return clean;
+}
+
+/**
+ * Resolves destination UF abbreviation for a search entry.
+ *
+ * @param {SearchEntry} entry
+ * @param {TerritoryIndex} [territory]
+ * @returns {string | null}
+ */
+function readEntryUf(entry, territory) {
+  if (entry.ufSigla && typeof entry.ufSigla === "string") {
+    return normalizeUfSigla(entry.ufSigla);
+  }
+  if (entry.uf && typeof entry.uf === "string") {
+    return normalizeUfSigla(entry.uf);
+  }
+  if (territory && typeof territory.ufOf === "function" && entry.code) {
+    const ufRecord = territory.ufOf(entry.code);
+    if (ufRecord) {
+      const codeOrLabel = ufRecord.code || ufRecord.label;
+      if (codeOrLabel) {
+        return normalizeUfSigla(codeOrLabel);
+      }
+    }
+  }
+  if (entry.code && typeof entry.code === "string" && entry.code.length >= 2) {
+    const prefix = entry.code.slice(0, 2);
+    if (UF_CODE_TO_SIGLA.has(prefix)) {
+      return UF_CODE_TO_SIGLA.get(prefix) ?? null;
+    }
+  }
+  if (entry.label && typeof entry.label === "string") {
+    const match = /,\s*([A-Za-z]{2})(?:\s*\(.*\))?$/.exec(entry.label);
+    if (match) {
+      return normalizeUfSigla(match[1]);
+    }
+  }
+  return null;
+}
+
+/**
+ * Compares destination UF and active UF to detect inter-UF navigation.
+ *
+ * @param {string | null} destinationUf
+ * @param {string | null} activeUf
+ * @returns {boolean}
+ */
+function isUfDifferent(destinationUf, activeUf) {
+  if (!destinationUf) {
+    return false;
+  }
+  if (!activeUf) {
+    return true;
+  }
+  return destinationUf !== activeUf;
+}
+
+/**
+ * @param {SearchEntry} entry
+ * @param {string | null} destinationUf
+ * @param {string | null} activeUf
+ * @returns {MunicipalitySelectionPayload}
+ */
+function buildSelectionPayload(entry, destinationUf, activeUf) {
+  return {
+    code: entry.code,
+    name: entry.label,
+    label: entry.label,
+    targetUf: destinationUf,
+    uf: destinationUf,
+    ufSigla: destinationUf,
+    destinationUf,
+    activeUf,
+    entry,
+  };
 }
 
 /**

@@ -325,11 +325,18 @@ test("SEL-10 clear button is disabled with empty selection and enabled otherwise
 
 test("RGV-03 SEL-02 adding a government region selects municipal codes and preserves an existing selection on repeated searches", async () => {
   const { addGovernmentRegionAction } = await import("./selection-slice.js");
+  /** @param {number} index */
+  function getTestGovRegionCode(index) {
+    if (index < 2) {
+      return "rg-1";
+    }
+    return "rg-2";
+  }
   const municipalities = ["a", "b", "c"].map((code, index) => ({
     code,
     name: code,
     regionCode: "1",
-    governmentRegionCode: index < 2 ? "rg-1" : "rg-2",
+    governmentRegionCode: getTestGovRegionCode(index),
     population: 1,
     areaKm2: 1,
     gdpThousandBrl: 1,
@@ -347,4 +354,215 @@ test("RGV-03 SEL-02 adding a government region selects municipal codes and prese
   const selected = reduceSelection(initial, action);
   assert.deepEqual(new Set(selected.selectedCodes), new Set(["a", "b", "c"]));
   assert.deepEqual(reduceSelection(selected, action).selectedCodes, selected.selectedCodes);
+});
+
+/**
+ * @param {string} tagName
+ * @returns {any}
+ */
+function createFakeElement(tagName) {
+  /** @type {Record<string, Array<(event: any) => void>>} */
+  const listeners = {};
+  /** @type {Record<string, string>} */
+  const attributes = {};
+  /** @type {any} */
+  const element = {
+    tagName,
+    className: "",
+    id: "",
+    textContent: "",
+    value: "",
+    type: "",
+    hidden: false,
+    dataset: {},
+    style: {},
+    children: [],
+    /** @param {any[]} nodes */
+    append(...nodes) {
+      element.children.push(...nodes);
+    },
+    /** @param {any[]} nodes */
+    replaceChildren(...nodes) {
+      element.children = [...nodes];
+    },
+    /** @param {string} name @param {any} value */
+    setAttribute(name, value) {
+      attributes[name] = String(value);
+    },
+    /** @param {string} name */
+    getAttribute(name) {
+      const val = attributes[name];
+      if (val !== undefined) {
+        return val;
+      }
+      return null;
+    },
+    /** @param {string} name */
+    removeAttribute(name) {
+      delete attributes[name];
+    },
+    /** @param {string} event @param {(e: any) => void} fn */
+    addEventListener(event, fn) {
+      if (!listeners[event]) {
+        listeners[event] = [];
+      }
+      listeners[event].push(fn);
+    },
+    /** @param {string} event @param {any} [eventObj] */
+    fire(event, eventObj = {}) {
+      const list = listeners[event];
+      if (!list) {
+        return;
+      }
+      for (const fn of list) {
+        fn(eventObj);
+      }
+    },
+    focus() {},
+  };
+  return element;
+}
+
+/**
+ * @returns {any}
+ */
+function createFakeDocument() {
+  return {
+    /** @param {string} tag */
+    createElement(tag) {
+      return createFakeElement(tag);
+    },
+    /** @param {any} text */
+    createTextNode(text) {
+      return { textContent: String(text) };
+    },
+  };
+}
+
+test("SEL-17 search indexes and suggests municipalities with UF abbreviation (MG, RJ, BA)", () => {
+  const territory = createTerritory({
+    municipalities: [
+      {
+        code: "3106200",
+        name: "Belo Horizonte",
+        ufSigla: "MG",
+        regionCode: "1",
+        population: 2315560,
+        areaKm2: 331.354,
+        gdpThousandBrl: 130197671,
+      },
+      {
+        code: "3303302",
+        name: "Niterói",
+        uf: "RJ",
+        regionCode: "1",
+        population: 481749,
+        areaKm2: 133.757,
+        gdpThousandBrl: 76268005,
+      },
+      {
+        code: "2927408",
+        name: "Salvador",
+        ufSigla: "BA",
+        regionCode: "1",
+        population: 2418005,
+        areaKm2: 693.453,
+        gdpThousandBrl: 62954488,
+      },
+    ],
+    regions: [{ code: "1", label: "Capital" }],
+  });
+
+  const entries = buildSearchEntries(territory);
+  assert.equal(entries.length, 4);
+
+  const bh = findSuggestions(entries, "Belo Horizonte");
+  assert.ok(bh.length > 0);
+  assert.equal(bh[0].label, "Belo Horizonte, MG");
+
+  const bhFull = findSuggestions(entries, "Belo Horizonte, MG");
+  assert.ok(bhFull.length > 0);
+  assert.equal(bhFull[0].label, "Belo Horizonte, MG");
+
+  const niteroi = findSuggestions(entries, "Niteroi, RJ");
+  assert.ok(niteroi.length > 0);
+  assert.equal(niteroi[0].label, "Niterói, RJ");
+
+  const salvador = findSuggestions(entries, "Salvador, BA");
+  assert.ok(salvador.length > 0);
+  assert.equal(salvador[0].label, "Salvador, BA");
+});
+
+test("SEL-17 selecting municipality of another UF fires onSelectMunicipality with target UF", async () => {
+  const { mountSearchView } = await import("./search-view.js");
+  const doc = /** @type {any} */ (createFakeDocument());
+  /** @type {any[]} */
+  const dispatched = [];
+  /** @type {any[]} */
+  const selectedOtherUf = [];
+
+  const territory = createTerritory({
+    municipalities: [
+      {
+        code: "3550308",
+        name: "São Paulo",
+        regionCode: "1",
+        population: 11451999,
+        areaKm2: 1521.202,
+        gdpThousandBrl: 1066825105,
+      },
+      {
+        code: "3106200",
+        name: "Belo Horizonte",
+        ufSigla: "MG",
+        regionCode: "1",
+        population: 2315560,
+        areaKm2: 331.354,
+        gdpThousandBrl: 130197671,
+      },
+    ],
+    regions: [{ code: "1", label: "Região Central" }],
+  });
+
+  const fakeContext = /** @type {import("../../domain/compare.js").CompareContext} */ ({
+    records: territory.municipalities(),
+    territory,
+    indicator: INDICATORS.population,
+    isDemoActive: false,
+    level: "municipality",
+  });
+
+  const view = mountSearchView(doc, (action) => dispatched.push(action), {
+    territory,
+    context: fakeContext,
+    readSelectedCodes: () => [],
+    activeUf: "SP",
+    onSelectMunicipality: (payload, destUf) => {
+      selectedOtherUf.push({ payload, destUf });
+    },
+  });
+
+  const viewElement = /** @type {any} */ (view.element);
+  const input = viewElement.children.find((/** @type {any} */ c) => c.tagName === "input");
+  assert.ok(input);
+
+  input.value = "Belo Horizonte";
+  input.fire("input");
+  input.fire("keydown", { key: "Enter", preventDefault() {} });
+
+  assert.equal(selectedOtherUf.length, 1);
+  assert.equal(selectedOtherUf[0].destUf, "MG");
+  assert.equal(selectedOtherUf[0].payload.targetUf, "MG");
+  assert.equal(selectedOtherUf[0].payload.code, "3106200");
+
+  assert.equal(dispatched.length, 0);
+
+  input.value = "São Paulo";
+  input.fire("input");
+  input.fire("keydown", { key: "Enter", preventDefault() {} });
+
+  assert.equal(selectedOtherUf.length, 1);
+  assert.equal(dispatched.length, 1);
+  assert.equal(dispatched[0].type, "selection/toggled");
+  assert.equal(dispatched[0].code, "3550308");
 });

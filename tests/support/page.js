@@ -45,7 +45,20 @@ export async function openPage(browser, contextOptions = {}, path = "/") {
     consoleProblems.push(`pageerror: ${error.message}`);
   });
 
-  await page.goto(path);
+  let targetPath = path;
+  if (
+    !targetPath.includes("uf=") &&
+    !targetPath.includes("uf=br") &&
+    !targetPath.includes("national=true")
+  ) {
+    let separator = "?";
+    if (targetPath.includes("?")) {
+      separator = "&";
+    }
+    targetPath = `${targetPath}${separator}uf=35`;
+  }
+
+  await page.goto(targetPath);
   await settle(page);
 
   return { context, page, consoleProblems };

@@ -47,6 +47,9 @@ export function readPalette(documentRef) {
   if (!documentRef?.documentElement) {
     return LIGHT_PALETTE;
   }
+  if (typeof getComputedStyle !== "function") {
+    return LIGHT_PALETTE;
+  }
 
   const styles = getComputedStyle(documentRef.documentElement);
   const bg = styles.getPropertyValue("--map-bg").trim();

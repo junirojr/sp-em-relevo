@@ -116,3 +116,58 @@ test("RGV-03 buildSearchEntries includes government regions when present in terr
   assert.equal(govEntry?.code, "rg-1");
   assert.equal(govEntry?.label, "RG de Adamantina");
 });
+
+test("NAT-03 buildSearchEntries indexes municipality with UF suffix when available", () => {
+  const nationalTerritory = createTerritory({
+    municipalities: [
+      {
+        code: "3509502",
+        name: "Campinas",
+        regionCode: "R2",
+        uf: "SP",
+        population: 1139047,
+        areaKm2: 795,
+        gdpThousandBrl: 91968328,
+      },
+      {
+        code: "3550308",
+        name: "Santa Rita",
+        regionCode: "R1",
+        ufSigla: "SP",
+        population: 50000,
+        areaKm2: 200,
+        gdpThousandBrl: 1000000,
+      },
+      {
+        code: "2513703",
+        name: "Santa Rita",
+        regionCode: "",
+        ufSigla: "PB",
+        population: 149910,
+        areaKm2: 727,
+        gdpThousandBrl: 2500000,
+      },
+    ],
+    regions: [{ code: "R1", label: "RA Vale" }],
+  });
+
+  const nationalEntries = buildSearchEntries(nationalTerritory);
+
+  const foundCampinas = findSuggestions(nationalEntries, "campinas");
+  assert.equal(foundCampinas.length, 1);
+  assert.equal(foundCampinas[0].label, "Campinas, SP");
+
+  const foundWithComma = findSuggestions(nationalEntries, "campinas, sp");
+  assert.equal(foundWithComma.length, 1);
+  assert.equal(foundWithComma[0].label, "Campinas, SP");
+
+  const foundWithSpace = findSuggestions(nationalEntries, "campinas sp");
+  assert.equal(foundWithSpace.length, 1);
+  assert.equal(foundWithSpace[0].label, "Campinas, SP");
+
+  const foundSantaRita = findSuggestions(nationalEntries, "santa rita");
+  assert.deepEqual(
+    foundSantaRita.map((entry) => entry.label),
+    ["Santa Rita, SP", "Santa Rita, PB"],
+  );
+});

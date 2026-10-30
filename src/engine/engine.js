@@ -6,7 +6,9 @@ import {
   clampZoomTarget,
   computeFitDistance,
   createWheelAccumulator,
+  normalizeBox2,
   positionCamera,
+  readBoxFraming,
   readCursorZoomPan,
   readSelectionFraming,
   readSteppedZoom,
@@ -28,7 +30,12 @@ import {
   stepTilt,
   updateLineHeights,
 } from "./frame-loop.js";
-import { buildOwnedLines } from "./geometry.js";
+import {
+  buildMunicipalities,
+  buildOwnedLines,
+  disposeOwnedLines,
+  disposePlate,
+} from "./geometry.js";
 import {
   applyLimitStyle,
   buildLimitGeometry,
@@ -44,6 +51,7 @@ import {
   createScene,
   paintMunicipalities,
   paintSelected,
+  readInstanceToMunicipality,
 } from "./scene.js";
 import {
   buildSelectionGeometry,
@@ -163,6 +171,10 @@ const OUTLINE_LIFT_SHARE = 1;
  *   readSelectionOutline: () => any;
  *   frame: (indexes: number[]) => void;
  *   frameNow: (indexes: number[]) => void;
+ *   frameBounds: (bounds: any, options?: { immediate?: boolean; isWorldUnits?: boolean }) => void;
+ *   frameBoundsNow: (bounds: any, options?: { isWorldUnits?: boolean }) => void;
+ *   replaceMesh: (geometry: any, options?: { collectionName?: string; bounds?: any; frame?: boolean; immediate?: boolean; resetView?: boolean; isWorldUnits?: boolean }) => void;
+ *   setGeometry: (geometry: any, options?: { collectionName?: string; bounds?: any; frame?: boolean; immediate?: boolean; resetView?: boolean; isWorldUnits?: boolean }) => void;
  *   zoomStep: (direction: number, screenPoint?: { x: number; y: number }) => void;
  *   resetView: () => void;
  *   readCamera: () => {
@@ -277,6 +289,10 @@ export function createEngine(options) {
     }),
     frame: (indexes) => frameSelection(ctx, indexes),
     frameNow: (indexes) => frameIndexes(ctx, indexes),
+    frameBounds: (bounds, options) => frameBounds(ctx, bounds, options),
+    frameBoundsNow: (bounds, options) => frameBounds(ctx, bounds, { ...options, immediate: true }),
+    replaceMesh: (geometry, options) => replaceMesh(ctx, geometry, options),
+    setGeometry: (geometry, options) => replaceMesh(ctx, geometry, options),
     setTiltTarget: (/** @type {number} */ x, /** @type {number} */ y) => {
       ctx.tiltTarget.set(x, y);
       requestFrame(ctx);
@@ -1061,6 +1077,142 @@ function frameIndexes(ctx, indexes) {
 }
 
 /**
+ * Smoothly frames the camera on the given bounding box of a territory or selection.
+ * @param {EngineContext} ctx
+ * @param {THREE.Box2 | THREE.Box3 | any} bounds
+ * @param {{ immediate?: boolean; isWorldUnits?: boolean }} [options]
+ */
+function frameBounds(ctx, bounds, options = {}) {
+  if (!bounds) {
+    resetView(ctx);
+    return;
+  }
+  const framing = readBoxFraming(bounds, ctx.view.mapSize, options);
+  ctx.panTarget.copy(framing.pan);
+  setZoomTarget(ctx, framing.zoom);
+  ctx.tiltTarget.set(0.12, -0.22);
+  if (ctx.motion.isMotionReduced || options.immediate) {
+    ctx.orbit.pan.copy(ctx.panTarget);
+    positionCamera(ctx.view.camera, ctx.orbit);
+  }
+  requestFrame(ctx);
+}
+
+/**
+ * Dynamically replaces the BatchedMesh and geometry without leaking WebGL memory or destroying the renderer.
+ * @param {EngineContext} ctx
+ * @param {any} geometryInput
+ * @param {{
+ *   collectionName?: string;
+ *   bounds?: any;
+ *   frame?: boolean;
+ *   immediate?: boolean;
+ *   resetView?: boolean;
+ *   isWorldUnits?: boolean;
+ * }} [options]
+ */
+function replaceMesh(ctx, geometryInput, options = {}) {
+  let newGeometry = geometryInput;
+  if (newGeometry && newGeometry.type === "Topology") {
+    newGeometry = buildMunicipalities(newGeometry, options.collectionName);
+  }
+  if (!newGeometry || !newGeometry.plate || !newGeometry.municipalities) {
+    throw new Error("Invalid geometry supplied to replaceMesh");
+  }
+
+  const oldPlate = ctx.view.plate;
+  if (oldPlate) {
+    ctx.view.mapGroup.remove(oldPlate);
+    disposePlate(oldPlate);
+  }
+
+  if (ctx.view.borders && ctx.view.borders.geometry) {
+    ctx.view.borders.geometry.dispose();
+  }
+  if (ctx.view.raisedOutline && ctx.view.raisedOutline.geometry) {
+    ctx.view.raisedOutline.geometry.dispose();
+  }
+
+  for (const geom of ctx.limitGeometriesByLevel.values()) {
+    geom.dispose();
+  }
+  ctx.limitGeometriesByLevel.clear();
+  ctx.limitLines.visible = false;
+  ctx.selectionOutline.setVisible(false);
+
+  ctx.view.plate = newGeometry.plate;
+  ctx.view.mapGroup.add(newGeometry.plate);
+  ctx.municipalities = newGeometry.municipalities;
+  ctx.indexByCode = buildIndexByCode(newGeometry.municipalities);
+  ctx.mapCenter = newGeometry.mapCenter;
+  ctx.topology = newGeometry.topology;
+  ctx.view.instanceToMunicipality = readInstanceToMunicipality(newGeometry.municipalities);
+
+  const allIndexes = ctx.municipalities.map((_, index) => index);
+  ctx.view.borders.geometry = buildOwnedLines(ctx.municipalities, allIndexes);
+  ctx.view.raisedOutline.geometry = buildOwnedLines(ctx.municipalities, []);
+
+  const wasMotionReduced = ctx.motion.isMotionReduced;
+  ctx.motion = createMapMotion(newGeometry.plate, newGeometry.municipalities);
+  ctx.motion.isMotionReduced = wasMotionReduced;
+
+  new THREE.Box3().setFromObject(newGeometry.plate).getSize(ctx.view.mapSize);
+  if (ctx.view.ground && ctx.view.ground.geometry) {
+    ctx.view.ground.geometry.dispose();
+    ctx.view.ground.geometry = new THREE.PlaneGeometry(
+      ctx.view.mapSize.x * 1.8,
+      ctx.view.mapSize.y * 1.8,
+    );
+  }
+  if (ctx.view.sun && ctx.view.sun.shadow) {
+    const shadowReach = Math.hypot(ctx.view.mapSize.x, ctx.view.mapSize.y) * 0.55;
+    ctx.view.sun.shadow.camera.left = -shadowReach;
+    ctx.view.sun.shadow.camera.right = shadowReach;
+    ctx.view.sun.shadow.camera.top = shadowReach;
+    ctx.view.sun.shadow.camera.bottom = -shadowReach;
+    ctx.view.sun.shadow.camera.updateProjectionMatrix();
+  }
+
+  ctx.pickTarget = buildPickTarget(ctx.view, ctx.motion, ctx.municipalities);
+
+  ctx.raise.pointed = null;
+  ctx.raise.pointedIndexes = undefined;
+  ctx.raise.selected = new Set();
+  ctx.pointTracker.clearPointed();
+  ctx.colorPositions = new Uint8Array(newGeometry.municipalities.length);
+
+  paintCurrentColors(ctx);
+  updateLineHeights(ctx.view.borders, ctx.motion, BORDER_LIFT_SHARE);
+
+  ctx.orbit.distance = computeFitDistance(
+    ctx.view.camera,
+    ctx.view.mapSize,
+    ctx.orbit.viewAngleDegrees,
+  );
+
+  if (options.bounds) {
+    frameBounds(ctx, options.bounds, options);
+  }
+  if (!options.bounds) {
+    if (options.resetView !== false) {
+      if (options.immediate) {
+        ctx.panTarget.set(0, 0, 0);
+        ctx.zoomState.target = 1;
+        ctx.zoomState.current = 1;
+        ctx.orbit.pan.set(0, 0, 0);
+        positionCamera(ctx.view.camera, ctx.orbit);
+      }
+      if (!options.immediate) {
+        ctx.panTarget.set(0, 0, 0);
+        setZoomTarget(ctx, 1);
+      }
+    }
+  }
+
+  requestFrame(ctx);
+}
+
+/**
  * Steps one level of the zoom ladder. Zooming on the cursor keeps the ground point fixed.
  * @param {EngineContext} ctx
  * @param {number} direction positive zooms in, otherwise zooms out
@@ -1386,8 +1538,8 @@ function projectGroundPoint(ctx, point) {
 function disposeEngine(ctx) {
   const { plate, borders, raisedOutline, ground } = ctx.view;
   ctx.renderer.dispose();
-  if (plate?.geometry) {
-    plate.geometry.dispose();
+  if (plate) {
+    disposePlate(plate);
   }
   if (borders?.geometry) {
     borders.geometry.dispose();

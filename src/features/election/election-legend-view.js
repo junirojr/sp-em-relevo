@@ -367,7 +367,7 @@ export function mountElectionLegendView(documentRef, slotElement, options = {}) 
 
   const scope = documentRef.createElement("span");
   scope.className = "election-legend-scope";
-  scope.textContent = "Ate 8 lideres com cores proprias (regra E25)";
+  scope.textContent = "Até 8 líderes com cores próprias";
 
   header.append(title, scope);
   section.append(header);

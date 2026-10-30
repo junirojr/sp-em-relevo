@@ -131,7 +131,7 @@ export function buildGround(mapSize) {
  * @param {Array<{ instanceId: number }>} municipalities
  * @returns {number[]}
  */
-function readInstanceToMunicipality(municipalities) {
+export function readInstanceToMunicipality(municipalities) {
   /** @type {number[]} */
   const instanceToMunicipality = [];
   for (let index = 0; index < municipalities.length; index += 1) {

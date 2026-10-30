@@ -203,7 +203,7 @@ test.describe("ESC scale slice (ESC-05, ESC-07 to ESC-09)", () => {
         await route.fulfill({ json: { ...json, municipalities } });
       });
 
-      await page.goto("/");
+      await page.goto("/?uf=35");
       await settle(page);
 
       const legend = page.locator(".scale-legend");

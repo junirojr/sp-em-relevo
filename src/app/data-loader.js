@@ -354,6 +354,112 @@ export async function loadData(fetchImpl = fetch, onProgress) {
   };
 }
 
+export const NATIONAL_DATA_FILES = [
+  "data/national/mesh-states.topo.json.gz",
+  "data/national/states.json",
+];
+
+const MACRO_REGIONS = [
+  { code: "1", label: "Norte" },
+  { code: "2", label: "Nordeste" },
+  { code: "3", label: "Sudeste" },
+  { code: "4", label: "Sul" },
+  { code: "5", label: "Centro-Oeste" },
+];
+
+/**
+ * Loads national overview data (27 UFs).
+ *
+ * @param {typeof fetch} [fetchImpl]
+ * @param {ProgressCallback} [onProgress]
+ * @returns {Promise<ApplicationData>}
+ */
+export async function loadNationalData(fetchImpl = fetch, onProgress) {
+  const results = [];
+  for (const file of NATIONAL_DATA_FILES) {
+    if (typeof onProgress === "function") {
+      onProgress(file);
+    }
+    const data = await fetchJson(file, fetchImpl);
+    results.push(data);
+  }
+
+  const statesDoc = results[1];
+  const states = statesDoc.states;
+  const stateRecords = [];
+  if (Array.isArray(states)) {
+    for (const s of states) {
+      stateRecords.push({
+        code: String(s.code),
+        name: String(s.name),
+        sigla: String(s.sigla),
+        regionCode: String(s.regionCode),
+        regionName: String(s.regionName),
+        population: Number(s.population),
+        areaKm2: Number(s.areaKm2),
+        gdpThousandBrl: Number(s.gdpThousandBrl),
+      });
+    }
+  }
+
+  return {
+    mesh: results[0],
+    municipalities: stateRecords,
+    regions: MACRO_REGIONS,
+  };
+}
+
+/**
+ * Loads territory data for a specific UF or falls back to national overview.
+ *
+ * @param {string | null} [ufCode]
+ * @param {typeof fetch} [fetchImpl]
+ * @param {ProgressCallback} [onProgress]
+ * @returns {Promise<ApplicationData>}
+ */
+export async function loadTerritoryData(ufCode = null, fetchImpl = fetch, onProgress) {
+  if (!ufCode) {
+    return loadNationalData(fetchImpl, onProgress);
+  }
+
+  const cleanUf = String(ufCode).trim().toLowerCase();
+  if (cleanUf === "br" || cleanUf === "brasil") {
+    return loadNationalData(fetchImpl, onProgress);
+  }
+
+  if (cleanUf === "35" || cleanUf === "sp") {
+    return loadData(fetchImpl, onProgress);
+  }
+
+  const ufFiles = [
+    `data/ufs/${cleanUf}/mesh.topo.json.gz`,
+    `data/ufs/${cleanUf}/municipalities.json`,
+    `data/ufs/${cleanUf}/regions.json`,
+  ];
+
+  try {
+    const results = [];
+    for (const file of ufFiles) {
+      if (typeof onProgress === "function") {
+        onProgress(file);
+      }
+      const data = await fetchJson(file, fetchImpl);
+      results.push(data);
+    }
+
+    return {
+      mesh: results[0],
+      municipalities: parseMunicipalities(results[1]),
+      regions: results[2].regions,
+    };
+  } catch (_error) {
+    if (cleanUf === "35" || cleanUf === "sp") {
+      return loadData(fetchImpl, onProgress);
+    }
+    return loadNationalData(fetchImpl, onProgress);
+  }
+}
+
 /**
  * @param {string} url
  * @param {typeof fetch} fetchImpl

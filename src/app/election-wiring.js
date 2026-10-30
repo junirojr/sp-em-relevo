@@ -14,8 +14,6 @@ import { mountCandidateRankingsView } from "../features/election/candidate-ranki
 import { mountElectionLegendView } from "../features/election/election-legend-view.js";
 import { changeElectionTab, isElectionTab } from "../features/election/election-slice.js";
 import {
-  ELECTION_STRINGS,
-  formatBrasiliaHour,
   formatElectedAnnouncement,
   formatNoConnectionMessage,
   formatPartialCountMessage,
@@ -203,7 +201,12 @@ export function initElectionWiring(options) {
     rankingsSlot.hidden = true;
     const sidebarContent = documentRef.querySelector(".sidebar-content");
     if (sidebarContent) {
-      sidebarContent.prepend(rankingsSlot);
+      if (typeof sidebarContent.prepend === "function") {
+        sidebarContent.prepend(rankingsSlot);
+      }
+      if (typeof sidebarContent.prepend !== "function") {
+        sidebarContent.append(rankingsSlot);
+      }
     }
   }
 
@@ -445,8 +448,18 @@ export function initElectionWiring(options) {
   async function switchFirstRoundOffice(office) {
     const state = store.getState();
     const theme = state.theme ?? "dark";
+    const activeUf = state.navigation?.activeUf ?? null;
     const municipalities = state.data?.municipalities ?? [];
-    const res = await loadFirstRoundElectionData(office, { fetchImpl, theme, municipalities });
+    let targetOffice = office;
+    if (activeUf === null) {
+      targetOffice = "presidente";
+    }
+    const res = await loadFirstRoundElectionData(targetOffice, {
+      fetchImpl,
+      theme,
+      municipalities,
+      activeUf,
+    });
     if (!res.ok) {
       return;
     }
@@ -454,9 +467,14 @@ export function initElectionWiring(options) {
     syncGlobals();
     applyElectionProjection("first-round");
 
+    let legendOfficeTitle = res.description;
+    if (activeUf === null && !legendOfficeTitle) {
+      legendOfficeTitle = "Presidente da República - 1º Turno 2026 (Brasil)";
+    }
+
     if (electionLegendView) {
       electionLegendView.update({
-        officeTitle: res.description,
+        officeTitle: legendOfficeTitle,
         candidates: res.candidates,
         palette: res.palette,
         theme,
@@ -477,19 +495,32 @@ export function initElectionWiring(options) {
   async function activateSecondRound() {
     const state = store.getState();
     const theme = state.theme ?? "dark";
+    const activeUf = state.navigation?.activeUf ?? null;
     const municipalities = state.data?.municipalities ?? [];
 
     // Prioriza dados oficiais consolidados do 2º Turno TSE se disponiveis
-    const resConsolidated = await loadSecondRoundElectionData({ fetchImpl, theme, municipalities });
+    const resConsolidated = await loadSecondRoundElectionData({
+      fetchImpl,
+      theme,
+      municipalities,
+      activeUf,
+    });
     if (resConsolidated.ok && Object.keys(resConsolidated.municipalResults).length > 0) {
       currentElectionResults = resConsolidated.municipalResults;
       syncGlobals();
       applyElectionProjection("first-round");
 
+      let officeTitle = resConsolidated.description;
+      if (!officeTitle) {
+        officeTitle = "Presidente da República - 2º Turno 2026 (SP)";
+        if (activeUf === null) {
+          officeTitle = "Presidente da República - 2º Turno 2026 (Brasil)";
+        }
+      }
+
       if (electionLegendView) {
         electionLegendView.update({
-          officeTitle:
-            resConsolidated.description || "Presidente da República - 2º Turno 2026 (SP)",
+          officeTitle,
           candidates: resConsolidated.candidates,
           palette: resConsolidated.palette,
           theme,
@@ -561,11 +592,15 @@ export function initElectionWiring(options) {
   }
 
   let previousTab = "indicators";
+  let previousActiveUf = store.getState().navigation?.activeUf ?? null;
+  let previousMunicipalitiesRef = store.getState().data?.municipalities ?? null;
 
   // Handle Tab transitions (ELE-17, ELE-19, ELE-20)
   async function handleStateChange() {
     const currentState = store.getState();
     const currentTab = currentState.tab ?? "indicators";
+    const currentActiveUf = currentState.navigation?.activeUf ?? null;
+    const currentMunicipalities = currentState.data?.municipalities ?? [];
     const selectedCodes = currentState.selection?.selectedCodes ?? [];
     const selectedCodesKey = selectedCodes.slice().sort().join(",");
 
@@ -582,7 +617,11 @@ export function initElectionWiring(options) {
       }
     }
 
-    if (currentTab === previousTab) {
+    const isTabSame = currentTab === previousTab;
+    const isUfSame = currentActiveUf === previousActiveUf;
+    const isDataSame = currentMunicipalities === previousMunicipalitiesRef;
+
+    if (isTabSame && isUfSame && isDataSame) {
       return;
     }
 
@@ -590,6 +629,8 @@ export function initElectionWiring(options) {
     const isNowSecondRound = currentTab === "second-round";
     const isNowFirstRound = currentTab === "first-round";
     previousTab = currentTab;
+    previousActiveUf = currentActiveUf;
+    previousMunicipalitiesRef = currentMunicipalities;
 
     // Apply engine elevation rules for election (ELE-12, ELE-15)
     applyElectionEngineSettings(engine, isNowElection);
@@ -600,7 +641,11 @@ export function initElectionWiring(options) {
 
     if (isNowFirstRound) {
       if (officeSlot) {
-        officeSlot.hidden = false;
+        let officeHidden = false;
+        if (currentActiveUf === null) {
+          officeHidden = true;
+        }
+        officeSlot.hidden = officeHidden;
       }
       if (electionLegendSlot) {
         electionLegendSlot.hidden = false;
@@ -665,6 +710,7 @@ export function initElectionWiring(options) {
         indicatorId: currentState.indicator.id,
         levelId: currentState.level.id,
         tab: currentTab,
+        uf: currentActiveUf,
         isDemoActive: currentState.demo.isActive,
       });
     }

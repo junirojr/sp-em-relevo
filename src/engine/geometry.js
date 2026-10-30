@@ -26,20 +26,25 @@ import { PLATE_DEPTH } from "./constants.js";
  * Builds the municipalities and the plate that draws them. The map size is not measured here: it
  * only exists in world units, after the scene puts the plate in the scaled map group.
  * @param {any} topology
+ * @param {string} [collectionName]
  * @returns {{
  *   municipalities: MapMunicipality[];
  *   plate: THREE.BatchedMesh;
  *   mapCenter: THREE.Vector2;
  *   mapBounds: THREE.Box2;
+ *   topology: any;
  * }}
  */
-export function buildMunicipalities(topology) {
-  const collection = topology.objects.municipalities;
+export function buildMunicipalities(topology, collectionName) {
+  const collection = findGeometryCollection(topology, collectionName);
+  if (!collection) {
+    throw new Error("Topology does not contain a valid geometry collection");
+  }
   const rawMunicipalities = [];
   const mapBounds = new THREE.Box2();
 
   for (const geometry of collection.geometries) {
-    const code = String(geometry.id ?? "");
+    const code = readGeometryCode(geometry);
     const polygons = extractPolygons(geometry, topology.arcs, topology.transform);
     const shapes = [];
 
@@ -112,7 +117,98 @@ export function buildMunicipalities(topology) {
     plate,
     mapCenter,
     mapBounds,
+    topology,
   };
+}
+
+/**
+ * Modern alias for buildMunicipalities to support any territory collection (e.g. states, UFs).
+ * @param {any} topology
+ * @param {string} [collectionName]
+ */
+export function buildUnits(topology, collectionName) {
+  return buildMunicipalities(topology, collectionName);
+}
+
+/**
+ * @param {any} topology
+ * @param {string} [preferredName]
+ * @returns {any}
+ */
+export function findGeometryCollection(topology, preferredName) {
+  if (!topology || !topology.objects) {
+    return null;
+  }
+  if (preferredName && topology.objects[preferredName]) {
+    return topology.objects[preferredName];
+  }
+  if (topology.objects.municipalities) {
+    return topology.objects.municipalities;
+  }
+  if (topology.objects.states) {
+    return topology.objects.states;
+  }
+  if (topology.objects.units) {
+    return topology.objects.units;
+  }
+  const keys = Object.keys(topology.objects);
+  if (keys.length > 0) {
+    return topology.objects[keys[0]];
+  }
+  return null;
+}
+
+/**
+ * @param {any} geometry
+ * @returns {string}
+ */
+export function readGeometryCode(geometry) {
+  if (geometry.id !== undefined && geometry.id !== null) {
+    return String(geometry.id);
+  }
+  const props = geometry.properties;
+  if (props) {
+    const code = props.id ?? props.code ?? props.codarea ?? props.sigla ?? props.UF;
+    if (code !== undefined && code !== null) {
+      return String(code);
+    }
+  }
+  return "";
+}
+
+/**
+ * Disposes a BatchedMesh plate safely.
+ * @param {THREE.BatchedMesh | any} plate
+ */
+export function disposePlate(plate) {
+  if (!plate) {
+    return;
+  }
+  if (typeof plate.dispose === "function") {
+    plate.dispose();
+  }
+  if (plate.geometry && typeof plate.geometry.dispose === "function") {
+    plate.geometry.dispose();
+  }
+  if (plate.material && typeof plate.material.dispose === "function") {
+    plate.material.dispose();
+  }
+}
+
+/**
+ * Disposes lines and their geometry and material safely.
+ * @param {THREE.LineSegments | any} lines
+ */
+export function disposeOwnedLines(lines) {
+  if (!lines) {
+    return;
+  }
+  if (lines.geometry && typeof lines.geometry.dispose === "function") {
+    lines.geometry.dispose();
+  }
+  if (lines.material && typeof lines.material.dispose === "function") {
+    lines.material.dispose();
+  }
 }
 
 /**
@@ -196,7 +292,7 @@ export function buildPlate(municipalities) {
   const plate = new THREE.BatchedMesh(
     municipalities.length,
     vertexCount,
-    undefined,
+    0,
     new THREE.MeshLambertMaterial({ color: 0xffffff }),
   );
   plate.sortObjects = false;

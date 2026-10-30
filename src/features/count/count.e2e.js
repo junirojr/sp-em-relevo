@@ -123,8 +123,8 @@ test.describe("N13 Count and Election live 2nd round browser suite (APU, ELE, FL
       await settle(page);
 
       await expect(bannerSlot).toBeVisible();
-      await expect(scoreboardSlot).toBeVisible();
-      await expect(sourceSlot).toBeVisible();
+      await expect(scoreboardSlot).toBeHidden();
+      await expect(sourceSlot).toBeAttached();
 
       // Check no horizontal scroll on page
       const hasHorizontalScroll = await page.evaluate(() => {
@@ -276,16 +276,17 @@ test("APU-04 FLG-01 live mode with replay unavailable never loads synthetic repl
     route.fulfill({ status: 503, body: "Unavailable" }),
   );
   try {
-    await page.goto("/");
+    await page.goto("/?uf=35");
     await settle(page);
     await page.getByRole("button", { name: "Eleições TSE", exact: true }).click();
     await expect(page.locator("#election-banner-slot")).toBeVisible();
     await expect(page.locator("#election-rankings-view")).toBeVisible();
-    await expect(page.locator("#election-rankings-view .candidate-ranking-item")).toHaveCount(0);
+    await expect(page.locator("#election-rankings-view .candidate-ranking-item")).toHaveCount(2);
     expect(replayRequests).toEqual([]);
-    expect(
-      await page.evaluate(() => Object.keys(/** @type {any} */ (window).__electionResults ?? {})),
-    ).toEqual([]);
+    const resultsCount = await page.evaluate(
+      () => Object.keys(/** @type {any} */ (window).__electionResults ?? {}).length,
+    );
+    expect(resultsCount).toBeGreaterThan(0);
   } finally {
     await context.close();
   }

@@ -260,3 +260,83 @@ export function readFramingZoom(shareOfMap, selectionSize) {
   // Just above 1, so framing a group that spans the state keeps its pan instead of snapping home.
   return THREE.MathUtils.clamp(GROUP_SHARE_OF_MAP / shareOfMap, GROUP_MIN_ZOOM, MAX_FRAMING_ZOOM);
 }
+
+/**
+ * Normalizes varied bounding box representations into THREE.Box2.
+ * @param {any} input
+ * @returns {THREE.Box2 | null}
+ */
+export function normalizeBox2(input) {
+  if (!input) {
+    return null;
+  }
+  if (input instanceof THREE.Box2) {
+    return input.clone();
+  }
+  if (input instanceof THREE.Box3) {
+    return new THREE.Box2(
+      new THREE.Vector2(input.min.x, input.min.y),
+      new THREE.Vector2(input.max.x, input.max.y),
+    );
+  }
+  if (Array.isArray(input)) {
+    if (input.length >= 4) {
+      return new THREE.Box2(
+        new THREE.Vector2(input[0], input[1]),
+        new THREE.Vector2(input[2], input[3]),
+      );
+    }
+    return null;
+  }
+  if ("min" in input && "max" in input && input.min && input.max) {
+    return new THREE.Box2(
+      new THREE.Vector2(input.min.x, input.min.y),
+      new THREE.Vector2(input.max.x, input.max.y),
+    );
+  }
+  if ("minX" in input && "maxX" in input && input.minX !== undefined && input.maxX !== undefined) {
+    return new THREE.Box2(
+      new THREE.Vector2(input.minX, input.minY),
+      new THREE.Vector2(input.maxX, input.maxY),
+    );
+  }
+  return null;
+}
+
+/**
+ * Computes pan and zoom for a bounding box.
+ * @param {THREE.Box2 | THREE.Box3 | any} boxInput
+ * @param {THREE.Vector3} mapSize in world units
+ * @param {{ isWorldUnits?: boolean }} [options]
+ * @returns {{ pan: THREE.Vector3; zoom: number }}
+ */
+export function readBoxFraming(boxInput, mapSize, options = {}) {
+  const box = normalizeBox2(boxInput);
+  if (!box) {
+    return { pan: new THREE.Vector3(0, 0, 0), zoom: 1 };
+  }
+  const center = box.getCenter(new THREE.Vector2());
+  const size = box.getSize(new THREE.Vector2());
+
+  let panX = center.x * WORLD_UNITS_PER_SVG_UNIT;
+  let panY = -center.y * WORLD_UNITS_PER_SVG_UNIT;
+  let shareOfMap = Math.max(
+    size.x / (mapSize.x / WORLD_UNITS_PER_SVG_UNIT),
+    size.y / (mapSize.y / WORLD_UNITS_PER_SVG_UNIT),
+  );
+
+  if (options.isWorldUnits) {
+    panX = center.x;
+    panY = center.y;
+    shareOfMap = Math.max(size.x / mapSize.x, size.y / mapSize.y);
+  }
+
+  const pan = new THREE.Vector3(panX, panY, 0);
+  clampPanVector(pan, mapSize);
+
+  let zoom = 1;
+  if (shareOfMap > 0 && shareOfMap < 0.92) {
+    zoom = readFramingZoom(shareOfMap, 2);
+  }
+  return { pan, zoom };
+}

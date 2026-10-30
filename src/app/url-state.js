@@ -4,6 +4,7 @@ import {
   LEVEL_MUNICIPALITY,
   LEVEL_REGION,
 } from "../features/level/level-slice.js";
+import { isValidUf, resolveUfCode } from "../features/navigation/navigation-slice.js";
 import { resolveAllowedTab } from "./state.js";
 
 /**
@@ -11,7 +12,7 @@ import { resolveAllowedTab } from "./state.js";
  * Follows IND-07, ELE-20, E19, R9 and RGV-03.
  *
  * @typedef {import("./state.js").TabId} TabId
- * @typedef {{ indicatorId: import("../features/indicator/indicator-slice.js").IndicatorId, levelId: import("../features/level/level-slice.js").LevelId, tab: TabId }} UrlState
+ * @typedef {{ indicatorId: import("../features/indicator/indicator-slice.js").IndicatorId, levelId: import("../features/level/level-slice.js").LevelId, tab: TabId, uf: string | null }} UrlState
  * @typedef {{
  *   now?: Date | string | number,
  *   status?: import("./data-loader.js").OperationalStatus
@@ -21,6 +22,7 @@ import { resolveAllowedTab } from "./state.js";
 const INDICATOR_PARAM = "indicador";
 const LEVEL_PARAM = "ver";
 const TAB_PARAM = "aba";
+const UF_PARAM = "uf";
 
 export const ELECTION_DAY_BRT = "2026-10-25";
 
@@ -92,7 +94,13 @@ export function parseUrlState(locationOrSearch = "", options = {}) {
   const resolvedTab = parseTabParam(rawTab, options.now);
   const tab = applyStatusToTab(resolvedTab, options.status);
 
-  return { indicatorId, levelId, tab };
+  const rawUf = searchParams.get(UF_PARAM);
+  let uf = null;
+  if (rawUf && isValidUf(rawUf)) {
+    uf = resolveUfCode(rawUf);
+  }
+
+  return { indicatorId, levelId, tab, uf };
 }
 
 /**
@@ -189,7 +197,7 @@ function toDate(input) {
  * Does not write demo parameters when demo mode is active.
  *
  * @param {Window} windowRef
- * @param {{ indicatorId: string, levelId: string, tab?: TabId, isDemoActive?: boolean }} state
+ * @param {{ indicatorId: string, levelId: string, tab?: TabId, isDemoActive?: boolean, uf?: string | null }} state
  */
 export function syncUrlState(windowRef, state) {
   if (!windowRef?.history?.replaceState) {
@@ -222,6 +230,13 @@ export function syncUrlState(windowRef, state) {
   }
 
   syncTabSearchParam(url.searchParams, state.tab);
+
+  if (state.uf && isValidUf(state.uf)) {
+    url.searchParams.set(UF_PARAM, state.uf.toLowerCase());
+  }
+  if (!state.uf || !isValidUf(state.uf)) {
+    url.searchParams.delete(UF_PARAM);
+  }
 
   // Never write demo parameters to URL (IND-07)
   url.searchParams.delete("demo");

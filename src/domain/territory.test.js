@@ -240,3 +240,148 @@ test("RGV-02 real data: in each level the sum of groups equals total SP and grou
     assert.equal(regCodeSet.has(code), false, `Code collision: ${code} in govReg and reg`);
   }
 });
+
+test("NAT-01 territory supports national levels: country, uf, intermediaria, imediata, municipality", () => {
+  const nationalMunicipalities = [
+    {
+      code: "3550308",
+      name: "São Paulo",
+      regionCode: "1",
+      uf: "SP",
+      ufCode: "35",
+      ufSigla: "SP",
+      ufName: "São Paulo",
+      intermediariaCode: "3501",
+      intermediariaName: "São Paulo",
+      imediataCode: "350001",
+      imediataName: "São Paulo",
+      countryCode: "BR",
+      countryName: "Brasil",
+      population: 11451245,
+      areaKm2: 1521,
+      gdpThousandBrl: 828980608,
+    },
+    {
+      code: "3304557",
+      name: "Rio de Janeiro",
+      regionCode: "",
+      uf: "RJ",
+      ufCode: "33",
+      ufSigla: "RJ",
+      ufName: "Rio de Janeiro",
+      intermediariaCode: "3301",
+      intermediariaName: "Rio de Janeiro",
+      imediataCode: "330001",
+      imediataName: "Rio de Janeiro",
+      countryCode: "BR",
+      countryName: "Brasil",
+      population: 6211423,
+      areaKm2: 1200,
+      gdpThousandBrl: 359634752,
+    },
+    {
+      code: "3106200",
+      name: "Belo Horizonte",
+      regionCode: "",
+      uf: "MG",
+      ufCode: "31",
+      ufSigla: "MG",
+      ufName: "Minas Gerais",
+      intermediariaCode: "3101",
+      intermediariaName: "Belo Horizonte",
+      imediataCode: "310001",
+      imediataName: "Belo Horizonte",
+      countryCode: "BR",
+      countryName: "Brasil",
+      population: 2315560,
+      areaKm2: 331,
+      gdpThousandBrl: 105829672,
+    },
+  ];
+
+  const territory = createTerritory({
+    municipalities: nationalMunicipalities,
+  });
+
+  assert.equal(territory.municipalities().length, 3);
+  assert.equal(territory.ufs().length, 3);
+  assert.equal(territory.intermediarias().length, 3);
+  assert.equal(territory.imediatas().length, 3);
+  assert.equal(territory.countries().length, 1);
+
+  assert.equal(groupOf("municipality", "3550308", territory), "3550308");
+  assert.equal(groupOf("imediata", "3550308", territory), "350001");
+  assert.equal(groupOf("intermediaria", "3550308", territory), "3501");
+  assert.equal(groupOf("uf", "3550308", territory), "SP");
+  assert.equal(groupOf("country", "3550308", territory), "BR");
+
+  assert.equal(groupOf("uf", nationalMunicipalities[1], territory), "RJ");
+  assert.equal(groupOf("country", nationalMunicipalities[2], territory), "BR");
+
+  const rjUf = territory.ufOf("3304557");
+  assert.equal(rjUf?.code, "RJ");
+  assert.equal(rjUf?.label, "Rio de Janeiro");
+
+  const mgIntermediaria = territory.intermediariaOf("3106200");
+  assert.equal(mgIntermediaria?.code, "3101");
+
+  const spImediata = territory.imediataOf("3550308");
+  assert.equal(spImediata?.code, "350001");
+
+  const country = territory.countryOf("3550308");
+  assert.equal(country?.code, "BR");
+  assert.equal(country?.label, "Brasil");
+
+  const spMembers = territory.municipalitiesInUf("SP");
+  assert.equal(spMembers.length, 1);
+  assert.equal(spMembers[0].name, "São Paulo");
+
+  const brMembers = territory.municipalitiesInCountry("BR");
+  assert.equal(brMembers.length, 3);
+});
+
+test("NAT-02 createTerritory accepts arbitrary collections without SP presumption", () => {
+  const customMunicipalities = [
+    {
+      code: "1100015",
+      name: "Alta Floresta D'Oeste",
+      regionCode: "",
+      ufCode: "11",
+      population: 21500,
+      areaKm2: 7067,
+      gdpThousandBrl: 580000,
+    },
+    {
+      code: "1200013",
+      name: "Acrelândia",
+      regionCode: "",
+      ufCode: "12",
+      population: 14000,
+      areaKm2: 1800,
+      gdpThousandBrl: 320000,
+    },
+  ];
+
+  const emptyTerritory = createTerritory();
+  assert.equal(emptyTerritory.municipalities().length, 0);
+  assert.equal(emptyTerritory.regions().length, 0);
+
+  const territory = createTerritory({
+    municipalities: customMunicipalities,
+  });
+
+  assert.equal(territory.municipalities().length, 2);
+  assert.equal(territory.codeByName("Acrelândia"), "1200013");
+  assert.equal(territory.nameByCode("1100015"), "Alta Floresta D'Oeste");
+
+  const groups = territory.groupsOfLevel("uf");
+  assert.equal(groups.length, 2);
+  assert.deepEqual(
+    territory.municipalitiesInGroup("uf", "11").map((m) => m.code),
+    ["1100015"],
+  );
+
+  const groupRecord = territory.groupRecordOf("uf", "1200013");
+  assert.equal(groupRecord?.code, "12");
+  assert.equal(groupRecord?.label, "Acre");
+});

@@ -1,0 +1,192 @@
+/* Territorial navigation: breadcrumb and quick UF selector */
+
+.nav-territory {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  width: auto;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 2px 6px;
+  background: var(--pill-bg, rgb(15 23 42 / 0.04));
+  border: 1px solid var(--pill-line, rgb(15 23 42 / 0.09));
+  border-radius: var(--radius-lg, 12px);
+  font-family: var(--font-body, system-ui, sans-serif);
+  min-width: 0;
+}
+
+.nav-breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  gap: var(--space-1, 4px) var(--space-2, 8px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm, 13px);
+  line-height: 1.4;
+  min-width: 0;
+}
+
+.nav-breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.nav-breadcrumb-state-item {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.nav-breadcrumb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--ink-muted, #475569);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.nav-breadcrumb-btn:hover {
+  background: var(--pill-bg-hover, rgb(15 23 42 / 0.08));
+  color: var(--ink, #0f172a);
+}
+
+.nav-breadcrumb-btn:focus-visible {
+  outline: 2px solid var(--focus, #c52828);
+  outline-offset: 2px;
+}
+
+.nav-breadcrumb-btn.is-current {
+  background: var(--surface, #ffffff);
+  border-color: var(--pill-line, rgb(15 23 42 / 0.12));
+  color: var(--ink, #0f172a);
+  cursor: default;
+}
+
+.nav-breadcrumb-separator {
+  color: var(--ink-muted, #94a3b8);
+  font-size: var(--font-size-xs, 11px);
+  font-weight: 700;
+  user-select: none;
+}
+
+.nav-breadcrumb-current {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 8px;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--pill-line, rgb(15 23 42 / 0.12));
+  border-radius: var(--radius-md, 8px);
+  color: var(--ink, #0f172a);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.nav-quick-select-wrapper {
+  display: flex;
+  align-items: center;
+  width: auto;
+  max-width: 220px;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.nav-uf-select {
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--pill-line, rgb(15 23 42 / 0.14));
+  border-radius: var(--radius-md, 8px);
+  background-color: var(--surface, #ffffff);
+  color: var(--ink, #0f172a);
+  font-family: inherit;
+  font-size: var(--font-size-sm, 13px);
+  font-weight: 500;
+  cursor: pointer;
+  box-sizing: border-box;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.nav-uf-select:hover {
+  border-color: var(--pill-line-hover, rgb(15 23 42 / 0.24));
+}
+
+.nav-uf-select:focus-visible {
+  outline: 2px solid var(--focus, #c52828);
+  outline-offset: 1px;
+}
+
+/* Mobile adjustments (up to 640px) */
+@media (max-width: 640px) {
+  .nav-territory {
+    gap: var(--space-1, 4px);
+    padding: 2px 4px;
+    border-radius: var(--radius-md, 8px);
+    max-height: 36px;
+  }
+
+  .nav-breadcrumb-btn {
+    min-height: 28px;
+    padding: 2px 6px;
+    font-size: var(--font-size-xs, 12px);
+  }
+
+  .nav-breadcrumb-current {
+    min-height: 28px;
+    padding: 2px 6px;
+    font-size: var(--font-size-xs, 12px);
+    max-width: 90px;
+  }
+
+  .nav-quick-select-wrapper {
+    max-width: 105px;
+  }
+
+  .nav-uf-select {
+    min-height: 28px;
+    padding: 2px 4px;
+    font-size: var(--font-size-xs, 12px);
+    max-width: 105px;
+  }
+}
+
+/* Tablet and desktop (641px+) */
+@media (min-width: 641px) {
+  .nav-territory {
+    gap: var(--space-3, 12px);
+    padding: 4px var(--space-2, 8px);
+  }
+
+  .nav-quick-select-wrapper {
+    max-width: 260px;
+    flex-shrink: 0;
+  }
+}

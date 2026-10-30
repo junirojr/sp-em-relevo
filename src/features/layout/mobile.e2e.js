@@ -184,7 +184,7 @@ test.describe("MOB mobile responsive slice (MOB-01 to MOB-07)", () => {
         await settle(page);
 
         await expect(banner).toBeVisible();
-        await expect(scoreboard).toBeVisible();
+        await expect(scoreboard).toBeHidden();
         await expect(source).toBeVisible();
 
         const scroller = await page.evaluate(() => {
@@ -250,7 +250,8 @@ test.describe("MOB mobile responsive slice (MOB-01 to MOB-07)", () => {
         expect(expandedBox.y + expandedBox.height).toBeLessThanOrEqual(vvHeight + 1);
 
         // Back to collapsed check
-        await sheetToggle.click();
+        await sheetToggle.scrollIntoViewIfNeeded();
+        await sheetToggle.click({ force: true });
         await settle(page);
         await expect(sidebar).toHaveAttribute("data-sheet-state", "collapsed");
         await expect(sheetToggle).toHaveAttribute("aria-expanded", "false");

@@ -1,6 +1,17 @@
+import { UF_CODE_TO_SIGLA } from "./territory-constants.js";
+
 /**
  * @typedef {import("./territory.js").TerritoryIndex} TerritoryIndex
- * @typedef {{ kind: "municipality" | "region" | "governmentRegion", code: string, label: string, key: string }} SearchEntry
+ * @typedef {import("./territory.js").MunicipalityRecord} MunicipalityRecord
+ * @typedef {import("./territory.js").RegionRecord} RegionRecord
+ * @typedef {{
+ *   kind: "municipality" | "region" | "governmentRegion",
+ *   code: string,
+ *   label: string,
+ *   key: string,
+ *   ufSigla?: string,
+ *   uf?: string
+ * }} SearchEntry
  */
 
 const DEFAULT_LIMIT = 8;
@@ -21,7 +32,8 @@ export function normalizeName(text) {
 
 /**
  * Builds one entry per municipality, per administrative region and per government region.
- * Repeated municipality names get the region label appended: "Nome (região)".
+ * Municipalities with available UF abbreviation are labeled as "Name, UF" (e.g. "Campinas, SP").
+ * Repeated municipality labels get the region label appended: "Name, UF (region)".
  * @param {TerritoryIndex} territory
  * @returns {SearchEntry[]}
  */
@@ -51,53 +63,186 @@ export function findSuggestions(entries, query, limit = DEFAULT_LIMIT) {
 }
 
 /**
+ * Resolves the two-letter UF abbreviation for a municipality if available.
+ * @param {MunicipalityRecord} record
+ * @param {TerritoryIndex} [territory]
+ * @returns {string | null}
+ */
+export function resolveUfSigla(record, territory) {
+  if (record.ufSigla && typeof record.ufSigla === "string") {
+    return record.ufSigla.toUpperCase();
+  }
+  if (record.uf && typeof record.uf === "string") {
+    const trimmed = record.uf.trim().toUpperCase();
+    if (trimmed.length === 2 && !isDigits(trimmed)) {
+      return trimmed;
+    }
+  }
+  if (record.stateSigla && typeof record.stateSigla === "string") {
+    return record.stateSigla.toUpperCase();
+  }
+  if (record.ufCode && typeof record.ufCode === "string") {
+    const fromCode = UF_CODE_TO_SIGLA.get(record.ufCode);
+    if (fromCode) {
+      return fromCode;
+    }
+  }
+  if (territory && typeof territory.ufOf === "function") {
+    const ufRecord = territory.ufOf(record.code);
+    if (ufRecord) {
+      if (ufRecord.code && ufRecord.code.length === 2 && !isDigits(ufRecord.code)) {
+        return ufRecord.code.toUpperCase();
+      }
+      if (ufRecord.label && ufRecord.label.length === 2 && !isDigits(ufRecord.label)) {
+        return ufRecord.label.toUpperCase();
+      }
+    }
+  }
+  if (record.code && typeof record.code === "string" && record.code.length >= 6) {
+    const prefix = record.code.slice(0, 2);
+    if (prefix !== "35" && UF_CODE_TO_SIGLA.has(prefix)) {
+      return UF_CODE_TO_SIGLA.get(prefix) ?? null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Builds a search entry for a single municipality record.
+ *
+ * @param {MunicipalityRecord} record
+ * @param {TerritoryIndex} [territory]
+ * @returns {SearchEntry}
+ */
+export function buildMunicipalitySearchEntry(record, territory) {
+  const ufSigla = resolveUfSigla(record, territory);
+  let label = record.name;
+  if (ufSigla && !record.name.endsWith(`, ${ufSigla}`)) {
+    label = `${record.name}, ${ufSigla}`;
+  }
+  const key = makeSearchKey(record, label, territory);
+  /** @type {SearchEntry} */
+  const entry = {
+    kind: "municipality",
+    code: record.code,
+    label,
+    key,
+  };
+  if (ufSigla) {
+    entry.ufSigla = ufSigla;
+    entry.uf = ufSigla;
+  }
+  return entry;
+}
+
+/**
  * @param {TerritoryIndex} territory
  * @returns {SearchEntry[]}
  */
 function buildMunicipalityEntries(territory) {
-  const records = territory
-    .regions()
-    .flatMap((region) => territory.municipalitiesInRegion(region.code));
-  const nameCounts = countNames(records);
+  const records = readAllMunicipalities(territory);
+  const labelCounts = countLabels(records, territory);
   return records.map((record) => {
-    const label = labelFor(record, nameCounts, territory);
-    return { kind: "municipality", code: record.code, label, key: normalizeName(record.name) };
+    const label = labelFor(record, labelCounts, territory);
+    const key = makeSearchKey(record, label, territory);
+    const ufSigla = resolveUfSigla(record, territory);
+    /** @type {SearchEntry} */
+    const entry = { kind: "municipality", code: record.code, label, key };
+    if (ufSigla) {
+      entry.ufSigla = ufSigla;
+      entry.uf = ufSigla;
+    }
+    return entry;
   });
 }
 
 /**
- * @param {import("./territory.js").MunicipalityRecord[]} records
+ * @param {TerritoryIndex} territory
+ * @returns {MunicipalityRecord[]}
+ */
+function readAllMunicipalities(territory) {
+  if (typeof territory.municipalities === "function") {
+    const list = territory.municipalities();
+    if (list && list.length > 0) {
+      return list;
+    }
+  }
+  if (typeof territory.regions === "function") {
+    const regions = territory.regions();
+    if (regions && regions.length > 0) {
+      return regions.flatMap((region) => territory.municipalitiesInRegion(region.code));
+    }
+  }
+  return [];
+}
+
+/**
+ * @param {MunicipalityRecord[]} records
+ * @param {TerritoryIndex} territory
  * @returns {Map<string, number>}
  */
-function countNames(records) {
+function countLabels(records, territory) {
+  /** @type {Map<string, number>} */
   const counts = new Map();
-  for (const record of records) {
-    const key = normalizeName(record.name);
+  for (let i = 0; i < records.length; i += 1) {
+    const record = records[i];
+    const ufSigla = resolveUfSigla(record, territory);
+    let base = record.name;
+    if (ufSigla && !record.name.endsWith(`, ${ufSigla}`)) {
+      base = `${record.name}, ${ufSigla}`;
+    }
+    const key = normalizeName(base);
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return counts;
 }
 
 /**
- * @param {import("./territory.js").MunicipalityRecord} record
- * @param {Map<string, number>} nameCounts
+ * @param {MunicipalityRecord} record
+ * @param {Map<string, number>} labelCounts
  * @param {TerritoryIndex} territory
  * @returns {string}
  */
-function labelFor(record, nameCounts, territory) {
-  const count = nameCounts.get(normalizeName(record.name)) ?? 0;
+function labelFor(record, labelCounts, territory) {
+  const ufSigla = resolveUfSigla(record, territory);
+  let baseLabel = record.name;
+  if (ufSigla && !record.name.endsWith(`, ${ufSigla}`)) {
+    baseLabel = `${record.name}, ${ufSigla}`;
+  }
+
+  const count = labelCounts.get(normalizeName(baseLabel)) ?? 0;
   if (count < 2) {
-    return record.name;
+    return baseLabel;
   }
   const region = territory.regionOf(record.code);
   if (!region) {
-    return record.name;
+    return baseLabel;
   }
-  return `${record.name} (${region.label})`;
+  return `${baseLabel} (${region.label})`;
 }
 
 /**
- * @param {import("./territory.js").RegionRecord} region
+ * @param {MunicipalityRecord} record
+ * @param {string} label
+ * @param {TerritoryIndex} [territory]
+ * @returns {string}
+ */
+function makeSearchKey(record, label, territory) {
+  const ufSigla = resolveUfSigla(record, territory);
+  if (!ufSigla) {
+    return normalizeName(record.name);
+  }
+  const nameNorm = normalizeName(record.name);
+  const labelNorm = normalizeName(label);
+  const spaceNorm = normalizeName(`${record.name} ${ufSigla}`);
+  if (labelNorm === nameNorm) {
+    return nameNorm;
+  }
+  return `${labelNorm} ${spaceNorm} ${nameNorm}`;
+}
+
+/**
+ * @param {RegionRecord} region
  * @returns {SearchEntry}
  */
 function makeRegionEntry(region) {
@@ -121,7 +266,7 @@ function readGovernmentRegionEntries(territory) {
 }
 
 /**
- * @param {import("./territory.js").RegionRecord} region
+ * @param {RegionRecord} region
  * @returns {SearchEntry}
  */
 function makeGovernmentRegionEntry(region) {
@@ -131,4 +276,12 @@ function makeGovernmentRegionEntry(region) {
     label: region.label,
     key: normalizeName(region.label),
   };
+}
+
+/**
+ * @param {string} text
+ * @returns {boolean}
+ */
+function isDigits(text) {
+  return /^\d+$/.test(text);
 }

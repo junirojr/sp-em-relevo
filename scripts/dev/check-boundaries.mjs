@@ -17,6 +17,7 @@ const sourceExtensions = new Set([".js", ".mjs"]);
 const toolDependencies = new Map([
   ["scripts/dev/build-runtime.mjs", new Set(["esbuild"])],
   ["scripts/publish/runtime-files.mjs", new Set(["typescript"])],
+  ["scripts/dev/capture-national-previews.mjs", new Set(["@playwright/test"])],
 ]);
 
 /**

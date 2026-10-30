@@ -34,6 +34,8 @@ import { mountModeToggle } from "../features/layout/mode-toggle-view.js";
 import { mountThemeToggle } from "../features/layout/theme-toggle-view.js";
 import { changeLevel } from "../features/level/level-slice.js";
 import { mountLevelView } from "../features/level/level-view.js";
+import { changeTerritory } from "../features/navigation/navigation-slice.js";
+import { mountNavigationView } from "../features/navigation/navigation-view.js";
 import { mountRegionLabelsView } from "../features/region-labels/region-labels-view.js";
 import { mountHowToReadView } from "../features/scale/how-to-read-view.js";
 import { mountLegendView } from "../features/scale/legend-view.js";
@@ -66,7 +68,7 @@ import {
 } from "../features/settings/settings-slice.js";
 import { createSettingsView } from "../features/settings/settings-view.js";
 import { mountTableFeature } from "../features/table/table-slice.js";
-import { loadData, loadStatus } from "./data-loader.js";
+import { loadStatus, loadTerritoryData } from "./data-loader.js";
 import { isElectionFeatureEnabled, loadElectionModules } from "./election-loader.js";
 import { buildHeaderStats, buildMapMetrics, mountHeaderStats } from "./header-stats.js";
 import { projectPaletteForMode, readPalette } from "./palette.js";
@@ -78,6 +80,7 @@ import {
 } from "./projection.js";
 import { mountStageView } from "./stage-view.js";
 import {
+  changeData,
   changeInspectedUnit,
   changePointedUnit,
   changeTab,
@@ -119,9 +122,17 @@ export async function bootApplication(documentRef = document, windowRef = window
   const stageView = mountStageView(documentRef, stageElement, canvasElement);
   stageView.setStatus("Carregando dados...");
 
+  const status = await loadStatus(fetch);
+  const injectedNow = /** @type {any} */ (windowRef)?.__mapNow;
+  const urlState = parseUrlState(windowRef?.location?.search || "", {
+    status,
+    now: injectedNow,
+  });
+
+  const initialUf = urlState.uf || null;
   let data;
   try {
-    data = await loadData(fetch, (file) => {
+    data = await loadTerritoryData(initialUf, fetch, (file) => {
       stageView.setStatus(`Carregando ${file}...`);
     });
   } catch (error) {
@@ -130,9 +141,7 @@ export async function bootApplication(documentRef = document, windowRef = window
     return { store: null, engine: null, territory: null };
   }
 
-  const status = await loadStatus(fetch);
-
-  const territory = createTerritory({
+  let territory = createTerritory({
     municipalities: data.municipalities,
     regions: data.regions,
   });
@@ -144,16 +153,12 @@ export async function bootApplication(documentRef = document, windowRef = window
   const selectors = createRootSelectors(SCALE_RULES, readMapCenters(geo.municipalities));
   const municipalityIndexByCode = indexByCode(data.municipalities);
 
-  const injectedNow = /** @type {any} */ (windowRef)?.__mapNow;
-  const urlState = parseUrlState(windowRef?.location?.search || "", {
-    status,
-    now: injectedNow,
-  });
   const initialState = createInitialState(data, {
     indicatorId: urlState.indicatorId,
     levelId: urlState.levelId,
     tab: urlState.tab,
     status,
+    uf: initialUf,
   });
   const store = createStore(reduceRootState, initialState);
   if (documentRef?.documentElement) {
@@ -178,6 +183,63 @@ export async function bootApplication(documentRef = document, windowRef = window
   let headerStatsView = null;
   if (headerStatsContainer) {
     headerStatsView = mountHeaderStats(documentRef, headerStatsContainer);
+  }
+
+  const navigationContainer = documentRef.getElementById("navigation-container");
+  /** @type {import("../features/navigation/navigation-view.js").NavigationView | null} */
+  let navigationView = null;
+  /** @type {ReturnType<typeof mountSearchView> | null} */
+  let searchView = null;
+  if (navigationContainer) {
+    navigationView = mountNavigationView(navigationContainer, {
+      documentRef,
+      onSelectTerritory: (targetUf) => {
+        transitionTerritory(targetUf);
+      },
+    });
+    navigationView.update(store.getState().navigation);
+    store.subscribe((state) => {
+      if (navigationView) {
+        navigationView.update(state.navigation);
+      }
+    });
+  }
+
+  /**
+   * @param {string | null} [targetUf]
+   */
+  async function transitionTerritory(targetUf) {
+    const cleanUf = targetUf || null;
+    if (store.getState().navigation.activeUf === cleanUf) {
+      return;
+    }
+    store.dispatch(changeTerritory(cleanUf));
+    syncUrlState(windowRef, {
+      indicatorId: store.getState().indicator.id,
+      levelId: store.getState().level.id,
+      tab: store.getState().tab,
+      uf: cleanUf,
+    });
+    stageView.setStatus("Carregando território...");
+    try {
+      const nextData = await loadTerritoryData(cleanUf, fetch, (file) => {
+        stageView.setStatus(`Carregando ${file}...`);
+      });
+      territory = createTerritory({
+        municipalities: nextData.municipalities,
+        regions: nextData.regions,
+      });
+      if (searchView && typeof searchView.updateTerritory === "function") {
+        searchView.updateTerritory(territory);
+      }
+      const nextGeo = buildMunicipalities(nextData.mesh);
+      engine.replaceMesh(nextGeo);
+      engine.frameBoundsNow(nextGeo.mapBounds);
+      store.dispatch(changeData(nextData));
+      stageView.setStatus("");
+    } catch (_error) {
+      stageView.setAlert("Falha ao carregar território.");
+    }
   }
 
   const indicatorContainer = documentRef.getElementById("indicator-container");
@@ -208,7 +270,6 @@ export async function bootApplication(documentRef = document, windowRef = window
   const appearanceView = mountAppearanceView(documentRef, store);
 
   const selectionContainer = documentRef.getElementById("selection-container");
-  let searchView = null;
   let classFilterView = null;
   let clearView = null;
   let panelView = null;
@@ -320,6 +381,28 @@ export async function bootApplication(documentRef = document, windowRef = window
   updateRegionLabels();
   if (windowRef) {
     windowRef.addEventListener("resize", updateRegionLabels);
+    windowRef.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      const state = store.getState();
+      if (state.navigation.activeUf === null) {
+        return;
+      }
+      const isSearchOpen = documentRef.querySelector(".search-menu:not([hidden])");
+      if (isSearchOpen) {
+        return;
+      }
+      const isSettingsOpen = documentRef.querySelector(".settings-panel:not([hidden])");
+      if (isSettingsOpen) {
+        return;
+      }
+      const isTableOpen = documentRef.querySelector(".table-dialog:not([hidden])");
+      if (isTableOpen) {
+        return;
+      }
+      transitionTerritory(null);
+    });
   }
 
   /** @type {import("../engine/engine.js").Engine} */
@@ -344,6 +427,10 @@ export async function bootApplication(documentRef = document, windowRef = window
           return;
         }
         const state = store.getState();
+        if (state.navigation.activeUf === null) {
+          transitionTerritory(code);
+          return;
+        }
         if (state.level.id === "region") {
           const region = territory.regionOf(code);
           if (region) {
@@ -392,6 +479,13 @@ export async function bootApplication(documentRef = document, windowRef = window
       territory,
       context: selectSearchContext(store.getState()),
       readSelectedCodes: () => store.getState().selection.selectedCodes,
+      readActiveUf: () => store.getState().navigation?.activeUf ?? "SP",
+      onSelectMunicipality: (selection) => {
+        const targetUf = selection?.targetUf || selection?.uf || selection?.destinationUf;
+        if (targetUf && targetUf !== store.getState().navigation?.activeUf) {
+          transitionTerritory(targetUf);
+        }
+      },
     });
 
     const initialClassIndexes = selectClassIndexes(initialValues, initialBreaks);
@@ -751,6 +845,7 @@ export async function bootApplication(documentRef = document, windowRef = window
         indicatorId,
         levelId,
         tab: store.getState().tab,
+        uf: store.getState().navigation?.activeUf,
         isDemoActive,
       });
     },
@@ -782,6 +877,7 @@ export async function bootApplication(documentRef = document, windowRef = window
       indicatorId: currentState.indicator.id,
       levelId: currentState.level.id,
       tab: currentState.tab,
+      uf: currentState.navigation?.activeUf,
       isDemoActive: currentState.demo.isActive,
     });
   });
@@ -797,6 +893,7 @@ export async function bootApplication(documentRef = document, windowRef = window
         indicatorId: currentState.indicator.id,
         levelId: currentState.level.id,
         tab,
+        uf: currentState.navigation?.activeUf,
         isDemoActive: currentState.demo.isActive,
       });
     },
@@ -1335,7 +1432,7 @@ function createLazyCompareController(documentRef, stageElement, dispatch, option
       loadingPromise = import("../features/selection/compare-view.js").then(
         ({ mountCompareView }) => {
           mountedView = mountCompareView(documentRef, dispatch, options);
-          if (placeholder && placeholder.parentNode) {
+          if (placeholder?.parentNode) {
             placeholder.replaceWith(mountedView.element);
           }
           if (!mountedView.element.parentNode) {

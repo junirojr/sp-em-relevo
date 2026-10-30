@@ -583,7 +583,7 @@ test.describe("SEL selection slice (SEL-01 to SEL-03, SEL-06, SEL-08, SEL-10)", 
       await settle(page);
 
       await expect(banner).toBeVisible();
-      await expect(scoreboard).toBeVisible();
+      await expect(scoreboard).toBeHidden();
       await expect(source).toBeVisible();
 
       const isScrollable = await page.evaluate(() => {

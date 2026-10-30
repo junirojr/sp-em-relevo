@@ -160,6 +160,13 @@
 
 /* Theme switch: a segmented control, the active option raised (LAY-08) */
 
+.navigation-container {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
 .topbar-actions {
   display: flex;
   align-items: center;
@@ -367,9 +374,9 @@
   justify-content: center;
   gap: 4px;
   width: 100%;
-  min-width: 44px;
-  min-height: 32px;
-  padding: 4px var(--space-3);
+  min-width: 48px;
+  min-height: 44px;
+  padding: 6px var(--space-3);
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
@@ -552,6 +559,11 @@
 @media (max-width: 900px) {
   .topbar {
     padding: 0 var(--space-3);
+    gap: var(--space-2, 8px);
+  }
+
+  .brand {
+    flex-shrink: 0;
   }
 
   .period-badge {
@@ -568,6 +580,25 @@
 
   .app-title {
     font-size: var(--font-size-md, 14px);
+  }
+
+  .theme-toggle-button {
+    min-height: 36px;
+    height: 36px;
+    min-width: 36px;
+  }
+
+  .mode-toggle-button {
+    min-height: 36px;
+    height: 36px;
+  }
+
+  #camera-controls button,
+  .zoom button {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
   }
 
   .sheet-header {
@@ -679,8 +710,15 @@
   }
 
   .theme-toggle-button {
-    padding: 0 6px;
-    min-width: 26px;
+    padding: 0 8px;
+    min-width: 36px;
+    min-height: 36px;
+    height: 36px;
+    justify-content: center;
+  }
+
+  .app-title {
+    font-size: var(--font-size-sm, 13px);
   }
 
   .app-title-accent {

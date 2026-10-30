@@ -2,6 +2,10 @@ import { createDemoState, reduceDemo } from "../features/demo/demo-slice.js";
 import { createIndicatorState, reduceIndicator } from "../features/indicator/indicator-slice.js";
 import { createLevelState, reduceLevel } from "../features/level/level-slice.js";
 import {
+  createNavigationState,
+  reduceNavigation,
+} from "../features/navigation/navigation-slice.js";
+import {
   createSelectionState,
   formatRetentionNotice,
   reduceSelection,
@@ -32,6 +36,7 @@ import { DEFAULT_STATUS, normalizeStatus } from "./data-loader.js";
  * @typedef {{ pointedCode: string | null, inspectedCode: string | null }} PointerState
  *   code of the unit under the pointer (`pointedCode`) and unit inspected by touch (`inspectedCode`, E33).
  * @typedef {import("../features/settings/settings-slice.js").SettingsState} SettingsState
+ * @typedef {import("../features/navigation/navigation-slice.js").NavigationState} NavigationState
  * @typedef {{ indicator: IndicatorState }} RestorePoint
  *   What turning the demo off puts back: the real indicator picked before turning the demo on.
  *   The selection and the level picked during the demo stay (DEM-04).
@@ -47,6 +52,7 @@ import { DEFAULT_STATUS, normalizeStatus } from "./data-loader.js";
  *   selection: SelectionState,
  *   pointer: PointerState,
  *   settings: SettingsState,
+ *   navigation: NavigationState,
  *   demo: DemoState
  * }} RootState
  * @typedef {{ type: string }} Action
@@ -60,6 +66,7 @@ export const POINTED_UNIT_CHANGED = "pointer/pointedUnitChanged";
 export const INSPECTED_UNIT_CHANGED = "pointer/inspectedUnitChanged";
 export const TAB_CHANGED = "app/tabChanged";
 export const STATUS_CHANGED = "app/statusChanged";
+export const DATA_CHANGED = "app/dataChanged";
 
 export const VALID_TABS = Object.freeze(["indicators", "first-round", "second-round"]);
 
@@ -73,6 +80,7 @@ const ROOT_STATE_KEYS = [
   "selection",
   "pointer",
   "settings",
+  "navigation",
   "demo",
 ];
 
@@ -82,7 +90,8 @@ const ROOT_STATE_KEYS = [
  *   indicatorId?: string,
  *   levelId?: string,
  *   tab?: string,
- *   status?: unknown
+ *   status?: unknown,
+ *   uf?: string | null
  * }} [initialOptions]
  * @returns {RootState}
  */
@@ -91,6 +100,7 @@ export function createInitialState(data, initialOptions = {}) {
   const status = resolveInitialStatus(initialOptions.status);
   const initialLevelId = resolveInitialLevelId(initialOptions.levelId, status);
   const initialTab = resolveAllowedTab(initialOptions.tab, status);
+  const initialUf = initialOptions.uf || null;
 
   return {
     data,
@@ -101,6 +111,7 @@ export function createInitialState(data, initialOptions = {}) {
     selection: createSelectionState(),
     pointer: { pointedCode: null, inspectedCode: null },
     settings: createSettingsState(),
+    navigation: createNavigationState(initialUf),
     demo: { ...createDemoState(), restore: null },
   };
 }
@@ -197,6 +208,7 @@ export function reduceRootState(state, action) {
   }
   const reducedState = {
     ...state,
+    data: reduceData(state.data, action),
     tab: nextTab,
     status: nextStatus,
     indicator: nextIndicator,
@@ -204,6 +216,7 @@ export function reduceRootState(state, action) {
     selection: nextSelection,
     pointer: reducePointer(state.pointer, action),
     settings: reduceSettings(state.settings, action),
+    navigation: reduceNavigation(state.navigation, action),
     demo: reduceDemoSlice(state.demo, action),
   };
   const nextState = applyDemoTransition(state, reducedState);
@@ -371,6 +384,29 @@ export function changeTab(tab) {
  */
 export function changeStatus(status) {
   return { type: STATUS_CHANGED, status };
+}
+
+/**
+ * Builds the action to update loaded territory data.
+ *
+ * @param {LoadedData} data
+ * @returns {{ type: typeof DATA_CHANGED, data: LoadedData }}
+ */
+export function changeData(data) {
+  return { type: DATA_CHANGED, data };
+}
+
+/**
+ * @param {LoadedData} data
+ * @param {Action} action
+ * @returns {LoadedData}
+ */
+function reduceData(data, action) {
+  if (action.type === DATA_CHANGED) {
+    const dataAction = /** @type {{ type: string, data: LoadedData }} */ (action);
+    return dataAction.data;
+  }
+  return data;
 }
 
 /**

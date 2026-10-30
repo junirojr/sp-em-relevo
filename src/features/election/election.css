@@ -9,6 +9,7 @@
   --hover-bg: var(--row-hover);
   --text-primary: var(--ink);
   --text-muted: var(--ink-muted);
+  --text-secondary: var(--ink-muted, #475569);
   --space-2xs: 2px;
   --space-xs: 4px;
   --space-sm: 8px;
@@ -201,13 +202,17 @@
   border-radius: var(--radius-xs, 4px);
   padding: var(--space-xs, 6px) var(--space-sm, 8px);
   background-color: rgba(255, 255, 255, 0.02);
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .candidate-ranking-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .candidate-position-badge {
@@ -217,29 +222,41 @@
   border-radius: 3px;
   background-color: var(--hover-bg, rgba(255, 255, 255, 0.08));
   color: var(--text-primary, #eceef4);
+  flex-shrink: 0;
 }
 
 .candidate-name-info {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .candidate-name {
   font-weight: 600;
   font-size: 13px;
   color: var(--text-primary, #eceef4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .candidate-party-ballot {
   font-size: 11px;
   color: var(--text-muted, #858a96);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .candidate-votes-info {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  text-align: right;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .candidate-share-pct {
@@ -247,12 +264,14 @@
   font-size: 13px;
   color: var(--text-primary, #eceef4);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .candidate-abs-votes {
   font-size: 10px;
   color: var(--text-muted, #858a96);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .candidate-stats-row {
@@ -263,7 +282,7 @@
 
 .candidate-stat-pill {
   font-size: 10px;
-  color: var(--text-secondary, #b4b8c5);
+  color: var(--text-secondary, #475569);
 }
 
 .candidate-top-cities {
@@ -301,7 +320,7 @@
 
 .city-rank-item {
   font-size: 10px;
-  color: var(--text-secondary, #b4b8c5);
+  color: var(--text-secondary, #475569);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -559,7 +578,7 @@
 
 .compare-bar-subrow {
   display: grid;
-  grid-template-columns: 80px 1fr 110px;
+  grid-template-columns: minmax(60px, 80px) 1fr auto;
   align-items: center;
   gap: 8px;
 }
@@ -567,7 +586,7 @@
 .compare-bar-city-label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-secondary, #b4b8c5);
+  color: var(--text-secondary, #475569);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

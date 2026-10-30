@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
+import zlib from "node:zlib";
 
 const DEFAULT_TERMS_PATH = ".git/info/scan-terms.txt";
 const ABSOLUTE_PATH_PATTERNS = [
@@ -161,6 +162,18 @@ function checkJsonKeys(parsed, relativePath, terms, violations) {
   }
 }
 
+const BINARY_EXTENSIONS = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".ico",
+  ".woff",
+  ".woff2",
+  ".ttf",
+]);
+
 /**
  * @param {string} filePath
  * @param {string} relativePath
@@ -170,6 +183,11 @@ function checkJsonKeys(parsed, relativePath, terms, violations) {
 function checkFileContent(filePath, relativePath, terms) {
   /** @type {ScanViolation[]} */
   const violations = [];
+  const ext = path.extname(filePath).toLowerCase();
+  if (BINARY_EXTENSIONS.has(ext)) {
+    return violations;
+  }
+
   let buffer;
 
   try {
@@ -178,7 +196,18 @@ function checkFileContent(filePath, relativePath, terms) {
     return violations;
   }
 
-  const textContent = buffer.toString("utf-8");
+  let textContent = "";
+  if (filePath.endsWith(".gz")) {
+    try {
+      textContent = zlib.gunzipSync(buffer).toString("utf-8");
+    } catch (_error) {
+      textContent = buffer.toString("utf-8");
+    }
+  }
+  if (!filePath.endsWith(".gz")) {
+    textContent = buffer.toString("utf-8");
+  }
+
   const lines = textContent.split(/\r?\n/);
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -209,7 +238,7 @@ function checkFileContent(filePath, relativePath, terms) {
     }
   }
 
-  if (filePath.endsWith(".json")) {
+  if (filePath.endsWith(".json") || filePath.endsWith(".json.gz")) {
     try {
       const parsed = JSON.parse(textContent);
       checkJsonKeys(parsed, relativePath, terms, violations);

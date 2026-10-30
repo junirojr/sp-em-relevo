@@ -18,7 +18,7 @@ test.describe("ERR-01 data loading delays", () => {
           await route.continue();
         });
 
-        const gotoPromise = page.goto("/");
+        const gotoPromise = page.goto("/?uf=35");
 
         // Status must be visible and have role="status" while loading
         const statusElement = page.locator("#stage-status");
@@ -91,7 +91,7 @@ test.describe("ERR-02 data loading failures (9 scenarios)", () => {
             await scenario.handler(route);
           });
 
-          await page.goto("/");
+          await page.goto("/?uf=35");
 
           const statusElement = page.locator("#stage-status");
           await expect(statusElement).toHaveAttribute("role", "alert", { timeout: 10000 });
@@ -132,7 +132,7 @@ test.describe("ERR-03 WebGL absence and context loss/restore", () => {
         };
       });
 
-      await page.goto("/");
+      await page.goto("/?uf=35");
 
       const statusElement = page.locator("#stage-status");
       await expect(statusElement).toHaveAttribute("role", "alert", { timeout: 10000 });
